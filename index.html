@@ -180,6 +180,13 @@ const store={
   set(k,v){ MEM[k]=v; try{ localStorage.setItem(k,v); }catch(e){} }
 };
 
+/* ===== 1b. TRẠM ĐỌC ẢNH =====
+   URL mặc định gắn sẵn — QC không phải dán gì. Ô nhập ở đầu màn hình chỉ để
+   đổi sang deployment khác khi cần, và chỉ đổi trên máy đó.
+   PHẢI khai báo trước mọi chỗ dùng, nếu không sẽ đứt phần khởi tạo. */
+var TRAM_MAC_DINH = 'https://script.google.com/macros/s/AKfycbzFOhrxosY7-5yivMmhF9GtzsMMAFYdp0KfUKMucCJmktBqGm_udam2jm2hQH9zkf_X/exec';
+var TRAM_URL = store.get('dc_tram') || TRAM_MAC_DINH;
+
 /* ===== 2. MASTER DATA ===== */
 const EMBEDDED_CSV = `item_code,pkg_code,ten_san_pham,thi_truong,hsd_thang,nguon_hsd,nguon_form,seg1_loai,seg1_nhan,seg1_format,seg2_loai,seg2_nhan,seg2_format,seg3_loai,seg3_nhan,seg3_format,ghi_chu_in,ghi_chu_tctp,trang_thai,canh_bao
 03HH00050,,Bộ ba XK Costco 3bl x 8bộ (1 Sriracha 500gr + 2 Original 500gr),US,18,TCTP,HDDG,EXPIRY,BBF,MMDDYY,,,,,,,Lddmmyy (Lot number theo ngày/tháng/năm sản xuất) | Ghi chú: Hạn sử dụng 18 tháng,,SAN_SANG,
@@ -425,11 +432,16 @@ function toCSV(rows,cols){
 }
 async function loadMaster(){
   const dot=$('dot'), txt=$('srctxt');
+  let loiTram='';
 
   /* 1. Google Sheet qua trạm — nguồn thật, sửa master trên Sheet là mọi máy thấy ngay */
   if(TRAM_URL){
     try{
-      const res=await fetch(TRAM_URL+'?act=master&t='+Date.now(),{cache:'no-store'});
+      /* POST cùng đường với phần đọc ảnh — tham số GET có thể bị rớt
+         qua bước chuyển hướng của Apps Script. text/plain để không sinh preflight. */
+      const res=await fetch(TRAM_URL,{method:'POST',redirect:'follow',cache:'no-store',
+        headers:{'Content-Type':'text/plain;charset=utf-8'},
+        body:JSON.stringify({act:'master'})});
       const j=await res.json();
       if(j&&j.ok&&j.csv){
         const m=parseCSV(j.csv);
@@ -439,7 +451,7 @@ async function loadMaster(){
           buildDupIndex(); render(); return;
         }
       }
-    }catch(e){}
+    }catch(e){ loiTram=e.message||'không gọi được trạm'; }
   }
 
   /* 2. file CSV đặt cạnh index.html */
@@ -452,7 +464,7 @@ async function loadMaster(){
   }catch(e){
     /* 3. bản nhúng — chỉ để app không chết, KHÔNG phải nguồn thật */
     MASTER=parseCSV(EMBEDDED_CSV); dot.className='dot warn';
-    txt.textContent=MASTER.length+' item · bản nhúng trong app (chưa nối Sheet)';
+    txt.textContent=MASTER.length+' item · bản nhúng'+(loiTram?' · trạm lỗi: '+loiTram:'');
   }
   buildDupIndex(); render();
 }
@@ -757,8 +769,9 @@ $('refresh').onclick=loadMaster;
 /* URL trạm nhập thẳng trong app, lưu trên máy — không phải sửa file trên GitHub */
 $('tram').value=TRAM_URL;
 $('tram').onchange=()=>{
-  TRAM_URL=$('tram').value.trim().replace(/\s+/g,'');
+  TRAM_URL=$('tram').value.trim().replace(/\s+/g,'') || TRAM_MAC_DINH;
   store.set('dc_tram',TRAM_URL);
+  $('tram').value=TRAM_URL;
   loadMaster();
   if(CUR) showItem(CUR.item_code);   /* vẽ lại để hiện khối camera */
 };
@@ -798,9 +811,9 @@ paintBadge(); loadMaster();
    ngày sản xuất theo lot. Máy đọc sai không làm sai kết luận.
    ================================================================== */
 
-/* Dán URL web app Apps Script (.../exec). Để trống thì app chạy đúng như cũ,
-   không có camera, không phụ thuộc mạng ngoài. */
-let TRAM_URL = store.get('dc_tram') || '';
+/* TRAM_URL đã khai báo ở đầu file — KHÔNG khai báo lại ở đây.
+   Khai báo bằng let ở cuối file sẽ ném ReferenceError cho mọi dòng dùng nó
+   phía trên (vùng chết tạm thời), làm đứt cả phần khởi tạo. */
 
 const CAM = {
   COLS: 40, ROWS: 30,
