@@ -2,317 +2,980 @@
 <html lang="vi">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
-<title>Kiểm date code</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Kiểm date code hàng xuất khẩu</title>
 <style>
-  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
-  body{margin:0;background:#0E1214;color:#EDF1F0;font:15px/1.45 system-ui,-apple-system,sans-serif;overscroll-behavior:none}
-  header{padding:10px 14px;background:#1B2126;display:flex;align-items:center;gap:10px}
-  header b{font-size:15px}
-  #trangthai{margin-left:auto;font-size:12.5px;color:#8FA0A8}
-  #boc{position:relative;width:100%;background:#000;overflow:hidden}
-  video{width:100%;display:block}
-  #ve{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
-  #thanh{padding:12px 14px 24px;background:#141A1E}
-  .hang{display:flex;gap:8px;align-items:center;margin-bottom:8px}
-  select,input[type=text]{flex:1;padding:10px;border:1px solid #2A3439;border-radius:6px;
-       background:#0E1214;color:#EDF1F0;font:14px system-ui;min-width:0}
-  button{padding:16px;border:none;border-radius:6px;font:600 16px system-ui;cursor:pointer}
-  #chup{flex:1;background:#0E6F52;color:#fff}
-  #chup:disabled{background:#2A3439;color:#68757C}
-  .phu{background:#222C31;color:#C7CFCE;flex:0 0 auto;padding:16px 14px;font-size:14px}
-  #bao{margin-top:10px;padding:12px;border-radius:6px;background:#1B2126;font-size:14px;min-height:44px}
-  #ketqua{margin-top:10px;border-radius:8px;padding:14px;display:none}
-  #ketqua .to{font:800 26px system-ui;letter-spacing:.5px}
-  #ketqua .ly{margin-top:6px;font-size:14px;opacity:.92}
-  #ketqua .doc{margin-top:10px;font:13px ui-monospace,monospace;background:rgba(0,0,0,.28);
-       padding:8px;border-radius:5px;white-space:pre-wrap;word-break:break-all}
-  .v-DAT{background:#0E5B3F;color:#DFF7EA}
-  .v-KHONG_DAT{background:#7A2118;color:#FFE2DC}
-  .v-CHUP_LAI{background:#4A3A12;color:#FBEFCB}
-  .v-CAN_XAC_NHAN{background:#6B3E12;color:#FFE7CC}
-  .v-LOI{background:#33393D;color:#EDF1F0}
-  #suahop{display:none;margin-top:10px}
-  textarea{width:100%;height:80px;padding:10px;border-radius:6px;border:1px solid #2A3439;
-       background:#0E1214;color:#EDF1F0;font:14px ui-monospace,monospace}
-  .ok{color:#4ADE9B}.cho{color:#E8C468}.xau{color:#F08A7A}
-  .sohieu{font:11.5px ui-monospace,monospace;color:#68757C;margin-top:8px}
-  label.ck{font-size:13px;color:#8FA0A8;display:flex;align-items:center;gap:6px;margin-top:8px}
+:root{
+  --ink:#14181C; --steel:#68757C; --hair:#C7CFCE; --bg:#E4E8E7; --surface:#FFFFFF;
+  --pass:#0E6F52; --fail:#A81D26; --warnbg:#F6DE9A; --band:#1B2126; --focus:#0B6BB5;
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{background:var(--bg);color:var(--ink);
+  font:400 16px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;-webkit-text-size-adjust:100%}
+.wrap{max-width:560px;margin:0 auto;padding:0 14px 90px}
+
+header{background:var(--band);color:#EDF1F0;padding:14px 14px 12px}
+header .inner{max-width:560px;margin:0 auto}
+header h1{margin:0;font-size:16.5px;font-weight:700;letter-spacing:-.01em}
+.srcline{display:flex;align-items:center;gap:8px;margin-top:9px;font-size:11.5px;color:#93A2A8}
+.dot{width:7px;height:7px;border-radius:50%;background:#4E5D64;flex:none}
+.dot.ok{background:#3FA07C} .dot.warn{background:#E8B10A}
+.srcline button{margin-left:auto;background:none;border:1px solid #3A464C;color:#C6D2D6;
+  padding:5px 10px;border-radius:3px;font-size:11.5px;cursor:pointer;font-family:inherit}
+.who{display:flex;gap:8px;align-items:center;margin-top:10px}
+.who input{flex:1;background:#141A1E;border:1px solid #3A464C;color:#E9F1F0;padding:8px 10px;
+  border-radius:3px;font-size:13px;font-family:inherit}
+.who input::placeholder{color:#6B7B82}
+.who label{font-size:11px;color:#93A2A8;letter-spacing:.08em;text-transform:uppercase;flex:none;margin:0}
+
+nav{position:fixed;bottom:0;left:0;right:0;background:var(--surface);border-top:1px solid var(--hair);
+  display:flex;z-index:20;padding-bottom:env(safe-area-inset-bottom)}
+nav button{flex:1;background:none;border:none;padding:13px 4px 12px;font-family:inherit;font-size:12.5px;
+  font-weight:600;color:var(--steel);cursor:pointer;border-top:2px solid transparent}
+nav button.on{color:var(--ink);border-top-color:var(--band)}
+nav .badge{display:inline-block;background:var(--fail);color:#fff;border-radius:9px;
+  padding:0 5px;font-size:10.5px;margin-left:4px;vertical-align:1px}
+
+.card{background:var(--surface);border:1px solid var(--hair);border-radius:4px;padding:14px;margin:12px 0}
+.eyebrow{font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--steel);margin-bottom:8px}
+label{display:block;font-size:13px;font-weight:600;margin-bottom:5px}
+.hint{font-size:12px;color:var(--steel);margin-top:5px;line-height:1.45}
+input,select,textarea{width:100%;padding:12px 11px;border:1px solid #AEB8B7;border-radius:3px;
+  font-size:16px;font-family:inherit;background:#fff;color:var(--ink)}
+input:focus,textarea:focus{outline:2px solid var(--focus);outline-offset:1px;border-color:var(--focus)}
+input.code{font-family:ui-monospace,"SF Mono",Menlo,Consolas,monospace;letter-spacing:.06em;text-transform:uppercase}
+.field+.field{margin-top:13px}
+
+#results{max-height:300px;overflow:auto;margin-top:8px;border:1px solid var(--hair);border-radius:3px}
+.hit{padding:10px 11px;border-bottom:1px solid #EDF0EF;cursor:pointer}
+.hit:last-child{border-bottom:none}
+.hit:hover,.hit:focus{background:#F0F4F3;outline:none}
+.hit .c{font-family:ui-monospace,Menlo,monospace;font-size:13px;font-weight:700}
+.hit .n{font-size:12.5px;color:var(--steel);margin-top:2px}
+.listhead{font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--steel);
+  padding:8px 11px;background:#F2F5F4;border-bottom:1px solid var(--hair);font-weight:700}
+
+.chosen{border-left:3px solid var(--band)}
+.chosen .code{font-family:ui-monospace,Menlo,monospace;font-size:15px;font-weight:700}
+.chosen .name{font-size:13.5px;color:#3E4A50;margin-top:3px;line-height:1.4}
+.meta{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+.tag{font-size:11.5px;font-weight:600;padding:4px 8px;border-radius:2px;background:#EAEEED;color:#38444A}
+.tag.amber{background:var(--warnbg);color:#5A3B00}
+.strip{background:var(--band);border-radius:3px;padding:11px 12px;margin-top:11px}
+.strip .lbl{font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:#7E8E95;margin-bottom:6px}
+.strip .row{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:14px;color:#E9F4F0;
+  letter-spacing:.1em;padding:2px 0}
+.strip .row .k{color:#7E8E95;font-size:11.5px;letter-spacing:.06em;margin-right:8px}
+
+.verdict{border-radius:4px;overflow:hidden;margin:12px 0}
+.verdict .head{padding:16px 14px;color:#fff}
+.verdict .head b{display:block;font-size:23px;font-weight:800;letter-spacing:-.02em;line-height:1.1}
+.verdict .head span{display:block;font-size:12.5px;opacity:.88;margin-top:4px}
+.v-pass .head{background:var(--pass)} .v-fail .head{background:var(--fail)}
+.v-warn .head{background:var(--warnbg);color:#3D2800} .v-warn .head span{opacity:.75}
+.verdict .body{background:#fff;border:1px solid var(--hair);border-top:none;padding:4px 0}
+.line{display:flex;gap:10px;padding:11px 13px;border-bottom:1px solid #EEF1F0;align-items:flex-start}
+.line:last-child{border-bottom:none}
+.line .m{flex:none;width:17px;height:17px;border-radius:50%;margin-top:1px;
+  display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;color:#fff}
+.m.ok{background:var(--pass)} .m.no{background:var(--fail)} .m.wa{background:#C99400}
+.line .t{font-size:13.5px;line-height:1.45}
+.line .t .d{color:var(--steel);font-size:12.5px;margin-top:3px;display:block}
+.saved{background:#F2F5F4;border:1px solid var(--hair);border-top:none;border-radius:0 0 4px 4px;padding:11px 13px}
+.saved .s{font-size:12px;color:var(--steel)}
+.row2{display:flex;gap:8px;margin-top:9px}
+.row2 button{flex:1}
+
+button.go{width:100%;padding:15px;background:var(--band);color:#fff;border:none;border-radius:3px;
+  font-size:15.5px;font-weight:700;cursor:pointer;font-family:inherit}
+button.go:active{background:#2A343A}
+button.ghost{width:100%;padding:11px;background:#fff;border:1px solid var(--hair);border-radius:3px;
+  font-size:13px;cursor:pointer;font-family:inherit;color:#38444A}
+.empty{text-align:center;color:var(--steel);font-size:13.5px;padding:26px 14px;line-height:1.6}
+
+.log{background:#fff;border:1px solid var(--hair);border-radius:4px;overflow:hidden}
+.logrow{display:flex;gap:10px;padding:11px 12px;border-bottom:1px solid #EEF1F0;align-items:flex-start}
+.logrow:last-child{border-bottom:none}
+.pill{flex:none;font-size:10.5px;font-weight:800;letter-spacing:.04em;padding:3px 6px;border-radius:2px;color:#fff;margin-top:2px}
+.p-pass{background:var(--pass)} .p-fail{background:var(--fail)} .p-warn{background:#C99400}
+.logrow .b{font-size:13px;line-height:1.4}
+.logrow .b .s{display:block;color:var(--steel);font-size:11.5px;margin-top:2px}
+.hidden{display:none}
+
+/* ===== KHỐI CAMERA — thêm ===== */
+#camboc{position:relative;width:100%;background:#000;overflow:hidden;border-radius:10px}
+#camboc video{width:100%;display:block}
+#camve{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
+.camhang{display:flex;gap:8px;margin-top:10px}
+.camhang button{flex:1}
+#camtt{font-size:12px;color:#93A2A8;margin-top:6px;font-variant-numeric:tabular-nums}
+#camdoc{margin-top:10px;padding:10px;border-radius:8px;background:rgba(255,255,255,.04);
+        font:13px/1.5 ui-monospace,monospace;white-space:pre-wrap;display:none}
+.camnho{font-size:12px;color:#93A2A8;margin-top:6px}
 </style>
 </head>
 <body>
 
 <header>
-  <b>Kiểm date code</b>
-  <span id="trangthai">đang mở camera…</span>
-</header>
-
-<div id="boc">
-  <video id="v" playsinline muted autoplay></video>
-  <canvas id="ve"></canvas>
-</div>
-
-<div id="thanh">
-  <div class="hang">
-    <input type="text" id="nguoi" placeholder="Tên người kiểm">
-    <input type="text" id="line" placeholder="Line" style="flex:0 0 90px">
-  </div>
-  <div class="hang">
-    <select id="sku"><option value="">— đang tải master —</option></select>
-  </div>
-  <div class="hang">
-    <select id="capbb"><option value="">— cấp bao bì —</option></select>
-  </div>
-  <div class="hang">
-    <button id="chup" disabled>Chụp và kiểm</button>
-    <button class="phu" id="doi">Đổi cam</button>
-  </div>
-
-  <div id="bao">Giơ máy về phía ô in ngày sản xuất.</div>
-
-  <div id="ketqua">
-    <div class="to" id="kq_to"></div>
-    <div class="ly" id="kq_ly"></div>
-    <div class="doc" id="kq_doc"></div>
-    <button class="phu" id="mosua" style="width:100%;margin-top:10px">Máy đọc sai — sửa lại</button>
-    <div id="suahop">
-      <textarea id="sua" placeholder="Mỗi dòng một dòng in trên bao bì&#10;NSX:260826 11:05&#10;HSD:260127 52I"></textarea>
-      <button class="phu" id="guisua" style="width:100%;margin-top:8px">Gửi bản sửa</button>
+  <div class="inner">
+    <h1>Kiểm date code hàng xuất khẩu</h1>
+    <div class="srcline">
+      <span class="dot" id="dot"></span><span id="srctxt">Đang tải master…</span>
+      <button id="refresh" type="button">Cập nhật master</button>
+    </div>
+    <div class="who">
+      <label for="who">Người kiểm</label>
+      <input id="who" placeholder="Họ tên hoặc mã nhân viên" autocomplete="name">
     </div>
   </div>
+</header>
 
-  <label class="ck"><input type="checkbox" id="canh"> Gửi cả ảnh thay vì crop (để so sánh)</label>
-  <div class="sohieu" id="sohieu"></div>
+<div class="wrap">
+  <section id="tab-check">
+    <div class="card">
+      <div class="eyebrow">Bước 1 · Chọn sản phẩm</div>
+      <input id="q" placeholder="Gõ mã item, tên, hoặc thị trường" autocomplete="off" spellcheck="false">
+      <div id="results"></div>
+    </div>
+    <div id="item"></div>
+    <div id="verdict"></div>
+  </section>
+
+  <section id="tab-log" class="hidden">
+    <div class="card">
+      <div class="eyebrow">Sổ kiểm trên máy này</div>
+      <div class="hint" id="logsum"></div>
+      <div class="row2">
+        <button class="ghost" id="exp" type="button">Tải sổ về (.csv)</button>
+        <button class="ghost" id="cp" type="button">Sao chép sổ</button>
+      </div>
+      <button class="ghost" id="clr" type="button" style="margin-top:8px">Xóa sổ</button>
+      <div class="hint">Sổ nằm trong trình duyệt của máy này. Xóa lịch sử trình duyệt là mất.
+        Cuối ca tải file .csv rồi đẩy lên thư mục QA của site.</div>
+    </div>
+    <div id="loglist"></div>
+  </section>
+
+  <div class="card" style="border:none;background:none;padding:0">
+    <input type="file" id="file" accept=".csv,text/csv" hidden>
+    <button class="ghost" type="button" id="pick">Nạp master từ file trong máy (.csv)</button>
+  </div>
 </div>
 
+<nav>
+  <button id="nav1" class="on" type="button">Kiểm</button>
+  <button id="nav2" type="button">Sổ kiểm <span class="badge hidden" id="badge">0</span></button>
+</nav>
+
 <script>
-/* ============================================================
-   URL_TRAM: dán link web app Apps Script (dạng .../exec).
-   Nếu trang này được chính Apps Script phục vụ, để trống — tự dùng google.script.run.
-   ============================================================ */
-const URL_TRAM = 'https://script.google.com/macros/s/AKfycbyWFs7QvWXU3dxbwvrVhmcZk85Lob7MDpj9G4iO-7wulPGsxFHirRTQZ454qAXWIiRO/exec';
+/* ===== 1. LƯU TRỮ AN TOÀN (localStorage lỗi thì rơi về bộ nhớ tạm) ===== */
+const MEM={};
+const store={
+  get(k){ try{ const v=localStorage.getItem(k); return v===null?(MEM[k]??null):v; }catch(e){ return MEM[k]??null; } },
+  set(k,v){ MEM[k]=v; try{ localStorage.setItem(k,v); }catch(e){} }
+};
 
-const NOI_BO = (typeof google !== 'undefined' && google.script && google.script.run);
+/* ===== 2. MASTER DATA ===== */
+const EMBEDDED_CSV = `item_code,pkg_code,ten_san_pham,thi_truong,hsd_thang,nguon_hsd,nguon_form,seg1_loai,seg1_nhan,seg1_format,seg2_loai,seg2_nhan,seg2_format,seg3_loai,seg3_nhan,seg3_format,ghi_chu_in,ghi_chu_tctp,trang_thai,canh_bao
+03HH00050,,Bộ ba XK Costco 3bl x 8bộ (1 Sriracha 500gr + 2 Original 500gr),US,18,TCTP,HDDG,EXPIRY,BBF,MMDDYY,,,,,,,Lddmmyy (Lot number theo ngày/tháng/năm sản xuất) | Ghi chú: Hạn sử dụng 18 tháng,,SAN_SANG,
+03NM00754,BGNA01706,CCBD XK Canada (WTD) 12chai x 720ml (His TP<=200),CA,36,TCTP,HDDG,EXPIRY,BBF,YYYY MM DD,,,,,,,HSD sản phẩm: 36 tháng | LOTDDMMYY HH:MM | WD: là ký hiệu khách hàng Wealth Dragon,,SAN_SANG,
+03NM00902,BGNA01707,CCBD XK Canada 12chai x 720ml (His TP<=200),CA,36,TCTP,HDDG,EXPIRY,BBF,YYYY MM DD,,,,,,,HSD sản phẩm: 36 tháng | LOTDDMMYY HH:MM,,SAN_SANG,
+03NM00751,BGNA01337,CCBD XK Mỹ 12chai x 720ml,US,36,TCTP,HDDG,EXPIRY,BBF,MMM DD YY,,,,,,,HSD sản phẩm: 36 tháng,,SAN_SANG,
+03NM00627,BGNA01777,CSCH XK Australia (DHN) 15 chai x 500ml,AU,18,TCTP,HDDG,EXPIRY,BBF,DD.MM.YYYY,,,,,,,hh:mm + line đóng gói và chữ A,,SAN_SANG,
+03NM00775,,CSCH XK Australia (Golden Star) 15chai x 500ml,AU,18,TCTP,HDDG,EXPIRY,BBF,DD.MM.YYYY,,,,,,,hh:mm + line đóng gói và chữ A,,SAN_SANG,
+03NM00665,BGNA01778,CSCH XK Australia (Lotus) 15chai x 500ml,AU,18,TCTP,HDDG,EXPIRY,BBF,DD.MM.YYYY,,,,,,,hh:mm,,SAN_SANG,
+03NM00611,,CSCH XK Canada (WTD) 15 chai x 500ml (KCBQ),CA,36,TCTP,HDDG,EXPIRY,BBF,YYYY MM DD,LOT,LOT,DDMMYY,,,,(ngày/tháng/năm hết hạn),"TCTP nâng HSD Canada 36 tháng đang trình ký, chưa ban hành hệ thống",SAN_SANG,
+03NM00901,,CSCH XK Canada 15chai x 500ml,CA,36,TCTP,HDDG,EXPIRY,BBF,YYYY MM DD,LOT,LOT,DDMMYY,,,,(ngày/tháng/năm hết hạn),"TCTP nâng HSD Canada 36 tháng đang trình ký, chưa ban hành hệ thống",SAN_SANG,
+03NM00711,,CSCH XK China (XingBao) 15chai x 500ml,CN,24,TCTP,HDDG,PROD,NSX,DDMMYYYY,EXPIRY,HSD,DDMMYYYY,,,,,,SAN_SANG,
+03NM299,,CSCH XK Macau (XYX) 15chai x 500ml,MO,18,TCTP,HDDG,EXPIRY,BBF,DD/MM/YYYY,,,,,,,,,SAN_SANG,
+03NM00612,,CSCH XK Mỹ 12chai x 500ml,US,36,TCTP,HDDG,PROD,MFG,MMM DD YY,EXPIRY,BBF,MMM DD YY,,,,,,SAN_SANG,
+03NM00828,,CSCH XK New Zealand (Gai Lee) 15chai x 500ml,NZ,18,TCTP,HDDG,EXPIRY,BBF,DD.MM.YYYY,,,,,,,hh:mm + line đóng gói và chữ A,,SAN_SANG,
+03NM00592,,CSCH XK Russia 1 (Bonta) 15chai x 500ml,RU,18,TCTP,THUCTE,PROD,MFG,DDMMYYYY,EXPIRY,EXP,DDMMYYYY,,,,,,SAN_SANG,DUNG_FORM_THUC_TE
+03NM00589,,CSCH XK Taiwan 2 (N.I.M) 15chai x 500ml,TW,18,TCTP,HDDG,EXPIRY,EXP,DD/MM/YYYY,,,,,,,hh:mm + packaging line and letter A,,SAN_SANG,
+03NM00588,,CSCH XK Taiwan 1 (Asean VIP) 15chai x 500ml,TW,18,TCTP,HDDG,PROD,MFG,DD/MM/YYYY,EXPIRY,EXP,DD/MM/YYYY,,,,hh:mm + packaging line and letter A,,SAN_SANG,
+03OS00015,,DHCS sò điệp XK Cambodia 12chai x 820gr,KH,12,TCTP,HDDG,PROD,MFG,DDMMYY,EXPIRY,EXP,DDMMYY,,,,Ghi chú: Hạn sử dụng 12 tháng.,,SAN_SANG,
+03OS00016,,DHCS sò điệp XK Cambodia 24chai x 400gr,KH,12,TCTP,HDDG,PROD,MFG,DDMMYY,EXPIRY,EXP,DDMMYY,,,,Ghi chú: Hạn sử dụng 12 tháng.,,SAN_SANG,
+03HG00162,,HNCS Nấm Shiitake & Tảo Kombu XK Mỹ 6hũ x 450gr,US,18,TCTP,HDDG,EXPIRY,BEST IF USED BY,MM/DD/YYYY,,,,,,,,,SAN_SANG,
+03HG00161,,HNCS Nấm Shiitake & Tảo Kombu XK Nhật 6hũ x 450gr,JP,18,TCTP,HDDG,EXPIRY,BEST BEFORE,YYYY.MM.DD,,,,,,,,,SAN_SANG,
+03HG00246,,HNCS ngọt thanh x5 xương hầm cô đặc & rau củ XKGT China (Lotus CN) 16gói x 400gr,CN,12,TCTP,HDDG,PROD,NSX,DDMMYY,EXPIRY,HSD,DDMMYY,,,,,,SAN_SANG,
+03HG00226,,HNCS tôm hùm XK Canada (WDT) 6hũ x 450gr,CA,18,TCTP,HDDG,EXPIRY,BBF,YYYY MM DD,,,,,,,,Mô tả: Lot DDMMYY hh:mm line đóng gói,SAN_SANG,
+03HG00241,,HNCS tôm hùm XK Canada 6hũ x 450gr,CA,18,TCTP,HDDG,EXPIRY,BBF,YYYY MM DD,,,,,,,,Mô tả: Lot DDMMYY hh:mm line đóng gói,SAN_SANG,
+03HG00203,,HNCS tôm hùm XK Hàn Quốc 6gói x 2kg,KR,18,TCTP,HDDG,PROD,MFG,DD MM YYYY,EXPIRY,EXP,DD MM YYYY,,,,,,SAN_SANG,
+03HG00206,,HNCS tôm hùm XK Hàn Quốc 6hũ x 450gr,KR,18,TCTP,HDDG,PROD,MFG,DD MM YYYY,EXPIRY,EXP,DD MM YYYY,,,,,,SAN_SANG,
+03HG00201,,HNCS tôm hùm XK Mỹ 6gói x 2kg,US,18,TCTP,HDDG,EXPIRY,BEST IF USED BY,MM/DD/YYYY,,,,,,,,,SAN_SANG,
+03HG00204,,HNCS tôm hùm XK Mỹ 6hũ x 450gr,US,18,TCTP,HDDG,EXPIRY,BEST IF USED BY,MM/DD/YYYY,,,,,,,,,SAN_SANG,
+03NM00926,BGNA01837,NC CHIN-SU Foods Đồng tiền vàng XK Cam (HSL) 4chai x 4.8L,KH,,,NONE,,,,,,,,,,,Chưa sx,THIEU_DU_LIEU,THIEU_FORM_DATE;THIEU_HSD
+03NM00925,BGNA01836,NC CHIN-SU Foods Đồng tiền vàng XK Cam (HSL) 6chai x 1.8L,KH,12,TCTP,NONE,,,,,,,,,,,Chưa sx,THIEU_DU_LIEU,THIEU_FORM_DATE
+03NM00712,,NC NN Đệ Nhị XK China (XingBao) 15chai x 900ml,CN,24,TCTP,HDDG,PROD,NSX,DDMMYYYY,EXPIRY,HSD,DDMMYYYY,,,,,,SAN_SANG,
+03NM00916,,NC NN Đồng Tiền VÀng XK CPC (HSL) 18chai x 800ml,KH,12,TCTP,HDDG,PROD,MFG,DDMMYY,EXPIRY,EXP,DDMMYY,,,,,,SAN_SANG,
+03NT00587,,NC TTT Nhị ca XK China (Xingbao) 4bl x 6chai x 500ml,CN,18,TCTP,HDDG,PROD,NSX,DDMMYYYY,EXPIRY,HSD,DDMMYYYY,,,,,,SAN_SANG,
+03NT00437,,NC TTT Nhị ca XK CPC (DMF) 4bl x 6chai x 500ml,KH,12,TCTP,HDDG,PROD,MFG,DDMMYY,EXPIRY,EXP,DDMMYY,,,,,,SAN_SANG,
+03NM00813,BGNA01506,"NM CHIN-SU CCBD XK Mỹ 40chai x 50ml (Giống 720ml Mỹ, His<=400)",US,36,TCTP,HDDG,EXPIRY,BBF,MM/DD/YYYY,,,,,,,,,SAN_SANG,
+03NM00614,,NM Chinsu NN XK Nhật 18Chai x 750ml,JP,12,TCTP,HDDG,EXPIRY,BBF,YYYYMMDD,,,,,,,hh:mm + line đóng gói và chữ A,,SAN_SANG,
+03NM00615,,NM Chinsu NN XK Nhật 24Chai x 500ml,JP,12,TCTP,HDDG,EXPIRY,BBF,YYYYMMDD,,,,,,,hh:mm + line đóng gói và chữ A,,SAN_SANG,
+03NM00765,BGNA01374,NM CHIN-SU XK Mỹ 6can x 2L,US,24,TCTP,HDDG,EXPIRY,BBF,MMDDYYYY,,,,,,,,Thực tế date ko /,SAN_SANG,
+03NM00771,,NM CS CC Đậm Đặc XK Korea 1 - 6can x 2L,KR,24,TCTP,HDDG,EXPIRY,EXP,DD MM YYYY,,,,,,,,Thực tế date ko /,SAN_SANG,
+03NM00543,,NM CS Yod Thong XK Thái Lan 2bl x 6chai x 650ml,TH,24,TCTP,HDDG,PROD,MFG,DDMMYY,EXPIRY,EXP,DDMMYY,,,,,,SAN_SANG,
+03NM00542,,NM CS Yod Thong XK Thái Lan 4bl x 6chai x 300ml,TH,24,TCTP,HDDG,PROD,MFG,DDMMYY,EXPIRY,EXP,DDMMYY,,,,,,SAN_SANG,
+03NM00633,,NM CSCH XK Czech (Dalat) 12chai x 635ml,CZ,18,TCTP,HDDG,EXPIRY,,DD MM YYYY,,,,,,,Dòng 2: Mã số lô hàng,,SAN_SANG,
+03NM00591,,Nm CSCH XK Czech (Dalat) 15chai x 500ml,CZ,18,TCTP,HDDG,PROD,MFG,DD MM YYYY,EXPIRY,BBF,DD MM YYYY,,,,,,SAN_SANG,
+03NM00910,,NM CSCH XK Netherlands (LTP) 12chai x 635ml,NL,18,TCTP,NONE,,,,,,,,,,,,THIEU_DU_LIEU,THIEU_FORM_DATE
+03NM00637,,NM CSCH XK Poland (Asia-Foods) 12chai x 635ml,PL,18,TCTP,HDDG,EXPIRY,BBF,DD MM YYYY,,,,,,,Dòng 2: VN/845/IV…… (mã số lô hàng),,SAN_SANG,
+03NM00636,,NM CSCH XK Poland (Asia-Foods) 15chai x 500ml,PL,18,TCTP,HDDG,EXPIRY,BBF,DDMMYYYY,,,,,,,VN/845/IV…… (mã số lô hàng (*)) | hh:mm + line đóng gói và chữ A | (*) xem văn bản 2468/TS-KHCN;29.8.1998 - Bộ thuỷ sản,,SAN_SANG,
+03NM00899,,NM CSCH XK Sweden (Hungfat) 12chai x 635ml,SE,18,TCTP,THUCTE,EXPIRY,,DD MM YYYY,,,,,,,VN/845/IV/STT LÔ,,SAN_SANG,DUNG_FORM_THUC_TE
+03NM00688,,NM CSCH XK Thụy Điển (Hungfat) 15chai x 500ml,SE,18,TCTP,HDDG,EXPIRY,BBF,DDMMYYYY,,,,,,,VN/845/IV…… (mã số lô hàng (*)) | hh:mm + line đóng gói và chữ A | (*) xem văn bản 2468/TS-KHCN;29.8.1998 - Bộ thuỷ sản,,SAN_SANG,
+03NM00699,,NM CSCH XK UK (Longdan) 12chai x 635ml,GB,18,TCTP,HDDG,EXPIRY,BBF,DD MM YYYY,,,,,,,Dòng 2: VN/845/IV…… (mã số lô hàng) + hh:mm + line đóng gói và chữ A,,SAN_SANG,
+03NM00678,,NM CSCH XK UK (Longdan) 15chai x 500ml,GB,18,TCTP,NONE,,,,,,,,,,,,THIEU_DU_LIEU,THIEU_FORM_DATE
+03NM00690,,NM CSCH XK XK Germany (Asropa) 12chai x 635ml,DE,18,TCTP,HDDG,EXPIRY,BBF,DD MM YYYY,,,,,,,VN/845/IV......( mã số lô hàng ),,SAN_SANG,
+03NM00647,,NM NN cao cấp XK Mỹ 12chai x 500ml,US,36,TCTP,HDDG,EXPIRY,BBF,MM/DD/YYYY,,,,,,,Lddmmyy,,SAN_SANG,
+03NM00708,,NM NN cao cấp XK Nhật 12chai x 500ml,JP,36,TCTP,HDDG,EXPIRY,BBD,YYMMDD,,,,,,,,,SAN_SANG,
+03NM00626,,NM NN XK Australia (DHN) 18Chai x 750ml,AU,15,TCTP,HDDG,EXPIRY,BBF,DD.MM.YYYY,,,,,,,hh:mm | (Hạn sử dụng: ngày/tháng/năm + Lot No.),,SAN_SANG,
+03NM00893,BGNA01663,NM NN XK Australia 2 (DHN) 4can x 4.8L,AU,15,TCTP,HDDG,EXPIRY,BBD,DD MM YYYY,,,,,,,,Thực tế date ko /,SAN_SANG,
+03NM00677,,NM NN XK Australia Lotus 18Chai x 750ml,AU,15,TCTP,HDDG,EXPIRY,BBF,DD.MM.YYYY,,,,,,,hh:mm | (Hạn sử dụng: ngày/tháng/năm + Lot No.),,SAN_SANG,
+03NM00805,,NM NN XK China 12 chai x 1.2L,CN,24,TCTP,HDDG,PROD,NSX,DDMMYYYY,EXPIRY,HSD,DDMMYYYY,,,,hh:mm + line đóng gói và chữ I,,SAN_SANG,
+03NM00629,,NM NN XK CPC (DMF) 3Bl x 6 chai x 750ml,KH,12,TCTP,THUCTE,PROD,MFG,DDMMYY,EXPIRY,EXP,DDMMYY,,,,,,SAN_SANG,DUNG_FORM_THUC_TE
+03NM00630,,NM NN XK CPC (DMF) 3bl x 8chai x 500ml,KH,12,TCTP,HDDG,PROD,MFG,DDMMYY,EXPIRY,EXP,DDMMYY,,,,,,SAN_SANG,
+03NM00918,,NM NN XK Đầu bếp đặc biệt CPC (HSL) 3Bl x 6 chai x 750ml,KH,12,TCTP,HDDG,PROD,MFG,DDMMYY,EXPIRY,EXP,DDMMYY,,,,,,SAN_SANG,
+03NM00917,,NM NN XK Đầu bếp đặc biệt CPC (HSL) 3bl x 8chai x 500ml,KH,12,TCTP,HDDG,PROD,MFG,DDMMYY,EXPIRY,EXP,DDMMYY,,,,,,SAN_SANG,
+03NM00778,BGNA01432,NM NN XK Korea (Hyosung) 6can x 2L,KR,18,TCTP,HDDG,,,,,,,,,,TOKEN_LA: YY/MMMM,,THIEU_DU_LIEU,KHONG_PARSE_DUOC;TOKEN_LA
+03NM00744,,NM NN XK Korea (O Ye) 15chai x 900ml,KR,18,TCTP,HDDG,EXPIRY,EXP,DD MM YYYY,,,,,,,hh:mm + line hh:mm + line đóng gói và chữ A,,SAN_SANG,
+03NM00745,,NM NN XK Korea (O Ye) 4can x 4.8lít,KR,18,TCTP,HDDG,EXPIRY,EXP,DD MM YYYY,,,,,,,,"Thực tế date ko /.
+HDĐG sai item nhãn, RD chưa update lại",SAN_SANG,
+03NM00889,,NM NN XK Korea (OTL) 3bl x 8chai x 500ml,KR,18,TCTP,HDDG,EXPIRY,EXP,DD MM YYYY,,,,,,,hh:mm + line hh:mm + line đóng gói và chữ A,,SAN_SANG,
+03NM00458,,NM NN XK Macau 18Chai x 750ml,MO,12,TCTP,HDDG,EXPIRY,BBF,DD/MM/YYYY,,,,,,,hh:mm + line đóng gói và chữ A | hh:mm + line đóng gói và chữ I,,SAN_SANG,
+03NM00459,,NM NN XK Macau 24Chai x 500ml,MO,12,TCTP,HDDG,EXPIRY,BBF,DD/MM/YYYY,,,,,,,hh:mm + line đóng gói và chữ A | hh:mm + line đóng gói và chữ I,,SAN_SANG,
+03NM00888,,NM NN XK Malaysia (Sangla) 18chai x 750ml,MY,18,TCTP,HDDG,EXPIRY,EXP,DD/MM/YYYY,,,,,,,hh:mm + line đóng gói và chữ A,,SAN_SANG,
+03NM00795,,NM NN XK Nhật 12 chai x 1.2L,JP,12,TCTP,HDDG,EXPIRY,BBD,YYYYMMDD,,,,,,,hh:mm + line đóng gói và chữ A | (năm hết hạn/tháng/ngày),,SAN_SANG,
+03NM00586,,NM NN XK Taiwan (Asean VIP) 24Chai x 500ml,TW,12,TCTP,HDDG,PROD,MFG,DD MM YYYY,EXPIRY,EXP,DD MM YYYY,,,,hh:mm + line đóng gói và chữ I,,SAN_SANG,
+03NM00907,BGNA01708,NM NN XK Taiwan (Fullerton) 4can x 4.8L,TW,12,TCTP,HDDG,EXPIRY,EXP,DD MM YYYY,,,,,,,,Thực tế date ko /,SAN_SANG,
+03NM00460,,NM NN XK Taiwan (N.I.M) 24Chai x 500ml,TW,12,TCTP,HDDG,EXPIRY,EXP,DD/MM/YYYY,,,,,,,hh:mm + line đóng gói và chữ I,,SAN_SANG,
+03NM00587,,NM NN XK Taiwan 1 (Asean VIP) 18Chai x 750ml,TW,12,TCTP,HDDG,PROD,MFG,DD MM YYYY,EXPIRY,EXP,DD MM YYYY,,,,hh:mm + packaging line and letter I,,SAN_SANG,
+03NM00466,,NM NN XK Taiwan 2 (N.I.M) 15chai x 900ml,TW,12,TCTP,HDDG,EXPIRY,EXP,DD/MM/YYYY,,,,,,,hh:mm + line đóng gói và chữ I,,SAN_SANG,
+03NM00443,,NM NN XK Taiwan 2 (N.I.M) 18chai x 750ml,TW,12,TCTP,HDDG,EXPIRY,EXP,DD/MM/YYYY,,,,,,,hh:mm + line đóng gói và chữ I,,SAN_SANG,
+03NM00764,,NM NN XK Korea (Hyosung) 2bl x 6chai x 650ml,KR,18,TCTP,HDDG,EXPIRY,EXP,DD MM YYYY,,,,,,,hh:mm + line đóng gói và chữ A,,SAN_SANG,
+03NM00763,,NM NN XK Korea (Hyosung) 4bl x 6chai x 300ml,KR,18,TCTP,HDDG,EXPIRY,EXP,DD MM YYYY,,,,,,,hh:mm + line đóng gói và chữ A,,SAN_SANG,
+03NM00728,,NMCS CCBD XK Nhật 6chai x 500ml,JP,18,TCTP,HDDG,EXPIRY,EXP,YYMMDD,,,,,,,1 dòng duy nhất | Z = A – sản xuất tại MSI,,SAN_SANG,
+03NM00896,BGNA01673,NMCS chua ngọt XK Korea (OTL) 12chai x 300ml,KR,12,TCTP,HDDG,EXPIRY,EXP,DD MM YYYY,,,,,,,,Thực tế date ko /,SAN_SANG,
+03NM00911,BGNA01718,NMCS chua ngọt XK Korea (OTL) 24chai x 100ml,KR,12,TCTP,HDDG,EXPIRY,EXP,DD MM YYYY,,,,,,,,Thực tế date ko /,SAN_SANG,
+03NM00825,BGNA01527,NMCS chua ngọt XK Mỹ 48chai x 100ml,US,15,TCTP,HDDG,EXPIRY,BBF,MMDDYYYY,,,,,,,,Thực tế date ko /,SAN_SANG,
+03NM00803,04MS01759,NMCS chua ngọt XK Mỹ 4bịch x 50gói x 30ml,US,9,TCTP,HDDG,EXPIRY,BBF,MMDDYYYY,,,,,,,,"TCTP đang trình ký lại, đã báo LocCH check thêm HSD gói 30ml",SAN_SANG,
+99NM80085,BGNA00304,NMCS chua ngọt XK Mỹ 4canx4.8L,US,,,NONE,,,,,,,,,,,Chưa sx,THIEU_DU_LIEU,THIEU_FORM_DATE;THIEU_HSD
+03NM00904,,NMCS Hiệu Tôm Hùm 12x696ml XK Canada,CA,36,TCTP,HDDG,EXPIRY,BBF,YYYY MM DD,LOT,LOT,DDMMYYYY,,,,Ví dụ: BBF 2028 DE 18 | 08:00 6A Lot 18122025,"TCTP đang trình ký, chưa ban hành hệ thống",SAN_SANG,
+03NM00857,,NMCS Hiệu Tôm Hùm 12x696ml XK Mỹ,US,36,TCTP,HDDG,EXPIRY,BBF,MM/DD/YYYY,,,,,,,"LaabbA | Lot No: L là lot number, aa là số tự ló xuất đi, bb là năm sản xuất, A là đóng gói ở MSI",,SAN_SANG,
+03NM00780,BGNA01743,NMCS tỏi ớt pha sẵn XK Mỹ 12chai x 500ml,US,18,TCTP,HDDG,EXPIRY,BBF,MM/DD/YYYY,,,,,,,,,SAN_SANG,
+03NT00465,,NT TTT nhất ca XK Australia (DHN) 12chai x 650ml (Chai mới),AU,12,TCTP,HDDG,EXPIRY,BBF,DDMMYYYY,,,,,,,,,SAN_SANG,
+03NT00483,,NT TTT nhất ca XK Australia (Lotus) 12chai x 650ml (Chai mới),AU,12,HDDG,HDDG,EXPIRY,BBF,DDMMYYYY,,,,,,,,,SAN_SANG,
+03NT00608,,NT TTT Nhất ca XK Canada (WDT) 2bl x 6chai x 650ml,CA,24,TCTP,HDDG,EXPIRY,BBF,YYYY MM DD,LOT,LOT,DDMMYY,,,,,"TCTP đang trình ký, chưa ban hành",SAN_SANG,
+03NT00596,,NT TTT nhất ca XK Canada 2bl x 6chai x 650ml (Chai mới),CA,24,TCTP,HDDG,EXPIRY,BBF,YYYY MM DD,LOT,LOT,DDMMYY,,,,,"TCTP đang trình ký, chưa ban hành",SAN_SANG,
+03NT00446,,NT TTT nhất ca XK China 4bl x 6chai x 500ml,CN,,,NONE,,,,,,,,,,,,THIEU_DU_LIEU,THIEU_FORM_DATE;THIEU_HSD
+03NT00468,BNNT00073,NT TTT Nhất ca XK CPC (DMF) 4bl x 6chai x 500ml,KH,12,TCTP,HDDG,PROD,MFG,DDMMYY,EXPIRY,EXP,DDMMYY,,,,,,SAN_SANG,
+03NT00403,BGNT00371,NT TTT nhất ca XK Korea (Oye) 24chai x 500ml (Chai mới),KR,18,TCTP,HDDG,EXPIRY,EXP,DD MM YYYY,,,,,,,,Thực tế date ko /,SAN_SANG,
+03NT00462,,NT TTT nhất ca XK Mỹ 2bl x 6chai x 650ml (Chai mới),US,24,TCTP,HDDG,EXPIRY,BBF,MM DD YY,,,,,,,,,SAN_SANG,
+03NT00577,BGNT00400,NT TTT Nhất ca XK Nhật 4bl x 6chai x 500ml (Chai mới),JP,18,TCTP,HDDG,EXPIRY,BBD,YYYYMMDD,,,,,,,,,SAN_SANG,
+03NT00505,,NT TTT Nhất Ca XK Taiwan 1 (Asean VIP) 12chai x 650ml (Chai mới),TW,18,TCTP,HDDG,PROD,MFG,DD/MM/YYYY,EXPIRY,EXP,DD/MM/YYYY,,,,,,SAN_SANG,
+03NT00440,BGNT00350,NT TTT Nhất ca XK Taiwan 2 (N.I.M) 24chai x 500ml (Chai mới),TW,18,TCTP,HDDG,EXPIRY,EXP,DDMMYYYY,,,,,,,,Thực tế date ko /,SAN_SANG,
+03NT00615,,NTCS Nấm Shiitake XK Czech (Dalat) 24chai x 330ml,CZ,24,TCTP,HDDG,EXPIRY,BBF,DDMMYYYY,,,,,,,,TCTP bản ký chưa ban hành,SAN_SANG,
+03NT00572,,NTCS Nấm Shiitake XK Korea (Hyosung) 24chai x 330ml,KR,18,TCTP,HDDG,EXPIRY,EXP,DDMMYYYY,,,,,,,,,SAN_SANG,
+03NT00576,BGNT00399,NTCS Nấm Shiitake XK Mỹ 12chai x 500ml,US,24,TCTP,HDDG,PROD,MFG,MMM DD YY,EXPIRY,BBF,MMM DD YY,,,,,"Thực tế date ko /, date tháng bằng chữ",SAN_SANG,
+03NT00604,,NTCS Nấm Shiitake XK Poland (Pitaya Kuchnia) 24chai x 330ml,PL,24,TCTP,HDDG,EXPIRY,BBF,DD MM YYYY,,,,,,,,TCTP bản ký chưa ban hành,SAN_SANG,
+03NT00391,BGNT00434,NTCS Nấm XK Nga - KBG 24chai x 275gr,RU,18,TCTP,HDDG,PROD,MFG,DDMMYYYY,EXPIRY,EXP,DDMMYYYY,,,,,,SAN_SANG,
+03NT00599,BGNT00430,NTCS Nấm XK Nga (Grand Trade) 24chai x 275gr,RU,18,TCTP,HDDG,PROD,MFG,DDMMYYYY,EXPIRY,EXP,DDMMYYYY,,,,,,SAN_SANG,
+03NT00590,BGNT00416,NTCS Nấm XK Nga (KBG) CZ 24chai x 250ml,RU,18,TCTP,HDDG,PROD,MFG,DDMMYYYY,EXPIRY,EXP,DDMMYYYY,,,,,,SAN_SANG,
+03NT00477,BNNT00077,NTCS Tỏi ớt XK CPC (DMF) 4bl x 6chai x 250ml,KH,12,TCTP,HDDG,PROD,MFG,DDMMYY,EXPIRY,EXP,DDMMYY,,,,,,SAN_SANG,
+03NT00424,BGNT00276,NTCS Tỏi ớt XK Czech (Dalat) 12chai x 500ml,CZ,18,TCTP,HDDG,EXPIRY,BBF,DDMMYYYY,,,,,,,,,SAN_SANG,
+03NT00402,BGNT00273,NTCS Tỏi ớt XK Czech 12chai x 250ml,CZ,18,TCTP,HDDG,EXPIRY,BBF,DDMMYYYY,,,,,,,,Thực tế date không cách,SAN_SANG,
+03NT00398,BGNT00248,NTCS Tỏi ớt XK Hungary (Chimpex) 12chai x 250ml,HU,18,TCTP,HDDG,EXPIRY,BBF,DDMMYYYY,,,,,,,,Thực tế không có dấu chấm (.),SAN_SANG,
+03NT00514,BGNT00370,NTCS Tỏi ớt XK Korea (Datafood) 24chai x 250ml,KR,18,TCTP,HDDG,EXPIRY,EXP,DDMMYYYY,,,,,,,,Thực tế date ko /,SAN_SANG,
+03NT00526,BGNT00340,NTCS Tỏi Ớt XK Korea (Hyosung) 24chai x 330ml,KR,18,TCTP,HDDG,EXPIRY,EXP,DDMMYYYY,,,,,,,,Thực tế date ko /,SAN_SANG,
+03NT00460,,NTCS Tỏi ớt XK Mỹ 24chai x 250ml,US,24,TCTP,HDDG,EXPIRY,BBF,MMM DD YY,,,,,,,,,SAN_SANG,
+03NT00392,BGNT00433,NTCS Tỏi ớt XK Nga - KBG 24chai x 275gr,RU,18,TCTP,HDDG,PROD,MFG,DDMMYYYY,EXPIRY,EXP,DDMMYYYY,,,,,,SAN_SANG,
+03NT00598,BGNT00429,NTCS Tỏi ớt XK Nga (Grand Trade) 24chai x 275gr,RU,18,TCTP,HDDG,PROD,MFG,DDMMYYYY,EXPIRY,EXP,DDMMYYYY,,,,,,SAN_SANG,
+03NT00589,BGNT00415,NTCS Tỏi ớt XK Nga (KBG) CZ 24chai x 250ml,RU,18,TCTP,HDDG,PROD,MFG,DDMMYYYY,EXPIRY,EXP,DDMMYYYY,,,,,,SAN_SANG,
+03NT00475,BGNT00240,NTCS Tỏi ớt XK Poland (Asia-Foods) 24chai x 250ml,PL,18,TCTP,HDDG,EXPIRY,BBF,DD MM YYYY,,,,,,,,,SAN_SANG,
+03NT00605,BGNT00438,NTCS Tỏi ớt XK Poland (Pitaya Kuchnia) 24chai x 330ml,PL,18,TCTP,HDDG,EXPIRY,BBF,DD MM YYYY,,,,,,,,,SAN_SANG,
+03NT00439,BGNT00349,NTCS Tỏi ớt XK Taiwan 2 (N.I.M) 24chai x 250ml,TW,18,TCTP,HDDG,EXPIRY,EXP,DD/MM/YYYY,,,,,,,,,SAN_SANG,
+03NT00476,BNNT00076,NTCS XK CPC (DMF) 4bl x 6chai x 250ml,KH,12,TCTP,HDDG,PROD,MFG,DDMMYY,EXPIRY,EXP,DDMMYY,,,,,,SAN_SANG,
+03NT00423,BGNT00269,NTCS XK Czech (Dalat) 12chai x 500ml,CZ,18,TCTP,HDDG,EXPIRY,BBF,DDMMYYYY,,,,,,,,,SAN_SANG,
+03NT00401,BGNT00272,NTCS XK Czech 12chai x 250ml,CZ,18,TCTP,HDDG,EXPIRY,BBF,DDMMYYYY,,,,,,,,,SAN_SANG,
+03NT00397,BGNT00247,NTCS XK Hungary (Chimpex) 12chai x 250ml,HU,18,TCTP,HDDG,EXPIRY,BBF,DDMMYYYY,,,,,,,,Thực tế không có dấu chấm (.),SAN_SANG,
+03NT00459,,NTCS XK Mỹ 24chai x 250ml,US,24,TCTP,HDDG,EXPIRY,BBF,MMM DD YY,,,,,,,,,SAN_SANG,
+03NT00390,BGNT00432,NTCS XK Nga - KBG 24chai x 270gr,RU,18,TCTP,HDDG,PROD,MFG,DDMMYYYY,EXPIRY,EXP,DDMMYYYY,,,,,,SAN_SANG,
+03NT00597,BGNT00428,NTCS XK Nga (Grand Trade) 24chai x 270gr,RU,18,TCTP,HDDG,PROD,MFG,DDMMYYYY,EXPIRY,EXP,DDMMYYYY,,,,,,SAN_SANG,
+03NT00588,BGNT00414,NTCS XK Nga (KBG) CZ 24chai x 250ml,RU,18,TCTP,HDDG,PROD,MFG,DDMMYYYY,EXPIRY,EXP,DDMMYYYY,,,,,,SAN_SANG,
+03NT00474,BGNT00239,NTCS XK Poland (Asia-Foods) 24chai x 250ml,PL,18,TCTP,HDDG,EXPIRY,BBF,DD MM YYYY,,,,,,,,Thực tế date ko /,SAN_SANG,
+03NT00438,BGNT00348,NTCS XK Taiwan 2 (N.I.M) 24chai x 250ml,TW,18,TCTP,HDDG,EXPIRY,EXP,DD/MM/YYYY,,,,,,,,,SAN_SANG,
+08TL00062,,NTL WK 247 - 4bl x 6chai x 330ml XK China,CN,,,NONE,,,,,,,,,,,,THIEU_DU_LIEU,THIEU_FORM_DATE;THIEU_HSD
+08TL00103,,NTL WK 247 - 4bl x 6chai x 330ml XK Korea (OTL),KR,12,TCTP,HDDG,EXPIRY,EXP,DD MM YYYY,,,,,,,LaabbcK hh:pp,,SAN_SANG,
+08TL00100,,NTL WK 247 XK Taiwan (Fullerton) 4bl x 6chai x 330ml,TW,9,TCTP,HDDG,EXPIRY,EXP,DD MM YYYY,,,,,,,LaabbcK hh:pp,,SAN_SANG,
+03OT00437,,TO Horeca XK Campuchia 24chai x 450gr,KH,12,TCTP,HDDG,PROD,MFG,DDMMYY,EXPIRY,EXP,DDMMYY,,,,Ghi chú: Hạn sử dụng 12 tháng,,SAN_SANG,
+03OT00207,,TOCS cay gấp đôi XK Nhật 3bl x 8 chai x 250gr,JP,15,TCTP,HDDG,EXPIRY,EXP,YYMMDD,,,,,,,Ghi chú: Hạn sử dụng 15 tháng.,,SAN_SANG,
+03OT00433,,TOCS cay XK Netherlands (LTP) 3bl x 8chai x 250gr,NL,15,TCTP,HDDG,EXPIRY,BBD,DD/MM/YYYY,,,,,,,Lddmmyy (Lotno theo ngày/tháng/năm sản xuất) | Ghi chú: Hạn sử dụng 15 tháng,,SAN_SANG,
+03OT00485,,TOCS chai eo XK Cambodia 2bl x 6chai x490gr,KH,12,TCTP,HDDG,PROD,MFG,DDMMYY,EXPIRY,EXP,DDMMYY,,,,Hạn sử dụng 12 tháng,,SAN_SANG,
+03OT00380,,TOCS chua ngọt XK Hàn Quốc 3bl x 8chai x 295gr (CT),KR,15,TCTP,HDDG,EXPIRY,EXP,DD MM YYYY,,,,,,,Ghi chú: Hạn sử dụng 15 tháng,,SAN_SANG,
+03OT00459,,TOCS chua ngọt XK Nga 24chai x 265gr (CT),RU,,,NONE,,,,,,,,,,,,THIEU_DU_LIEU,THIEU_FORM_DATE;THIEU_HSD
+03OT00461,,TOCS Original XK Canada (88 Supermarket) 2bl x 6chai x 450ml,CA,,,NONE,,,,,,,,,,,,THIEU_DU_LIEU,THIEU_FORM_DATE;THIEU_HSD
+03OT00460,,TOCS Original XK Canada (88 Supermarket) 3bl x 8chai x 235ml,CA,,,THUCTE,EXPIRY,BBF,YYYY MM DD,,,,,,,,,THIEU_DU_LIEU,DUNG_FORM_THUC_TE;THIEU_HSD
+03OT00465,,TOCS Original XK Canada (Choy-Foong) 2bl x 6chai x 450ml,CA,,,NONE,,,,,,,,,,,,THIEU_DU_LIEU,THIEU_FORM_DATE;THIEU_HSD
+03OT00464,,TOCS Original XK Canada (Choy-Foong) 3bl x 8chai x 235ml,CA,,,THUCTE,EXPIRY,BBF,YYYY MM DD,,,,,,,,,THIEU_DU_LIEU,DUNG_FORM_THUC_TE;THIEU_HSD
+03OT00479,,TOCS Original XK Canada (Legendary) 2bl x 6chai x 450ml,CA,18,TCTP,HDDG,EXPIRY,BBF,YYYY MM DD,,,,,,,HSD: 18 tháng | (Sử dụng tốt nhất trước năm/tháng/ngày) | LOTDDMMYY HH:MM 2M1 | (LOTno ngày/tháng/năm sản xuất) | Ví dụ:,,SAN_SANG,
+03OT00478,,TOCS Original XK Canada (Legendary) 3bl x 8chai x 235ml,CA,18,TCTP,HDDG,EXPIRY,BBF,YYYY MM DD,,,,,,,HSD: 18 tháng | LOTDDMMYY HH:MM 2M1 (LOT no ngày/tháng/năm sản xuất) | Ví dụ: BBF 2027 JL 16 | Lot160126 18:20 2M1,,SAN_SANG,
+03OT00272,,TOCS Original XK Korea (Hyosung) 3bl x 8chai x 250gr,KR,15,TCTP,HDDG,EXPIRY,EXP,DD MM YYYY,,,,,,,Ghi chú: Hạn sử dụng 15 tháng.,,SAN_SANG,
+03OT00318,,TOCS Original XK Korea (Hyosung) 8chai x 1kg,KR,15,TCTP,HDDG,EXPIRY,EXP,DD MM YYYY,,,,,,,,,SAN_SANG,
+03OT00475,,TOCS Original XK Malaysia (Sangla) 3bl x 8chai x 250gr,MY,18,TCTP,HDDG,EXPIRY,EXP,DD/MM/YYYY,,,,,,,Lddmmyy (Lotno theo ngày/tháng/năm sản xuất) | Ghi chú: Hạn sử dụng 18 tháng,,SAN_SANG,
+03OT00440,,TOCS Original XK Mỹ (Seattle) 2bl x 6chai x 500gr,US,18,TCTP,HDDG,EXPIRY,BBF,MM/DD/YY,,,,,,,LaabbcA | Ghi chú: Hạn sử dụng 18 tháng,,SAN_SANG,
+03OT00377,,TOCS Original XK Mỹ 16bịch x 50gói x 10gr,US,18,TCTP,HDDG,PROD,MFG,MMM DD YY,EXPIRY,BBF,MMM DD YY,,,,HSD: 18 tháng,,SAN_SANG,
+03OT00374,,TOCS Original XK Nhật (IMAI) 8chai x 1kg,JP,15,TCTP,HDDG,EXPIRY,EXP,YYMMDD,,,,,,,VD: EXP 210331 | Ghi chú: Hạn sử dụng 15 tháng,,SAN_SANG,
+03OT00239,,TOCS Phở XK Mỹ 2bl x 6chai x 470gr,US,18,TCTP,HDDG,PROD,MFG,MMM DD YY,EXPIRY,BBF,MMM DD YY,,,,Ghi chú: Hạn sử dụng 18 tháng,,SAN_SANG,
+03ST00024,,TOCS sa tế XK Nga (KBG) CZ 3bl x 8chai x 255gr,RU,18,TCTP,HDDG,PROD,MFG,DDMMYY,EXPIRY,EXP,DDMMYY,,,,Ghi chú: Hạn sử dụng 18 tháng,,SAN_SANG,
+03ST00019,,"TOCS sa tế XK LB Nga, KAZ, Mongolia - KBG 24chai x 255gr",RU,18,TCTP,HDDG,PROD,MFG,DDMMYY,EXPIRY,EXP,DDMMYY,,,,Ghi chú: Hạn sử dụng 18 tháng,,SAN_SANG,
+03OT00349,,TOCS Sriracha (CD) XK Hàn (Hyosung) 3bl x 8chai x 275gr,KR,,,NONE,,,,,,,,,,,,THIEU_DU_LIEU,THIEU_FORM_DATE;THIEU_HSD
+03OT00476,,TOCS Sriracha (CD) XK Malaysia (Sangla) 3bl x 8chai x 250gr,MY,18,TCTP,HDDG,EXPIRY,EXP,DD/MM/YYYY,,,,,,,Lddmmyy (Lotno theo ngày/tháng/năm sản xuất) | Ghi chú: Hạn sử dụng 18 tháng,,SAN_SANG,
+03OT00340,,TOCS Sriracha (CD) XK Nhật 3bl x 8chai x 275gr,JP,15,TCTP,HDDG,EXPIRY,EXP,YYMMDD,,,,,,,Ghi chú: Hạn sử dụng 15 tháng.,,SAN_SANG,
+03OT00348,,TOCS Sriracha (CT) XK Hàn (Hyosung) 3bl x 8chai x 115gr,KR,,,NONE,,,,,,,,,,,,THIEU_DU_LIEU,THIEU_FORM_DATE;THIEU_HSD
+03OT00383,,TOCS Sriracha (CT) XK Mỹ 3bl x 8chai x 115gr,US,18,TCTP,HDDG,EXPIRY,BBF,MMDDYY,,,,,,,Lddmmyy (Lot number theo ngày/tháng/năm sản xuất) | Ghi chú: Hạn sử dụng 18 tháng.,,SAN_SANG,
+03OT00457,,TOCS Sriracha (CT) XK Nga (Magnit) 3bl x 8chai x 275gr,RU,15,TCTP,HDDG,PROD,MFG,DDMMYYYY,EXPIRY,EXP,DDMMYYYY,,,,(Ngày sản xuất: ngày/tháng/năm) | Ghi chú: Hạn sử dụng 15 tháng,,SAN_SANG,
+03OT00463,,TOCS Sriracha XK (CT) Canada (88 Supermarket) 3bl x 8chai x 235ml,CA,,,NONE,,,,,,,,,,,,THIEU_DU_LIEU,THIEU_FORM_DATE;THIEU_HSD
+03OT00467,,TOCS Sriracha XK (CT) Canada (Choy-Foong) 3bl x 8chai x 235ml,CA,,,NONE,,,,,,,,,,,,THIEU_DU_LIEU,THIEU_FORM_DATE;THIEU_HSD
+03OT00480,,TOCS Sriracha XK (CT) Canada (Legendary) 3bl x 8chai x 235ml,CA,18,TCTP,HDDG,EXPIRY,BBF,YYYY MM DD,,,,,,,HSD: 18 tháng | LOTDDMMYY HH:MM | (Sử dụng tốt nhất trước năm/tháng/ngày) | Ví dụ: BBF 2020 FE 18 | 08:00 6A Lot 221124,,SAN_SANG,
+03OT00372,,TOCS Sriracha XK (CT) Czech (Dalat) 3bl x 8chai x 275gr,CZ,18,TCTP,HDDG,EXPIRY,BBF,DDMMYYYY,PROD,NSX,DDMMYY,,,,(Sử dụng tốt nhất trước ngày/tháng/năm + Lot No.) | Ghi chú: Hạn sử dụng 18 tháng,,SAN_SANG,
+03OT00419,,TOCS Sriracha XK Australia (DHN) 3bl x 8chai x 275gr,AU,15,TCTP,HDDG,EXPIRY,BBD,DD MM YYYY,,,,,,,(Hạn sử dụng: ngày/tháng/năm + LotNo) | Ghi chú: Hạn sử dụng 15 tháng,,SAN_SANG,
+03OT00371,,TOCS Sriracha XK Czech (Dalat) 3bl x 6chai x 535gr,CZ,18,TCTP,HDDG,EXPIRY,BBF,DDMMYYYY,,,,,,,(Sử dụng tốt nhất trước ngày/tháng/năm + Lot No.) | Ghi chú: Hạn sử dụng 18 tháng,,SAN_SANG,
+03OT00430,,TOCS Sriracha XK Mỹ (CT) 2bl x 6chai x 500gr,US,18,TCTP,HDDG,EXPIRY,BBF,MMDDYY,,,,,,,LaabbcA | Ghi chú: Hạn sử dụng 18 tháng.,,SAN_SANG,
+03OT00384,,TOCS Sriracha XK Mỹ (CT) 3bl x 8chai x 250gr,US,18,TCTP,HDDG,EXPIRY,BBF,MMDDYY,,,,,,,Lddmmyy (Lot number theo ngày/tháng/năm sản xuất) | Ghi chú: Hạn sử dụng 18 tháng.,,SAN_SANG,
+03OT00453,,TOCS Sriracha XK Mỹ (Seattle) 16bịch x 50gói x 10gr,US,,,NONE,,,,,,,,,,,,THIEU_DU_LIEU,THIEU_FORM_DATE;THIEU_HSD
+03OT00444,,TOCS Sriracha XK Mỹ (Seattle) 2bl x 6chai x 500gr (CT mới),US,18,TCTP,HDDG,EXPIRY,BBF,MMDDYY,,,,,,,Lddmmyy (Lot number theo ngày/tháng/năm sản xuất) | Ghi chú: Hạn sử dụng 18 tháng,,SAN_SANG,
+03OT00378,,TOCS Sriracha XK Mỹ XK Mỹ 16bịch x 50gói x 10gr,US,18,TCTP,HDDG,EXPIRY,BBF,MMDDYY,,,,,,,HSD: 18 tháng | Lddmmyy (Lot number theo ngày/tháng/năm sản xuất),,SAN_SANG,
+03OT00379,,TOCS Sriracha XK Nhật 16bịch x 50gói x 10gr,JP,15,TCTP,HDDG,EXPIRY,EXP,YYMMDD,,,,,,,Ghi chú: Hạn sử dụng 15 tháng,,SAN_SANG,
+03OT00424,,TOCS Sriracha XK Taiwan (Fullerton) 3bl x 6chai x 535gr,TW,15,TCTP,HDDG,EXPIRY,EXP,DD.MM.YYYY,,,,,,,(Hạn sử dụng: ngày/tháng/năm + LotNo) | Ghi chú: Hạn sử dụng 15 tháng,,SAN_SANG,
+03OT00370,,TOCS Sriracha XK Thụy Điển (Hungfat) 3bl x 6chai x 535gr,SE,18,TCTP,HDDG,EXPIRY,BBF,DDMMYYYY,,,,,,,(Sử dụng tốt nhất trước ngày/tháng/năm + Lot No.) | Ghi chú: Hạn sử dụng 18 tháng,,SAN_SANG,
+03OT00344,,TOCS Sriracha XK (CT) Canada 3bl x 8chai x 235ml,CA,18,TCTP,HDDG,EXPIRY,BBF,YYYYMMDD,,,,,,,WD hh:mm line đóng gói | Ghi chú: Hạn sử dụng 18 tháng.,,SAN_SANG,
+03OT00346,,TOCS Sriracha XK (CT) Hyosung 3bl x 8chai x 275gr,,15,TCTP,HDDG,EXPIRY,EXP,DD MM YYYY,,,,,,,Ghi chú: Hạn sử dụng 15 tháng.,,SAN_SANG,
+03OT00481,,TOCS Sriracha XK Canada (Hen Long) (CT-CBQ) 3bl x 8chai x 235ml,CA,,,NONE,,,,,,,,,,,,THIEU_DU_LIEU,THIEU_FORM_DATE;THIEU_HSD
+03OT00160,,TOCS XK Australia (DHN) 24chai x 250gr,AU,18,TCTP,HDDG,EXPIRY,BBF,DDMMYYYY,,,,,,,"(L là viết tắt của Lot Number, aa là số thứ tự lô xuất đi nước đó, bb là năm sản xuất, cA là line đóng gói) | Ghi chú: H",,SAN_SANG,
+03OT00287,,TOCS XK Australia (DHN) 2bl x 6chai x 480gr,AU,18,TCTP,HDDG,EXPIRY,BBF,DD MM YYYY,,,,,,,"(L là viết tắt của Lot Number, aa là số thứ tự lô xuất đi nước đó, bb là năm sản xuất, cA là line đóng gói) | Ghi chú: H",,SAN_SANG,
+03OT00391,,TOCS XK Australia (DHN) 2bl x 6chai x 960gr,AU,18,TCTP,HDDG,EXPIRY,BBF,DD MM YYYY,,,,,,,Ghi chú: Hạn sử dụng 18 tháng,,SAN_SANG,
+03OT00351,,TOCS XK Australia (Golden Star) 2bl x 6chai x 480gr,AU,18,TCTP,HDDG,EXPIRY,BBF,DD MM YYYY,,,,,,,"(L là viết tắt của Lot Number, aa là số thứ tự lô xuất đi nước đó, bb là năm sản xuất, cA là line đóng gói) | Ghi chú: H",,SAN_SANG,
+03OT00350,,TOCS XK Australia (Golden Star) 3bl x 8chai x 250gr,AU,18,TCTP,HDDG,EXPIRY,BBF,DDMMYYYY,,,,,,,"(L là viết tắt của Lot number, aa là số thứ tự lô sản xuất đi nước đó, bb là năm sản xuất, cA là line đóng gói) | Ghi ch",,SAN_SANG,
+03OT00286,,TOCS XK Australia (Lotus) 2bl x 6chai x 480gr,AU,18,TCTP,HDDG,EXPIRY,BBF,DD MM YYYY,,,,,,,"(L là viết tắt của Lot Number, aa là số thứ tự lô xuất đi nước đó, bb là năm sản xuất, cA là line đóng gói) | Ghi chú: H",,SAN_SANG,
+03OT00392,,TOCS XK Australia (Lotus) 2bl x 6chai x 960gr,AU,18,TCTP,HDDG,EXPIRY,BBF,DD MM YYYY,,,,,,,Ghi chú: Hạn sử dụng 18 tháng,,SAN_SANG,
+03OT00406,,TOCS XK Canada (Hen Long) 2bl x 6chai x 450ml,CA,,,NONE,,,,,,,,,,,,THIEU_DU_LIEU,THIEU_FORM_DATE;THIEU_HSD
+03OT00405,,TOCS XK Canada (Hen Long) 3bl x 8 chai x 235ml,CA,,,THUCTE,EXPIRY,BBF,YYYY MM DD,,,,,,,,,THIEU_DU_LIEU,DUNG_FORM_THUC_TE;THIEU_HSD
+03OT00321,,TOCS XK Canada (WDT) 2bl x 6chai x 450ml,CA,18,TCTP,HDDG,EXPIRY,BBF,YYYY MM DD,,,,,,,HSD: 18 tháng | (Sử dụng tốt nhất trước năm/tháng/ngày) | LOTDDMMYY hh:mm line | (LOTno ngày/tháng/năm sản xuất) | Ví dụ,,SAN_SANG,
+03OT00320,,TOCS XK Canada (WDT) 3bl x 8 chai x 235ml,CA,18,TCTP,HDDG,EXPIRY,BBF,YYYY MM DD,,,,,,,HSD: 18 tháng | LOTDDMMYY + hh:mm line đóng gói (LOT no ngày/tháng/năm sản xuất) | Ví dụ: BBF 2027 JL 16 WD | Lot160126 ,,SAN_SANG,
+03OT00164,,"TOCS XK Cay LB Nga, KAZ, Mongolia - KBG 24chai x 250gr",RU,18,TCTP,HDDG,PROD,MFG,DDMMYY,EXPIRY,EXP,DDMMYY,,,,Ghi chú: Hạn sử dụng 18 tháng,,SAN_SANG,
+03OT00290,,TOCS XK CPC 24chai x 250gr,KH,18,TCTP,HDDG,PROD,MFG,DDMMYY,EXPIRY,BBF,DDMMYY,,,,Vị trí in trên chai: HSD: 18 tháng,,SAN_SANG,
+03OT00169,,TOCS XK Czech (Dalat) 3bl x 8chai x 250gr,CZ,18,TCTP,HDDG,EXPIRY,BBF,DDMMYYYY,PROD,NSX,DDMMYY,,,,( Sử dụng tốt nhất trước ngày/tháng/năm + Lot No.) | Ghi chú: Hạn sử dụng 18 tháng.,,SAN_SANG,
+03OT00190,,TOCS XK Hà Lan (Herman) 24chai x 250gr,,18,TCTP,HDDG,EXPIRY,BBF,DD MM YYYY,,,,,,,(Sử dụng tốt nhất trước ngày/tháng/năm) | Ghi chú: Hạn sử dụng 18 tháng.,,SAN_SANG,
+03OT00250,,TOCS XK Hà Lan (Mooijer) 3bl x 8chai x 250gr,,18,TCTP,HDDG,EXPIRY,BBF,DD MM YYYY,,,,,,,(Sử dụng tốt nhất trước ngày/tháng/năm) | Ghi chú: Hạn sử dụng 18 tháng.,,SAN_SANG,
+03OT00248,,TOCS XK Hungary (Chimpex) 3bl x 8chai x 250gr,HU,18,TCTP,HDDG,EXPIRY,BBF,DDMMYYYY,PROD,NSX,DDMMYY,,,,(Sử dụng tốt nhất trước ngày/tháng/năm + Lot No.) | Ghi chú: Hạn sử dụng 18 tháng.,,SAN_SANG,
+03OT00289,,TOCS XK Korea 2 (Hyosung) 2bl x 6chai x 500gr,KR,15,TCTP,HDDG,EXPIRY,EXP,DD MM YYYY,,,,,,,Ghi chú: Hạn sử dụng 15 tháng.,,SAN_SANG,
+03OT00205,,TOCS XK Mỹ 12chai x 500gr,US,18,TCTP,HDDG,EXPIRY,BBF,MMDDYY,,,,,,,Lddmmyy (Lot number theo ngày/tháng/năm sản xuất) | Ghi chú: Hạn sử dụng 18 tháng,,SAN_SANG,
+03OT00152,,TOCS XK Mỹ 24chai x 250gr,US,18,TCTP,HDDG,EXPIRY,BBF,MMDDYY,,,,,,,HSD: 18 tháng | Lddmmyy (Lot number theo ngày/tháng/năm sản xuất),,SAN_SANG,
+03OT00228,,TOCS XK Mỹ 8chai x 1kg,US,18,TCTP,HDDG,EXPIRY,BBF,MMDDYY,,,,,,,Lddmmyy (Lot number theo ngày/tháng/năm sản xuất) | Ghi chú: Hạn sử dụng 18 tháng,,SAN_SANG,
+03OT00434,,TOCS XK Netherlands (LTP) 2bl x 6chai x 480gr,NL,15,TCTP,HDDG,EXPIRY,BBD,DD/MM/YYYY,,,,,,,Lddmmyy (Lotno theo ngày/tháng/năm sản xuất) | Ghi chú: Hạn sử dụng 15 tháng,,SAN_SANG,
+03OT00404,,TOCS XK New Zealand (Gai Lee) 2bl x 6chai x 480gr,NZ,18,TCTP,HDDG,EXPIRY,BBF,DD MM YYYY,,,,,,,"(L là viết tắt của Lot Number, aa là số thứ tự lô xuất đi nước đó, bb là năm sản xuất, cA là line đóng gói) | Ghi chú: H",,SAN_SANG,
+03OT00474,,TOCS XK Nga (KBG) CZ 3bl x 8chai x 250gr,RU,18,TCTP,HDDG,PROD,MFG,DDMMYY,EXPIRY,EXP,DDMMYY,,,,Ghi chú: Hạn sử dụng 18 tháng,,SAN_SANG,
+03OT00456,,TOCS XK Nga (Magnit) 3bl x 8chai x 250gr,RU,15,TCTP,HDDG,PROD,MFG,DDMMYYYY,EXPIRY,EXP,DDMMYYYY,,,,(Ngày sản xuất: ngày/tháng/năm | Hạn sử dụng: ngày/tháng/năm + LotNo),,SAN_SANG,
+03OT00241,,TOCS XK Nhật 16bịch x 50gói x 10gr,JP,15,TCTP,HDDG,EXPIRY,EXP,YYMMDD,,,,,,,Ghi chú: Hạn sử dụng 15 tháng,,SAN_SANG,
+03OT00194,,TOCS XK Nhật 2bl x 6chai x 520gr,JP,15,TCTP,HDDG,EXPIRY,EXP,YYYY.MM.DD,,,,,,,Ghi chú: Hạn sử dụng 15 tháng,,SAN_SANG,
+03OT00399,,TOCS XK Nhật 3bl x 8chai x 100gr,JP,15,TCTP,HDDG,EXPIRY,EXP,YYMMDD,,,,,,,Ghi chú: Hạn sử dụng 15 tháng,,SAN_SANG,
+03OT00174,,TOCS XK Nhật 3bl x 8chai x 250gr,JP,15,TCTP,HDDG,EXPIRY,EXP,YYYY.MM.DD,,,,,,,Ghi chú: Hạn sử dụng 15 tháng,,SAN_SANG,
+03OT00400,,TOCS XK Nhật Sriracha (CD) 3bl x 8chai x 115gr,JP,15,TCTP,HDDG,EXPIRY,EXP,YYMMDD,,,,,,,Ghi chú: Hạn sử dụng 15 tháng,,SAN_SANG,
+03OT00491,,TOCS XK Poland (Asean Foods) 2bl x 6chai x 480gr,PL,15,TCTP,HDDG,EXPIRY,BBF,DD MM YYYY,,,,,,,Lddmmyy (Lotno theo ngày/tháng/năm sản xuất) | Ghi chú: Hạn sử dụng 15 tháng,,SAN_SANG,
+03OT00202,,TOCS XK Poland (Asia-Foods) 3bl x 8chai x 250gr,PL,18,TCTP,HDDG,EXPIRY,BBF,DD MM YYYY,,,,,,,(Sử dụng tốt nhất trước ngày/tháng/năm) | Ghi chú: Hạn sử dụng 18 tháng.,,SAN_SANG,
+03OT00172,,TOCS XK Russia (Venta) 3bl x 8chai x 250gr,RU,,,NONE,,,,,,,,,,,,THIEU_DU_LIEU,THIEU_FORM_DATE;THIEU_HSD
+03OT00288,,TOCS XK Taiwan 1 (Asean VIP) 2bl x 6chai x 520gr,TW,15,TCTP,HDDG,PROD,MFG,DD/MM/YYYY,EXPIRY,EXP,DD/MM/YYYY,,,,hh:mm + line đóng gói và chữ A | Ghi chú: Hạn sử dụng 15 tháng.,,SAN_SANG,
+03OT00211,,TOCS XK Taiwan 1 (Asean VIP) 3bl x 8chai x 250gr,TW,15,TCTP,HDDG,PROD,MFG,DD/MM/YYYY,EXPIRY,EXP,DD/MM/YYYY,,,,hh:mm + line đóng gói và chữ A | Ghi chú: Hạn sử dụng 15 tháng.,,SAN_SANG,
+03OT00265,,TOCS XK Taiwan 2 (N.I.M) 2bl x 6chai x 520gr,TW,15,TCTP,HDDG,EXPIRY,EXP,DD.MM.YYYY,,,,,,,Các NỘI DUNG KHÁC nhằm mục đích truy vết sản phẩm sẽ được QA quy định | Ghi chú: Hạn sử dụng 15 tháng.,,SAN_SANG,
+03OT00168,,TOCS XK Taiwan 2 (N.I.M) 3bl x 8chai x 250gr,TW,15,TCTP,HDDG,EXPIRY,EXP,DD.MM.YYYY,,,,,,,"EXP: Hạn sử dụng ngày/tháng/năm | LaabbcA: L viết tắt của Lot Number, aa là số thứ tự lô xuất đi nước đó, bb là năm sản ",,SAN_SANG,
+03OT00425,,TOCS XK Thụy Điển (Hungfat) 2bl x 6chai x 480gr,SE,18,TCTP,HDDG,EXPIRY,BBF,DD MM YYYY,,,,,,,"(L là viết tắt của Lot Number, aa là số thứ tự lô xuất đi nước đó, bb là năm sản xuất, cA là line đóng gói) | Ghi chú: H",,SAN_SANG,
+03OT00210,,TOCS XK Thụy Điển (Hungfat) 3bl x 8chai x 250gr,SE,18,TCTP,HDDG,EXPIRY,BBF,DD MM YYYY,,,,,,,(Sử dụng tốt nhất trước ngày/tháng/năm) | Ghi chú: Hạn sử dụng 18 tháng.,,SAN_SANG,
+03OT00315,,TOCS XK UK (LongDan) 3bl x 8chai x 250gr,GB,18,TCTP,HDDG,EXPIRY,BBF,DDMMYYYY,PROD,NSX,DDMMYY,,,,(Sử dụng tốt nhất trước ngày/tháng/năm + Lot No.) | Ghi chú: Hạn sử dụng 18 tháng.,,SAN_SANG,
+03OT00224,,TOCS XK XingBao 2bl x 6chai x 500gr,,18,TCTP,NONE,,,,,,,,,,,,THIEU_DU_LIEU,THIEU_FORM_DATE
+03OT00225,,TOCS XK XingBao 3bl x 8chai x 250gr,,18,TCTP,THUCTE,PROD,NSX,DD/MM/YYYY,EXPIRY,HSD,DD/MM/YYYY,,,,,,SAN_SANG,DUNG_FORM_THUC_TE
+03OT00284,,TOCS XK Czech (Dalat) 2bl x 6chai x 480gr,CZ,18,TCTP,HDDG,EXPIRY,BBF,DDMMYYYY,PROD,NSX,DDMMYY,,,,(Sử dụng tốt nhất trước ngày/tháng/năm + Lot No.) | Ghi chú: Hạn sử dụng 18 tháng.,,SAN_SANG,
+03OT00198,,Tương ớt CHIN-SU chai eo XK Australia (Lotus) 3bl x 8chai x 250gr,AU,18,TCTP,HDDG,EXPIRY,BBF,DDMMYYYY,,,,,,,"(L là viết tắt của Lot Number, aa là số thứ tự lô xuất đi nước đó, bb là năm sản xuất, cA là line đóng gói) | Ghi chú: H",,SAN_SANG,
+03OT00489,,Tương ớt CHIN-SU chai tròn XK Cambodia 4bl x 6chai x 450gr,KH,,,NONE,,,,,,,,,,,,THIEU_DU_LIEU,THIEU_FORM_DATE;THIEU_HSD
+`;
+const MASTER_URL='master_datecode.csv';
+let MASTER=[];
 
-const v=document.getElementById('v'), ve=document.getElementById('ve'), ctx=ve.getContext('2d');
-const bao=document.getElementById('bao'), nutChup=document.getElementById('chup');
-const sohieu=document.getElementById('sohieu'), selSku=document.getElementById('sku');
-const selCap=document.getElementById('capbb');
-const inNguoi=document.getElementById('nguoi'), inLine=document.getElementById('line');
-const khungKQ=document.getElementById('ketqua');
-
-const COLS=40, ROWS=30, NHAY=78;
-const lam=document.createElement('canvas'); lam.width=COLS*8; lam.height=ROWS*8;
-const lctx=lam.getContext('2d',{willReadFrequently:true});
-let camSau=true, stream=null, vungCuoi=[], demFrame=0, tTruoc=performance.now(), fps=0;
-let idLuot=null, caoVungCuoi=null, dangGui=false;
-
-/* ---------- nhớ tên và line ---------- */
-try{ inNguoi.value=localStorage.getItem('nguoi')||''; inLine.value=localStorage.getItem('line')||''; }catch(e){}
-inNguoi.onchange=()=>{try{localStorage.setItem('nguoi',inNguoi.value)}catch(e){}};
-inLine.onchange=()=>{try{localStorage.setItem('line',inLine.value)}catch(e){}};
-
-/* ---------- gọi trạm ---------- */
-function goiTram(payload){
-  if(NOI_BO){
-    return new Promise((ok,loi)=>{
-      const fn = payload.act==='sua' ? google.script.run.luuBanSua : google.script.run.kiemAnh;
-      fn.withSuccessHandler(ok).withFailureHandler(e=>loi(new Error(e.message||e)))(payload);
-    });
+function parseCSV(text){
+  text=text.replace(/^\uFEFF/,'');
+  const rows=[]; let f='',row=[],q=false;
+  for(let i=0;i<text.length;i++){const c=text[i];
+    if(q){ if(c==='"'){ if(text[i+1]==='"'){f+='"';i++;} else q=false; } else f+=c; }
+    else{ if(c==='"')q=true;
+      else if(c===','){row.push(f);f='';}
+      else if(c==='\n'){row.push(f);rows.push(row);row=[];f='';}
+      else if(c!=='\r')f+=c; }
   }
-  return fetch(URL_TRAM,{method:'POST',redirect:'follow',
-      headers:{'Content-Type':'text/plain;charset=utf-8'},
-      body:JSON.stringify(payload)}).then(r=>r.json());
+  if(f.length||row.length){row.push(f);rows.push(row);}
+  const head=rows.shift().map(h=>h.trim());
+  return rows.filter(r=>r.length>1&&r[0]).map(r=>{const o={};head.forEach((h,i)=>o[h]=(r[i]||'').trim());return o;});
 }
-
-function taiMaster(){
-  if(NOI_BO){
-    google.script.run.withSuccessHandler(doSku)
-      .withFailureHandler(()=>{selSku.innerHTML='<option value="">— không tải được master —</option>';})
-      .layMaster();
-    return;
-  }
-  fetch(URL_TRAM+'?act=master').then(r=>r.json())
-    .then(d=>doSku(d.master)).catch(()=>{
-      selSku.innerHTML='<option value="">— không tải được master —</option>';
-    });
+function toCSV(rows,cols){
+  const q=v=>{v=(v??'')+''; return /[",\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v;};
+  return '\uFEFF'+cols.join(',')+'\n'+rows.map(r=>cols.map(c=>q(r[c])).join(',')).join('\n');
 }
-let MASTER={};
-function doSku(m){
-  MASTER=m||{};
-  const ks=Object.keys(MASTER);
-  selSku.innerHTML = ks.length
-    ? ks.map(k=>{const r=MASTER[k];
-        const nh=(r.tu_khoa||r.ten_sp||'').slice(0,40);
-        return `<option value="${k}">${k} · ${nh} · ${r.so_thang}th</option>`;}).join('')
-    : '<option value="">— master rỗng —</option>';
-  try{ const cu=localStorage.getItem('maitem'); if(cu&&ks.indexOf(cu)>=0) selSku.value=cu; }catch(e){}
-  doCapBB();
-}
-function doCapBB(){
-  const r=MASTER[selSku.value];
-  const ds=(r&&r.cap_bao_bi?String(r.cap_bao_bi):'').split(';')
-    .map(x=>x.trim()).filter(x=>x);
-  selCap.innerHTML = ds.length ? ds.map(x=>`<option value="${x}">${x}</option>`).join('')
-                               : '<option value="">—</option>';
-}
-selSku.onchange=()=>{try{localStorage.setItem('maitem',selSku.value)}catch(e){};doCapBB();};
-
-/* ---------- camera ---------- */
-async function moCamera(){
-  if(stream) stream.getTracks().forEach(t=>t.stop());
+async function loadMaster(){
+  const dot=$('dot'), txt=$('srctxt');
   try{
-    stream=await navigator.mediaDevices.getUserMedia({
-      video:{facingMode:camSau?'environment':'user',width:{ideal:1920},height:{ideal:1080}},audio:false});
-    v.srcObject=stream; await v.play();
-    document.getElementById('trangthai').textContent='đang quét';
-    nutChup.disabled=false; requestAnimationFrame(vong);
+    const res=await fetch(MASTER_URL+'?t='+Date.now(),{cache:'no-store'});
+    if(!res.ok) throw 0;
+    const m=parseCSV(await res.text());
+    if(!m.length||!m[0].item_code) throw 0;
+    MASTER=m; dot.className='dot ok'; txt.textContent=m.length+' item · master_datecode.csv';
   }catch(e){
-    document.getElementById('trangthai').textContent='không mở được camera';
-    bao.innerHTML='<span class="xau">Không mở được camera.</span><br>Trang phải chạy qua <b>https</b>.';
+    MASTER=parseCSV(EMBEDDED_CSV); dot.className='dot warn';
+    txt.textContent=MASTER.length+' item · bản nhúng trong app';
+  }
+  buildDupIndex(); render();
+}
+
+/* item trùng tên gần giống → cảnh báo chọn nhầm quy cách */
+let DUP={};
+function nkey(s){ return s.toLowerCase().normalize('NFD').replace(/[^a-z0-9]/g,'').slice(0,30); }
+function buildDupIndex(){
+  DUP={}; const c={};
+  MASTER.forEach(r=>{const k=nkey(r.ten_san_pham); (c[k]=c[k]||[]).push(r.item_code);});
+  Object.values(c).forEach(v=>{ if(v.length>1) v.forEach(code=>DUP[code]=v.filter(x=>x!==code)); });
+}
+
+/* ===== 3. ENGINE ===== */
+const MMM=['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];
+const TOKRE=/MMM|YYYY|YY|MM|DD/g;
+function splitFmt(fmt){const p=[];let last=0,m;TOKRE.lastIndex=0;
+  while((m=TOKRE.exec(fmt))!==null){ if(m.index>last)p.push({sep:fmt.slice(last,m.index)});
+    p.push({tok:m[0]}); last=m.index+m[0].length; }
+  if(last<fmt.length)p.push({sep:fmt.slice(last)}); return p;}
+function esc(s){return s.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');}
+function buildRe(fmt,loose){const parts=splitFmt(fmt);let re='^',order=[],prevTok=false;
+  for(const p of parts){
+    if(p.sep!==undefined){const s=p.sep.trim();
+      if(loose)re+='[ ./\\-]*'; else if(s==='')re+='\\s*'; else re+='\\s*'+esc(s)+'\\s*';
+      prevTok=false;}
+    else{ if(loose&&prevTok)re+='[ ./\\-]*';
+      order.push(p.tok);
+      re += p.tok==='MMM'?'([A-Z]{3})':p.tok==='YYYY'?'(\\d{4})':'(\\d{2})';
+      prevTok=true;}
+  }
+  return {re:new RegExp(re+'$'),order};}
+function readDate(str,fmt,loose){
+  const {re,order}=buildRe(fmt,loose);
+  const m=String(str).trim().toUpperCase().match(re); if(!m)return null;
+  let d=null,mo=null,y=null;
+  order.forEach((t,i)=>{const v=m[i+1];
+    if(t==='DD')d=+v; else if(t==='MM')mo=+v;
+    else if(t==='MMM')mo=MMM.indexOf(v)+1||null;
+    else if(t==='YYYY')y=+v; else if(t==='YY')y=2000+ +v;});
+  if(!d||!mo||!y||mo<1||mo>12||d<1||d>31)return null;
+  const dt=new Date(Date.UTC(y,mo-1,d));
+  if(dt.getUTCDate()!==d||dt.getUTCMonth()!==mo-1)return null;
+  return dt;}
+function swapDM(fmt){ if(!/DD/.test(fmt)||!/MM/.test(fmt)||/MMM/.test(fmt))return null;
+  const a=fmt.replace(/DD/,'\u0001').replace(/MM/,'DD').replace(/\u0001/,'MM');
+  return a===fmt?null:a;}
+function addMonths(dt,n){const y=dt.getUTCFullYear(),m=dt.getUTCMonth(),d=dt.getUTCDate();
+  const last=new Date(Date.UTC(y,m+n+1,0)).getUTCDate();
+  return new Date(Date.UTC(y,m+n,Math.min(d,last)));}
+const fmtVN=dt=>String(dt.getUTCDate()).padStart(2,'0')+'/'+String(dt.getUTCMonth()+1).padStart(2,'0')+'/'+dt.getUTCFullYear();
+const dayDiff=(a,b)=>Math.round((a-b)/86400000);
+const LABELS=['BEST IF USED BY','BEST BEFORE','USE BY','BBF','BBD','EXP','MFG','NSX','HSD','LOT NO','LOT','PKD'];
+function stripLabel(s){let t=String(s).trim().toUpperCase().replace(/^[:\s]+/,'');
+  for(const L of LABELS) if(t.startsWith(L)) return {found:L,rest:t.slice(L.length).replace(/^[:\s.]+/,'')};
+  return {found:null,rest:t};}
+
+function segments(it){const o=[];for(let i=1;i<=3;i++){const k=it['seg'+i+'_loai'],f=it['seg'+i+'_format'];
+  if(k&&f)o.push({i,kind:k,label:it['seg'+i+'_nhan'],fmt:f});}return o;}
+
+function check(it,nsx,inputs){
+  const lines=[];let fail=false,warn=false;
+  const months=parseInt(it.hsd_thang,10);
+  for(const s of segments(it)){
+    const raw=(inputs[s.i]||'').trim();
+    const title=(s.kind==='EXPIRY'?'Hạn sử dụng':s.kind==='PROD'?'Ngày sản xuất in trên bao':'Lot')+(s.label?' ('+s.label+')':'');
+    if(!raw){lines.push({m:'wa',t:title,d:'Chưa nhập — không kết luận được ô này.'});warn=true;continue;}
+    const {found,rest}=stripLabel(raw);
+    if(s.label&&found&&found!==s.label){
+      lines.push({m:'no',t:title,d:'In nhãn "'+found+'" nhưng tiêu chuẩn là "'+s.label+'".'});fail=true;}
+    let dt=readDate(rest,s.fmt,false),sepIssue=false;
+    if(!dt){dt=readDate(rest,s.fmt,true); if(dt)sepIssue=true;}
+    if(!dt){
+      const a0=swapDM(s.fmt),d0=a0?readDate(rest,a0,true):null;
+      if(d0) lines.push({m:'no',t:'Nghi in nhầm thứ tự ngày/tháng',
+        d:'"'+rest+'" không đọc được theo '+s.fmt+', nhưng đọc được thành '+fmtVN(d0)+' theo kiểu '+a0+
+          '. Thị trường '+(it.thi_truong||'này')+' phải in '+s.fmt+'. Kiểm tra cấu hình máy in.'});
+      else lines.push({m:'no',t:title,d:'"'+rest+'" không khớp tiêu chuẩn '+s.fmt+'. Kiểm tra số ký tự và thứ tự ngày/tháng/năm.'});
+      fail=true;continue;}
+    if(sepIssue){lines.push({m:'no',t:title,
+      d:'Đọc được ngày '+fmtVN(dt)+' nhưng sai dấu phân cách hoặc khoảng trắng. Tiêu chuẩn: '+s.fmt});fail=true;}
+    if(s.kind==='PROD'){
+      const dd=dayDiff(dt,nsx);
+      if(dd===0)lines.push({m:'ok',t:title,d:fmtVN(dt)+' — khớp ngày sản xuất theo lot.'});
+      else{lines.push({m:'no',t:title,d:'In '+fmtVN(dt)+' nhưng lot sản xuất ngày '+fmtVN(nsx)+' (lệch '+dd+' ngày).'});fail=true;}
+    } else if(s.kind==='EXPIRY'){
+      if(isNaN(months)){lines.push({m:'wa',t:title,d:'Đọc được '+fmtVN(dt)+' nhưng master chưa có hạn sử dụng TCTP — không tính được.'});warn=true;}
+      else{const exp=addMonths(nsx,months),dd=dayDiff(dt,exp);
+        if(dd===0)lines.push({m:'ok',t:title,d:fmtVN(dt)+' — đúng NSX + '+months+' tháng.'});
+        else if(Math.abs(dd)===1){lines.push({m:'wa',t:title,
+          d:fmtVN(dt)+' lệch '+dd+' ngày so với NSX + '+months+' tháng ('+fmtVN(exp)+'). Xác nhận quy tắc trừ ngày của nhà máy.'});warn=true;}
+        else{lines.push({m:'no',t:title,d:'In '+fmtVN(dt)+', đúng phải là '+fmtVN(exp)+' (NSX + '+months+' tháng). Lệch '+dd+' ngày.'});fail=true;}}
+    } else lines.push({m:'ok',t:title,d:'Đọc được '+fmtVN(dt)+'.'});
+    const alt=swapDM(s.fmt);
+    if(alt){const adt=readDate(rest,alt,true);
+      if(adt&&adt.getTime()!==dt.getTime()){
+        let msg='Chuỗi này cũng đọc được thành '+fmtVN(adt)+' theo kiểu '+alt+'. ';
+        if(s.kind==='EXPIRY'&&!isNaN(months)){
+          const exp=addMonths(nsx,months);
+          if(dayDiff(adt,exp)===0&&dayDiff(dt,exp)!==0){
+            lines.push({m:'no',t:'Nghi in nhầm thứ tự ngày/tháng',
+              d:msg+'Cách đọc thứ hai lại đúng hạn. Nhiều khả năng máy in đang set '+alt+' thay vì '+s.fmt+'. Dừng và kiểm tra máy in.'});
+            fail=true;continue;}}
+        lines.push({m:'wa',t:'Ngày có thể đọc hai cách',
+          d:msg+'Thị trường '+(it.thi_truong||'này')+' dùng '+s.fmt+' — xác nhận đúng chiều trước khi chạy.'});warn=true;}}
+  }
+  return {lines,fail,warn};
+}
+
+/* ===== 4. SỔ KIỂM ===== */
+const LOGCOLS=['thoi_gian','nguoi_kiem','item_code','ten_san_pham','thi_truong','ngay_sx',
+               'chuoi_in','ket_luan','ly_do','ghi_chu','nguon_master'];
+function readLog(){ try{ return JSON.parse(store.get('dc_log')||'[]'); }catch(e){ return []; } }
+function writeLog(a){ store.set('dc_log', JSON.stringify(a.slice(-500))); paintBadge(); }
+function paintBadge(){
+  const l=readLog(), n=l.filter(r=>r.ket_luan==='KHÔNG ĐẠT').length, b=$('badge');
+  b.textContent=n; b.className=n?'badge':'badge hidden';
+}
+
+/* ===== 5. GIAO DIỆN ===== */
+const $=id=>document.getElementById(id);
+let CUR=null, LASTID=null;
+
+function recents(){ try{ return JSON.parse(store.get('dc_recent')||'[]'); }catch(e){ return []; } }
+function pushRecent(code){
+  const r=recents().filter(c=>c!==code); r.unshift(code); store.set('dc_recent',JSON.stringify(r.slice(0,6)));
+}
+
+function render(){
+  const q=$('q').value.trim().toUpperCase(), box=$('results');
+  let head='', list=[];
+  if(q.length<2){
+    const rc=recents().map(c=>MASTER.find(r=>r.item_code===c)).filter(Boolean);
+    if(!rc.length){ box.innerHTML='<div class="empty">Gõ 2 ký tự trở lên để tìm.<br>Các mã vừa kiểm sẽ hiện sẵn ở đây.</div>'; return; }
+    head='Vừa kiểm gần đây'; list=rc;
+  } else {
+    head=''; list=MASTER.filter(r=>r.item_code.toUpperCase().includes(q)
+      ||r.ten_san_pham.toUpperCase().includes(q)||(r.thi_truong||'').toUpperCase()===q).slice(0,40);
+  }
+  box.innerHTML=(head?'<div class="listhead">'+head+'</div>':'')+
+    (list.length?list.map(r=>`<div class="hit" tabindex="0" data-c="${r.item_code}">
+      <div class="c">${r.item_code}${r.thi_truong?' · '+r.thi_truong:''}</div>
+      <div class="n">${r.ten_san_pham}</div></div>`).join('')
+     :'<div class="empty">Không có item nào khớp.</div>');
+}
+
+function showItem(code){
+  CUR=MASTER.find(r=>r.item_code===code); if(!CUR)return;
+  $('q').value=''; render(); $('verdict').innerHTML=''; LASTID=null;
+  const it=CUR, segs=segments(it), today=new Date().toISOString().slice(0,10);
+
+  let h=`<div class="card chosen">
+    <div class="code">${it.item_code}${it.pkg_code?' · '+it.pkg_code:''}</div>
+    <div class="name">${it.ten_san_pham}</div>
+    <div class="meta">
+      ${it.thi_truong?`<span class="tag">Thị trường ${it.thi_truong}</span>`:''}
+      ${it.hsd_thang?`<span class="tag">HSD ${it.hsd_thang} tháng</span>`:`<span class="tag amber">Chưa có HSD trong master</span>`}
+      ${it.nguon_form==='THUCTE'?`<span class="tag amber">Form lấy từ thực tế in, chưa có HĐĐG</span>`:''}
+      ${DUP[it.item_code]?`<span class="tag amber">Có ${DUP[it.item_code].length} item tên gần giống — đối chiếu quy cách</span>`:''}
+    </div>`;
+
+  if(DUP[it.item_code]){
+    h+=`<div class="hint" style="margin-top:8px">Dễ nhầm với: ${DUP[it.item_code].map(c=>{
+      const o=MASTER.find(r=>r.item_code===c);
+      return c+' ('+(o?o.ten_san_pham.replace(/^.*?(\d+bl.*|\d+chai.*|\d+hũ.*|\d+gói.*)$/,'$1'):'')+')';
+    }).join(' · ')}</div>`;
+  }
+
+  if(!segs.length){
+    h+=`<div class="strip"><div class="lbl">Chưa kiểm được</div>
+      <div class="row" style="letter-spacing:0;font-size:13px;line-height:1.5">
+      Master chưa có quy cách in cho item này (${(it.canh_bao||'').replace(/;/g,', ')}).
+      Liên hệ QA giữ master để bổ sung trước khi chạy đơn.</div></div></div>`;
+    $('item').innerHTML=h; return;
+  }
+
+  h+=`<div class="strip"><div class="lbl">Tiêu chuẩn in</div>`+
+     segs.map(s=>`<div class="row"><span class="k">${s.label||s.kind}</span>${s.fmt}</div>`).join('')+
+     (it.ghi_chu_in?`<div class="row" style="letter-spacing:0;font-size:12px;color:#93A2A8;margin-top:6px">${it.ghi_chu_in}</div>`:'')+
+     `</div></div>
+
+  <div class="card">
+    <div class="eyebrow">Bước 2 · Ngày sản xuất thật theo lot</div>
+    <input type="date" id="nsx" value="${today}">
+    <div class="hint">Lấy từ lệnh sản xuất, không lấy từ chữ in trên bao.</div>
+  </div>
+
+  <div class="card"><div class="eyebrow">Bước 3 · Chụp hoặc gõ chuỗi đang in trên bao</div>
+    ${TRAM_URL?`<div id="camboc"><video id="camv" playsinline muted autoplay></video><canvas id="camve"></canvas></div>
+    <div class="camhang">
+      <button class="go" type="button" id="camchup">Chụp và đọc</button>
+      <button class="ghost" type="button" id="camdoi">Đổi cam</button>
+    </div>
+    <div id="camtt">đang mở camera…</div>
+    <div id="camdoc"></div>
+    <div class="camnho">Máy đọc chỉ điền sẵn vào ô bên dưới. Kết luận vẫn tính từ ngày sản xuất theo lot — sửa lại nếu máy đọc sai.</div>`:''}
+  `+
+  segs.map(s=>`<div class="field">
+     <label>${s.kind==='EXPIRY'?'Hạn sử dụng':s.kind==='PROD'?'Ngày sản xuất':'Lot'}${s.label?' — '+s.label:''}</label>
+     <input class="code" id="in${s.i}" autocomplete="off" spellcheck="false" placeholder="${s.fmt}"></div>`).join('')+
+  `<div class="hint">Gõ nguyên văn theo đúng thứ tự đang in, kể cả nhãn và dấu chấm/gạch.</div>
+   <div style="margin-top:14px"><button class="go" type="button" id="run">Kiểm tra và ghi sổ</button></div></div>`;
+
+  $('item').innerHTML=h;
+  $('run').onclick=run;
+  if(TRAM_URL) camKhoiDong(segs);
+}
+
+function run(){
+  const v=$('nsx').value;
+  if(!v){alert('Chưa nhập ngày sản xuất theo lot.');return;}
+  const who=$('who').value.trim();
+  if(!who){alert('Nhập tên người kiểm ở đầu màn hình trước.');$('who').focus();return;}
+  store.set('dc_user',who);
+
+  const p=v.split('-'), nsx=new Date(Date.UTC(+p[0],+p[1]-1,+p[2]));
+  const segs=segments(CUR), inputs={};
+  segs.forEach(s=>inputs[s.i]=(($('in'+s.i)||{}).value||'').trim());
+
+  const r=check(CUR,nsx,inputs);
+  const noData=CUR.trang_thai!=='SAN_SANG';
+  let cls,head,sub;
+  if(noData){cls='v-warn';head='KHÔNG KẾT LUẬN ĐƯỢC';sub='Master thiếu dữ liệu — không được coi là đạt.';}
+  else if(r.fail){cls='v-fail';head='KHÔNG ĐẠT';sub='Dừng, không chạy đơn. Báo QA.';}
+  else if(r.warn){cls='v-warn';head='CẦN XÁC NHẬN';sub='Có điểm chưa chắc chắn — ghi rõ ai xác nhận và căn cứ gì.';}
+  else{cls='v-pass';head='ĐẠT';sub='Khớp tiêu chuẩn in và đúng hạn theo TCTP.';}
+
+  /* gửi kết quả cuối về sổ chung của trạm — để đo 2 cột chỉ số */
+  if(TRAM_URL && LAST_OCR && LAST_OCR.id){
+    const chuoi=segs.map(s=>inputs[s.i]).filter(x=>x).join(' | ');
+    fetch(TRAM_URL,{method:'POST',redirect:'follow',
+      headers:{'Content-Type':'text/plain;charset=utf-8'},
+      body:JSON.stringify({act:'ketqua',id:LAST_OCR.id,chuoi_xac_nhan:chuoi,
+        ket_luan:head,ly_do:sub,ngay_sx:v})}).catch(()=>{});
+    LAST_OCR=null;
+  }
+
+  /* ghi sổ NGAY, trước khi hiện kết quả */
+  LASTID='c'+Date.now();
+  const rec={id:LASTID,thoi_gian:new Date().toLocaleString('vi-VN'),nguoi_kiem:who,
+    item_code:CUR.item_code,ten_san_pham:CUR.ten_san_pham,thi_truong:CUR.thi_truong,
+    ngay_sx:fmtVN(nsx),chuoi_in:segs.map(s=>inputs[s.i]).filter(Boolean).join(' / '),
+    ket_luan:head,ly_do:r.lines.filter(l=>l.m!=='ok').map(l=>l.d).join(' | '),ghi_chu:'',
+    nguon_master:$('dot').className.includes('ok')?'file':'nhúng'};
+  const log=readLog(); log.push(rec); writeLog(log);
+  pushRecent(CUR.item_code);
+
+  $('verdict').innerHTML=`<div class="verdict ${cls}">
+    <div class="head"><b>${head}</b><span>${sub}</span></div>
+    <div class="body">${r.lines.map(l=>`<div class="line"><span class="m ${l.m}">${l.m==='ok'?'✓':l.m==='no'?'✕':'!'}</span>
+      <span class="t"><b>${l.t}</b><span class="d">${l.d}</span></span></div>`).join('')}</div>
+    <div class="saved">
+      <div class="s">Đã ghi sổ lúc ${rec.thoi_gian} · ${who}</div>
+      ${head!=='ĐẠT'?`<div class="field" style="margin-top:9px">
+        <label>Ghi chú / người xác nhận</label>
+        <input id="note" placeholder="VD: đã chỉnh máy in, chạy lại lô — anh X duyệt"></div>`:''}
+      <div class="row2">
+        ${head!=='ĐẠT'?`<button class="ghost" type="button" id="savenote">Lưu ghi chú</button>`:''}
+        <button class="ghost" type="button" id="copy">Sao chép kết quả</button>
+        <button class="ghost" type="button" id="again">Kiểm mã khác</button>
+      </div>
+    </div></div>`;
+
+  const sn=$('savenote');
+  if(sn) sn.onclick=()=>{
+    const log=readLog(), i=log.findIndex(x=>x.id===LASTID);
+    if(i>=0){log[i].ghi_chu=$('note').value.trim();writeLog(log);sn.textContent='Đã lưu ghi chú';}
+  };
+  $('copy').onclick=()=>{
+    const t=[head,rec.item_code+' · '+rec.ten_san_pham,'NSX theo lot: '+rec.ngay_sx,
+      'Chuỗi in: '+rec.chuoi_in,...r.lines.map(l=>(l.m==='ok'?'[OK] ':l.m==='no'?'[LỖI] ':'[!] ')+l.t+' — '+l.d),
+      'Người kiểm: '+who+' · '+rec.thoi_gian].join('\n');
+    navigator.clipboard?.writeText(t).then(()=>$('copy').textContent='Đã sao chép',
+      ()=>alert(t));
+  };
+  $('again').onclick=()=>{CUR=null;$('item').innerHTML='';$('verdict').innerHTML='';
+    $('q').focus();window.scrollTo({top:0,behavior:'smooth'});render();};
+
+  $('verdict').scrollIntoView({behavior:'smooth',block:'start'});
+}
+
+/* ---- sổ kiểm ---- */
+function paintLog(){
+  const l=readLog().slice().reverse();
+  const n=readLog().length, f=readLog().filter(r=>r.ket_luan==='KHÔNG ĐẠT').length;
+  $('logsum').textContent = n? `${n} lượt kiểm · ${f} lượt KHÔNG ĐẠT` : 'Chưa có lượt kiểm nào trên máy này.';
+  $('loglist').innerHTML = l.length? '<div class="log">'+l.map(r=>{
+    const p=r.ket_luan==='ĐẠT'?'p-pass':r.ket_luan==='KHÔNG ĐẠT'?'p-fail':'p-warn';
+    return `<div class="logrow"><span class="pill ${p}">${r.ket_luan}</span>
+      <span class="b">${r.item_code} · ${r.thi_truong||''}
+      <span class="s">${r.thoi_gian} · ${r.nguoi_kiem} · NSX ${r.ngay_sx} · in "${r.chuoi_in}"
+      ${r.ghi_chu?'<br>Ghi chú: '+r.ghi_chu:''}</span></span></div>`;
+  }).join('')+'</div>' : '';
+}
+
+/* ---- events ---- */
+$('q').addEventListener('input',render);
+$('results').addEventListener('click',e=>{const h=e.target.closest('.hit');if(h)showItem(h.dataset.c);});
+$('results').addEventListener('keydown',e=>{if(e.key==='Enter'){const h=e.target.closest('.hit');if(h)showItem(h.dataset.c);}});
+$('refresh').onclick=loadMaster;
+$('pick').onclick=()=>$('file').click();
+$('file').onchange=e=>{const f=e.target.files[0];if(!f)return;const rd=new FileReader();
+  rd.onload=()=>{try{const m=parseCSV(rd.result);if(!m.length||!m[0].item_code)throw 0;
+    MASTER=m;$('dot').className='dot ok';$('srctxt').textContent=m.length+' item · '+f.name;buildDupIndex();render();}
+    catch(_){alert('File không đúng định dạng master_datecode.csv');}};
+  rd.readAsText(f,'utf-8');};
+$('who').value=store.get('dc_user')||'';
+$('who').addEventListener('change',()=>store.set('dc_user',$('who').value.trim()));
+
+$('nav1').onclick=()=>{$('tab-check').className='';$('tab-log').className='hidden';
+  $('nav1').className='on';$('nav2').className='';};
+$('nav2').onclick=()=>{$('tab-check').className='hidden';$('tab-log').className='';
+  $('nav2').className='on';$('nav1').className='';paintLog();window.scrollTo(0,0);};
+
+$('exp').onclick=()=>{
+  const l=readLog(); if(!l.length){alert('Sổ đang trống.');return;}
+  const blob=new Blob([toCSV(l,LOGCOLS)],{type:'text/csv;charset=utf-8'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download='so_kiem_datecode_'+new Date().toISOString().slice(0,10)+'.csv';
+  a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),2000);
+};
+$('cp').onclick=()=>{const l=readLog();if(!l.length){alert('Sổ đang trống.');return;}
+  const t=toCSV(l,LOGCOLS).replace(/^\uFEFF/,'');
+  navigator.clipboard?.writeText(t).then(()=>$('cp').textContent='Đã sao chép',()=>alert(t));};
+$('clr').onclick=()=>{if(confirm('Xóa toàn bộ sổ trên máy này? Tải file .csv về trước khi xóa.')){
+  writeLog([]);paintLog();}};
+
+paintBadge(); loadMaster();
+
+/* ==================================================================
+   KHỐI CAMERA — thêm vào bản gốc. Không đụng tới hàm check().
+   Máy đọc chỉ ĐIỀN SẴN ô nhập. Kết luận vẫn do check() tính từ
+   ngày sản xuất theo lot. Máy đọc sai không làm sai kết luận.
+   ================================================================== */
+
+/* Dán URL web app Apps Script (.../exec). Để trống thì app chạy đúng như cũ,
+   không có camera, không phụ thuộc mạng ngoài. */
+const TRAM_URL = '';
+
+const CAM = {
+  COLS: 40, ROWS: 30,
+  NHAY: 78,
+  MOI_GIAY: 8,        // chỉ dò 8 lần/giây, không dò mỗi khung hình
+  LAM_MUOT: 0.25,     // hệ số trượt toạ độ khung
+  CAN_LIEN: 3,        // phải thấy 3 lần liên tiếp mới vẽ khung
+  GIU_KHUNG: 10       // mất dấu thì vẫn giữ khung thêm 10 vòng
+};
+
+let camStream=null, camSau=true, camSegs=[], camRAF=null;
+let camLuoi=null, camLctx=null;
+let camKhung=null, camDem=0, camMat=0, camNguongEMA=null, camLanCuoi=0, camCaoGoc=null;
+
+function camKhoiDong(segs){
+  camSegs=segs;
+  camLuoi=document.createElement('canvas');
+  camLuoi.width=CAM.COLS*8; camLuoi.height=CAM.ROWS*8;
+  camLctx=camLuoi.getContext('2d',{willReadFrequently:true});
+  camKhung=null; camDem=0; camMat=0; camNguongEMA=null;
+  document.getElementById('camchup').onclick=camChup;
+  document.getElementById('camdoi').onclick=()=>{camSau=!camSau;camMo();};
+  camMo();
+}
+
+async function camMo(){
+  if(camStream) camStream.getTracks().forEach(t=>t.stop());
+  const v=document.getElementById('camv'); if(!v) return;
+  try{
+    camStream=await navigator.mediaDevices.getUserMedia({
+      video:{facingMode:camSau?'environment':'user',width:{ideal:1920},height:{ideal:1080}},audio:false});
+    v.srcObject=camStream; await v.play();
+    document.getElementById('camtt').textContent='đang quét';
+    if(camRAF) cancelAnimationFrame(camRAF);
+    camVong();
+  }catch(e){
+    document.getElementById('camtt').innerHTML=
+      'Không mở được camera. Trang phải mở qua <b>https</b> — dùng đúng link github.io, '+
+      'không mở file đã tải về.';
   }
 }
 
-/* ---------- khoanh vùng: vùng sáng có nhiều đốm tối nhỏ (77%) ---------- */
-function phanTich(){
-  lctx.drawImage(v,0,0,lam.width,lam.height);
-  const d=lctx.getImageData(0,0,lam.width,lam.height).data;
-  const W=lam.width, cw=W/COLS, ch=lam.height/ROWS;
-  const sang=new Float32Array(ROWS*COLS), bien=new Float32Array(ROWS*COLS);
-  for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++){
-    let tong=0,tongBien=0,n=0; const y0=(r*ch)|0,x0=(c*cw)|0;
-    for(let y=y0;y<y0+ch;y++){ let truoc=-1;
+/* ---- dò vùng: vùng sáng có nhiều đốm tối nhỏ ---- */
+function camDoVung(){
+  const v=document.getElementById('camv');
+  camLctx.drawImage(v,0,0,camLuoi.width,camLuoi.height);
+  const d=camLctx.getImageData(0,0,camLuoi.width,camLuoi.height).data;
+  const W=camLuoi.width, cw=W/CAM.COLS, ch=camLuoi.height/CAM.ROWS;
+  const sang=new Float32Array(CAM.ROWS*CAM.COLS), bien=new Float32Array(CAM.ROWS*CAM.COLS);
+  for(let r=0;r<CAM.ROWS;r++)for(let c=0;c<CAM.COLS;c++){
+    let tong=0,tb=0,n=0; const y0=(r*ch)|0,x0=(c*cw)|0;
+    for(let y=y0;y<y0+ch;y++){ let tr=-1;
       for(let x=x0;x<x0+cw;x++){
         const i=(y*W+x)*4, g=(d[i]*299+d[i+1]*587+d[i+2]*114)/1000;
-        tong+=g; n++; if(truoc>=0) tongBien+=Math.abs(g-truoc); truoc=g; } }
-    sang[r*COLS+c]=tong/n; bien[r*COLS+c]=tongBien/n;
+        tong+=g; n++; if(tr>=0) tb+=Math.abs(g-tr); tr=g; } }
+    sang[r*CAM.COLS+c]=tong/n; bien[r*CAM.COLS+c]=tb/n;
   }
+  /* ngưỡng trượt chậm qua các khung hình — đây là chỗ gây nhảy loạn xạ nếu
+     tính lại độc lập từng khung */
   const sx=Array.from(bien).sort((a,b)=>a-b);
-  const nguong=sx[Math.floor(sx.length*(NHAY/100))];
-  const o=new Uint8Array(ROWS*COLS);
-  for(let i=0;i<o.length;i++) o[i]=(sang[i]>120&&bien[i]>nguong)?1:0;
-  const tham=new Int32Array(ROWS*COLS).fill(-1), vung=[];
+  const ng=sx[Math.floor(sx.length*(CAM.NHAY/100))];
+  camNguongEMA = camNguongEMA===null ? ng : camNguongEMA*0.8 + ng*0.2;
+
+  const o=new Uint8Array(CAM.ROWS*CAM.COLS);
+  for(let i=0;i<o.length;i++) o[i]=(sang[i]>120&&bien[i]>camNguongEMA)?1:0;
+
+  const tham=new Int32Array(CAM.ROWS*CAM.COLS).fill(-1), vung=[];
   for(let i=0;i<o.length;i++){
     if(!o[i]||tham[i]>=0) continue;
     const id=vung.length, hang=[i]; tham[i]=id;
-    let x0=COLS,y0=ROWS,x1=0,y1=0,dem=0;
+    let x0=CAM.COLS,y0=CAM.ROWS,x1=0,y1=0,dem=0;
     while(hang.length){
-      const p=hang.pop(), pr=(p/COLS)|0, pc=p%COLS; dem++;
+      const p=hang.pop(), pr=(p/CAM.COLS)|0, pc=p%CAM.COLS; dem++;
       if(pc<x0)x0=pc; if(pc>x1)x1=pc; if(pr<y0)y0=pr; if(pr>y1)y1=pr;
       for(let dr=-1;dr<=1;dr++)for(let dc=-1;dc<=1;dc++){
         const nr=pr+dr,nc=pc+dc;
-        if(nr<0||nc<0||nr>=ROWS||nc>=COLS) continue;
-        const q=nr*COLS+nc; if(o[q]&&tham[q]<0){tham[q]=id;hang.push(q);} } }
+        if(nr<0||nc<0||nr>=CAM.ROWS||nc>=CAM.COLS) continue;
+        const q=nr*CAM.COLS+nc; if(o[q]&&tham[q]<0){tham[q]=id;hang.push(q);} } }
     vung.push({x0,y0,x1,y1,dem});
   }
   return vung.filter(z=>{const w=z.x1-z.x0+1,h=z.y1-z.y0+1;
-    return z.dem>=4 && w/h>1.8 && w/h<16;}).sort((a,b)=>b.dem-a.dem).slice(0,2);
+    return z.dem>=4 && w/h>1.8 && w/h<16;});
 }
 
-function vong(){
-  if(!stream) return;
-  if(v.videoWidth){
-    if(ve.width!==v.clientWidth){ve.width=v.clientWidth;ve.height=v.clientHeight;}
-    vungCuoi=phanTich();
-    ctx.clearRect(0,0,ve.width,ve.height);
-    const sx=ve.width/COLS, sy=ve.height/ROWS;
-    vungCuoi.forEach((z,i)=>{
-      const x=z.x0*sx,y=z.y0*sy,w=(z.x1-z.x0+1)*sx,h=(z.y1-z.y0+1)*sy;
-      ctx.strokeStyle=i===0?'#4ADE9B':'rgba(74,222,155,.45)';
-      ctx.lineWidth=i===0?3:2; ctx.strokeRect(x,y,w,h);
-      if(i===0){ctx.fillStyle='rgba(74,222,155,.12)';ctx.fillRect(x,y,w,h);}
-    });
-    if(!dangGui) bao.innerHTML = vungCuoi.length
-      ? '<span class="ok">Thấy vùng ngày — bấm Chụp.</span>'
-      : '<span class="cho">Chưa thấy. Đưa máy lại gần ô in ngày.</span>';
-    demFrame++; const t=performance.now();
-    if(t-tTruoc>500){fps=demFrame*1000/(t-tTruoc);demFrame=0;tTruoc=t;}
-    sohieu.textContent=`${fps.toFixed(0)} hình/giây · ${vungCuoi.length} vùng · ${v.videoWidth}×${v.videoHeight}`;
+/* ---- bám khung cũ thay vì luôn lấy vùng to nhất ---- */
+function camChon(ds){
+  if(!ds.length) return null;
+  if(!camKhung) return ds.sort((a,b)=>b.dem-a.dem)[0];
+  const cx=(camKhung.x0+camKhung.x1)/2, cy=(camKhung.y0+camKhung.y1)/2;
+  let tot=null, diem=1e9;
+  ds.forEach(z=>{
+    const zx=(z.x0+z.x1)/2, zy=(z.y0+z.y1)/2;
+    const kc=Math.hypot(zx-cx,zy-cy) - z.dem*0.05;   // gần khung cũ + đủ to
+    if(kc<diem){diem=kc;tot=z;}
+  });
+  return tot;
+}
+
+function camVong(){
+  camRAF=requestAnimationFrame(camVong);
+  const v=document.getElementById('camv');
+  if(!v||!camStream||!v.videoWidth) return;
+
+  const t=performance.now();
+  if(t-camLanCuoi < 1000/CAM.MOI_GIAY) { camVe(); return; }
+  camLanCuoi=t;
+
+  const moi=camChon(camDoVung());
+  if(moi){
+    camMat=0; camDem++;
+    if(!camKhung) camKhung={x0:moi.x0,y0:moi.y0,x1:moi.x1,y1:moi.y1};
+    else{
+      const a=CAM.LAM_MUOT;
+      camKhung.x0+=(moi.x0-camKhung.x0)*a; camKhung.y0+=(moi.y0-camKhung.y0)*a;
+      camKhung.x1+=(moi.x1-camKhung.x1)*a; camKhung.y1+=(moi.y1-camKhung.y1)*a;
+    }
+  }else{
+    camMat++; camDem=0;
+    if(camMat>CAM.GIU_KHUNG) camKhung=null;
   }
-  requestAnimationFrame(vong);
+  camVe();
+  const tt=document.getElementById('camtt');
+  if(tt) tt.textContent = (camKhung&&camDem>=CAM.CAN_LIEN)
+    ? 'thấy vùng ngày — bấm Chụp và đọc'
+    : 'đưa máy lại gần ô in ngày';
 }
 
-/* ---------- chụp: cắt từ ảnh GỐC (lỗi #3), phóng to, không thu nhỏ (lỗi #5) ---------- */
-function catAnh(){
+function camVe(){
+  const v=document.getElementById('camv'), ve=document.getElementById('camve');
+  if(!v||!ve) return;
+  if(ve.width!==v.clientWidth){ve.width=v.clientWidth;ve.height=v.clientHeight;}
+  const ctx=ve.getContext('2d');
+  ctx.clearRect(0,0,ve.width,ve.height);
+  if(!camKhung||camDem<CAM.CAN_LIEN) return;
+  const sx=ve.width/CAM.COLS, sy=ve.height/CAM.ROWS;
+  const x=camKhung.x0*sx, y=camKhung.y0*sy;
+  const w=(camKhung.x1-camKhung.x0+1)*sx, h=(camKhung.y1-camKhung.y0+1)*sy;
+  ctx.strokeStyle='#4ADE9B'; ctx.lineWidth=3; ctx.strokeRect(x,y,w,h);
+  ctx.fillStyle='rgba(74,222,155,.10)'; ctx.fillRect(x,y,w,h);
+}
+
+/* ---- chụp: cắt từ ảnh GỐC, chỉ phóng to ---- */
+function camCat(){
+  const v=document.getElementById('camv');
   const c=document.createElement('canvas');
   c.width=v.videoWidth; c.height=v.videoHeight;
   c.getContext('2d').drawImage(v,0,0);
-  if(document.getElementById('canh').checked || !vungCuoi.length)
-    return {canvas:c, cao:null, ghi:'cả ảnh '+c.width+'×'+c.height};
+  if(!camKhung||camDem<CAM.CAN_LIEN) return {canvas:c,cao:null};
 
-  const z=vungCuoi[0], pad=0.25;
-  const w=(z.x1-z.x0+1)/COLS, h=(z.y1-z.y0+1)/ROWS;
+  const pad=0.25;
+  const w=(camKhung.x1-camKhung.x0+1)/CAM.COLS, h=(camKhung.y1-camKhung.y0+1)/CAM.ROWS;
   const px=w*pad*.5, py=h*pad;
-  const x0=Math.max(0,(z.x0/COLS-px))*c.width, y0=Math.max(0,(z.y0/ROWS-py))*c.height;
-  const x1=Math.min(1,(z.x1+1)/COLS+px)*c.width, y1=Math.min(1,(z.y1+1)/ROWS+py)*c.height;
+  const x0=Math.max(0,(camKhung.x0/CAM.COLS-px))*c.width;
+  const y0=Math.max(0,(camKhung.y0/CAM.ROWS-py))*c.height;
+  const x1=Math.min(1,(camKhung.x1+1)/CAM.COLS+px)*c.width;
+  const y1=Math.min(1,(camKhung.y1+1)/CAM.ROWS+py)*c.height;
   const cw=Math.round(x1-x0), chh=Math.round(y1-y0);
-
-  const he=Math.min(4,Math.max(1,Math.round(240/Math.max(1,chh))));   // chỉ phóng to
+  const he=Math.min(4,Math.max(1,Math.round(240/Math.max(1,chh))));
   const cc=document.createElement('canvas');
   cc.width=cw*he; cc.height=chh*he;
   const g=cc.getContext('2d'); g.imageSmoothingEnabled=true; g.imageSmoothingQuality='high';
   g.drawImage(c,x0,y0,cw,chh,0,0,cc.width,cc.height);
-  return {canvas:cc, cao:chh, ghi:`crop ${cw}×${chh} ×${he}`};
+  return {canvas:cc,cao:chh};
 }
 
-function heVerdict(vd,ly,doc){
-  khungKQ.style.display='block';
-  khungKQ.className='v-'+vd;
-  const ten={DAT:'🟢 ĐẠT',KHONG_DAT:'🔴 KHÔNG ĐẠT — báo Leader, dừng in',
-    CHUP_LAI:'🟡 CHỤP LẠI — lại gần hơn',CAN_XAC_NHAN:'🟠 CẦN XÁC NHẬN — báo Leader',
-    LOI:'⚪ LỖI'}[vd]||vd;
-  document.getElementById('kq_to').textContent=ten;
-  document.getElementById('kq_ly').textContent=ly||'';
-  document.getElementById('kq_doc').textContent=doc?('Máy đọc:\n'+doc):'';
-  document.getElementById('suahop').style.display='none';
-  document.getElementById('mosua').style.display=(vd==='LOI')?'none':'block';
-  document.getElementById('sua').value=doc||'';
+async function camChup(){
+  const nut=document.getElementById('camchup'), tt=document.getElementById('camtt');
+  const hop=document.getElementById('camdoc');
+  const a=camCat();
+  nut.disabled=true; tt.textContent='đang gửi ảnh…';
+  camCaoGoc=a.cao;
+  try{
+    const r=await fetch(TRAM_URL,{method:'POST',redirect:'follow',
+      headers:{'Content-Type':'text/plain;charset=utf-8'},
+      body:JSON.stringify({act:'doc',
+        anh_b64:a.canvas.toDataURL('image/jpeg',.92).split(',')[1],
+        ma_item:(CUR&&CUR.item_code)||'', cao_vung_px:a.cao,
+        nguoi_kiem:($('who').value||'').trim()})}).then(x=>x.json());
+
+    if(!r||!r.ok) throw new Error((r&&r.loi)||'trạm không trả lời');
+    LAST_OCR = { id:r.id, dong:r.dong||[] };
+    hop.style.display='block';
+    hop.textContent='Máy đọc được:\n'+(r.dong||[]).join('\n')+
+      '\n\nĐã điền vào ô bên dưới. Đối chiếu với bao bì, sai thì sửa.';
+    camDienVaoO(r.dong||[]);
+    tt.textContent='đọc xong — kiểm lại rồi bấm Kiểm tra';
+  }catch(e){
+    hop.style.display='block';
+    hop.textContent='Không đọc được: '+e.message+'\nGõ tay vào ô bên dưới như bình thường.';
+    tt.textContent='đang quét';
+  }
+  nut.disabled=false;
 }
 
-nutChup.onclick=async()=>{
-  if(!selSku.value){ bao.innerHTML='<span class="xau">Chọn mã item trước.</span>'; return; }
-  if(!inNguoi.value.trim()){ bao.innerHTML='<span class="xau">Điền tên người kiểm.</span>'; return; }
-  const a=catAnh();
-  dangGui=true; nutChup.disabled=true;
-  bao.innerHTML='<span class="cho">Đang gửi… ('+a.ghi+')</span>';
-  caoVungCuoi=a.cao;
-  try{
-    const r=await goiTram({act:'kiem',
-      anh_b64:a.canvas.toDataURL('image/jpeg',.92).split(',')[1],
-      ma_item:selSku.value, cap_bao_bi:selCap.value,
-      line:inLine.value, nguoi_kiem:inNguoi.value, cao_vung_px:a.cao});
-    if(!r||!r.ok){ heVerdict('LOI', (r&&r.loi)||'Trạm không trả lời', ''); }
-    else{
-      idLuot=r.id;
-      heVerdict(r.verdict, r.ly_do, (r.chuoi_doc||[]).join('\n'));
-      bao.innerHTML='<span class="ok">Đã ghi. Mã lượt '+r.id+'</span>';
-    }
-  }catch(e){ heVerdict('LOI', String(e.message||e), ''); }
-  dangGui=false; nutChup.disabled=false;
-};
+let LAST_OCR=null;
 
-document.getElementById('mosua').onclick=()=>{
-  document.getElementById('suahop').style.display='block';
-};
+/* Điền dòng OCR vào đúng ô theo NHÃN mà master khai — không đoán theo thứ tự. */
+function camDienVaoO(dong){
+  const chuan=t=>String(t).toUpperCase().replace(/\s+/g,'');
+  camSegs.forEach(s=>{
+    const o=$('in'+s.i); if(!o||!s.label) return;
+    const nh=chuan(s.label);
+    const hit=dong.find(d=>chuan(d).startsWith(nh));
+    if(hit) o.value=String(hit).trim();
+  });
+}
 
-document.getElementById('guisua').onclick=async()=>{
-  const t=document.getElementById('sua').value.trim();
-  if(!t||!idLuot) return;
-  bao.innerHTML='<span class="cho">Đang gửi bản sửa…</span>';
-  try{
-    const r=await goiTram({act:'sua',id:idLuot,ma_item:selSku.value,
-      chuoi_sua:t,cao_vung_px:caoVungCuoi});
-    if(r&&r.ok){
-      heVerdict(r.verdict, 'Sau khi sửa: '+r.ly_do, t);
-      bao.innerHTML='<span class="ok">Đã lưu bản sửa — dùng làm dữ liệu train.</span>';
-    } else bao.innerHTML='<span class="xau">'+((r&&r.loi)||'lỗi')+'</span>';
-  }catch(e){ bao.innerHTML='<span class="xau">'+e.message+'</span>'; }
-};
-
-document.getElementById('doi').onclick=()=>{camSau=!camSau;moCamera();};
-
-taiMaster();
-moCamera();
 </script>
 </body>
 </html>
