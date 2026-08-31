@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>Kiểm date code</title>
+<style>
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  body{margin:0;background:#0E1214;color:#EDF1F0;font:15px/1.45 system-ui,-apple-system,sans-serif;overscroll-behavior:none}
+  header{padding:10px 14px;background:#1B2126;display:flex;align-items:center;gap:10px}
+  header b{font-size:15px}
+  #trangthai{margin-left:auto;font-size:12.5px;color:#8FA0A8}
+  #boc{position:relative;width:100%;background:#000;overflow:hidden}
+  video{width:100%;display:block}
+  #ve{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
+  #thanh{padding:12px 14px 24px;background:#141A1E}
+  .hang{display:flex;gap:8px;align-items:center;margin-bottom:8px}
+  select,input[type=text]{flex:1;padding:10px;border:1px solid #2A3439;border-radius:6px;
+       background:#0E1214;color:#EDF1F0;font:14px system-ui;min-width:0}
+  button{padding:16px;border:none;border-radius:6px;font:600 16px system-ui;cursor:pointer}
+  #chup{flex:1;background:#0E6F52;color:#fff}
+  #chup:disabled{background:#2A3439;color:#68757C}
+  .phu{background:#222C31;color:#C7CFCE;flex:0 0 auto;padding:16px 14px;font-size:14px}
+  #bao{margin-top:10px;padding:12px;border-radius:6px;background:#1B2126;font-size:14px;min-height:44px}
+  #ketqua{margin-top:10px;border-radius:8px;padding:14px;display:none}
+  #ketqua .to{font:800 26px system-ui;letter-spacing:.5px}
+  #ketqua .ly{margin-top:6px;font-size:14px;opacity:.92}
+  #ketqua .doc{margin-top:10px;font:13px ui-monospace,monospace;background:rgba(0,0,0,.28);
+       padding:8px;border-radius:5px;white-space:pre-wrap;word-break:break-all}
+  .v-DAT{background:#0E5B3F;color:#DFF7EA}
+  .v-KHONG_DAT{background:#7A2118;color:#FFE2DC}
+  .v-CHUP_LAI{background:#4A3A12;color:#FBEFCB}
+  .v-CAN_XAC_NHAN{background:#6B3E12;color:#FFE7CC}
+  .v-LOI{background:#33393D;color:#EDF1F0}
+  #suahop{display:none;margin-top:10px}
+  textarea{width:100%;height:80px;padding:10px;border-radius:6px;border:1px solid #2A3439;
+       background:#0E1214;color:#EDF1F0;font:14px ui-monospace,monospace}
+  .ok{color:#4ADE9B}.cho{color:#E8C468}.xau{color:#F08A7A}
+  .sohieu{font:11.5px ui-monospace,monospace;color:#68757C;margin-top:8px}
+  label.ck{font-size:13px;color:#8FA0A8;display:flex;align-items:center;gap:6px;margin-top:8px}
+</style>
+</head>
+<body>
+
+<header>
+  <b>Kiểm date code</b>
+  <span id="trangthai">đang mở camera…</span>
+</header>
+
+<div id="boc">
+  <video id="v" playsinline muted autoplay></video>
+  <canvas id="ve"></canvas>
+</div>
+
+<div id="thanh">
+  <div class="hang">
+    <input type="text" id="nguoi" placeholder="Tên người kiểm">
+    <input type="text" id="line" placeholder="Line" style="flex:0 0 90px">
+  </div>
+  <div class="hang">
+    <select id="sku"><option value="">— đang tải master —</option></select>
+  </div>
+  <div class="hang">
+    <select id="capbb"><option value="">— cấp bao bì —</option></select>
+  </div>
+  <div class="hang">
+    <button id="chup" disabled>Chụp và kiểm</button>
+    <button class="phu" id="doi">Đổi cam</button>
+  </div>
+
+  <div id="bao">Giơ máy về phía ô in ngày sản xuất.</div>
+
+  <div id="ketqua">
+    <div class="to" id="kq_to"></div>
+    <div class="ly" id="kq_ly"></div>
+    <div class="doc" id="kq_doc"></div>
+    <button class="phu" id="mosua" style="width:100%;margin-top:10px">Máy đọc sai — sửa lại</button>
+    <div id="suahop">
+      <textarea id="sua" placeholder="Mỗi dòng một dòng in trên bao bì&#10;NSX:260826 11:05&#10;HSD:260127 52I"></textarea>
+      <button class="phu" id="guisua" style="width:100%;margin-top:8px">Gửi bản sửa</button>
+    </div>
+  </div>
+
+  <label class="ck"><input type="checkbox" id="canh"> Gửi cả ảnh thay vì crop (để so sánh)</label>
+  <div class="sohieu" id="sohieu"></div>
+</div>
+
+<script>
+/* ============================================================
+   URL_TRAM: dán link web app Apps Script (dạng .../exec).
+   Nếu trang này được chính Apps Script phục vụ, để trống — tự dùng google.script.run.
+   ============================================================ */
+const URL_TRAM = 'https://script.google.com/macros/s/AKfycbyWFs7QvWXU3dxbwvrVhmcZk85Lob7MDpj9G4iO-7wulPGsxFHirRTQZ454qAXWIiRO/exec';
+
+const NOI_BO = (typeof google !== 'undefined' && google.script && google.script.run);
+
+const v=document.getElementById('v'), ve=document.getElementById('ve'), ctx=ve.getContext('2d');
+const bao=document.getElementById('bao'), nutChup=document.getElementById('chup');
+const sohieu=document.getElementById('sohieu'), selSku=document.getElementById('sku');
+const selCap=document.getElementById('capbb');
+const inNguoi=document.getElementById('nguoi'), inLine=document.getElementById('line');
+const khungKQ=document.getElementById('ketqua');
+
+const COLS=40, ROWS=30, NHAY=78;
+const lam=document.createElement('canvas'); lam.width=COLS*8; lam.height=ROWS*8;
+const lctx=lam.getContext('2d',{willReadFrequently:true});
+let camSau=true, stream=null, vungCuoi=[], demFrame=0, tTruoc=performance.now(), fps=0;
+let idLuot=null, caoVungCuoi=null, dangGui=false;
+
+/* ---------- nhớ tên và line ---------- */
+try{ inNguoi.value=localStorage.getItem('nguoi')||''; inLine.value=localStorage.getItem('line')||''; }catch(e){}
+inNguoi.onchange=()=>{try{localStorage.setItem('nguoi',inNguoi.value)}catch(e){}};
+inLine.onchange=()=>{try{localStorage.setItem('line',inLine.value)}catch(e){}};
+
+/* ---------- gọi trạm ---------- */
+function goiTram(payload){
+  if(NOI_BO){
+    return new Promise((ok,loi)=>{
+      const fn = payload.act==='sua' ? google.script.run.luuBanSua : google.script.run.kiemAnh;
+      fn.withSuccessHandler(ok).withFailureHandler(e=>loi(new Error(e.message||e)))(payload);
+    });
+  }
+  return fetch(URL_TRAM,{method:'POST',redirect:'follow',
+      headers:{'Content-Type':'text/plain;charset=utf-8'},
+      body:JSON.stringify(payload)}).then(r=>r.json());
+}
+
+function taiMaster(){
+  if(NOI_BO){
+    google.script.run.withSuccessHandler(doSku)
+      .withFailureHandler(()=>{selSku.innerHTML='<option value="">— không tải được master —</option>';})
+      .layMaster();
+    return;
+  }
+  fetch(URL_TRAM+'?act=master').then(r=>r.json())
+    .then(d=>doSku(d.master)).catch(()=>{
+      selSku.innerHTML='<option value="">— không tải được master —</option>';
+    });
+}
+let MASTER={};
+function doSku(m){
+  MASTER=m||{};
+  const ks=Object.keys(MASTER);
+  selSku.innerHTML = ks.length
+    ? ks.map(k=>{const r=MASTER[k];
+        const nh=(r.tu_khoa||r.ten_sp||'').slice(0,40);
+        return `<option value="${k}">${k} · ${nh} · ${r.so_thang}th</option>`;}).join('')
+    : '<option value="">— master rỗng —</option>';
+  try{ const cu=localStorage.getItem('maitem'); if(cu&&ks.indexOf(cu)>=0) selSku.value=cu; }catch(e){}
+  doCapBB();
+}
+function doCapBB(){
+  const r=MASTER[selSku.value];
+  const ds=(r&&r.cap_bao_bi?String(r.cap_bao_bi):'').split(';')
+    .map(x=>x.trim()).filter(x=>x);
+  selCap.innerHTML = ds.length ? ds.map(x=>`<option value="${x}">${x}</option>`).join('')
+                               : '<option value="">—</option>';
+}
+selSku.onchange=()=>{try{localStorage.setItem('maitem',selSku.value)}catch(e){};doCapBB();};
+
+/* ---------- camera ---------- */
+async function moCamera(){
+  if(stream) stream.getTracks().forEach(t=>t.stop());
+  try{
+    stream=await navigator.mediaDevices.getUserMedia({
+      video:{facingMode:camSau?'environment':'user',width:{ideal:1920},height:{ideal:1080}},audio:false});
+    v.srcObject=stream; await v.play();
+    document.getElementById('trangthai').textContent='đang quét';
+    nutChup.disabled=false; requestAnimationFrame(vong);
+  }catch(e){
+    document.getElementById('trangthai').textContent='không mở được camera';
+    bao.innerHTML='<span class="xau">Không mở được camera.</span><br>Trang phải chạy qua <b>https</b>.';
+  }
+}
+
+/* ---------- khoanh vùng: vùng sáng có nhiều đốm tối nhỏ (77%) ---------- */
+function phanTich(){
+  lctx.drawImage(v,0,0,lam.width,lam.height);
+  const d=lctx.getImageData(0,0,lam.width,lam.height).data;
+  const W=lam.width, cw=W/COLS, ch=lam.height/ROWS;
+  const sang=new Float32Array(ROWS*COLS), bien=new Float32Array(ROWS*COLS);
+  for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++){
+    let tong=0,tongBien=0,n=0; const y0=(r*ch)|0,x0=(c*cw)|0;
+    for(let y=y0;y<y0+ch;y++){ let truoc=-1;
+      for(let x=x0;x<x0+cw;x++){
+        const i=(y*W+x)*4, g=(d[i]*299+d[i+1]*587+d[i+2]*114)/1000;
+        tong+=g; n++; if(truoc>=0) tongBien+=Math.abs(g-truoc); truoc=g; } }
+    sang[r*COLS+c]=tong/n; bien[r*COLS+c]=tongBien/n;
+  }
+  const sx=Array.from(bien).sort((a,b)=>a-b);
+  const nguong=sx[Math.floor(sx.length*(NHAY/100))];
+  const o=new Uint8Array(ROWS*COLS);
+  for(let i=0;i<o.length;i++) o[i]=(sang[i]>120&&bien[i]>nguong)?1:0;
+  const tham=new Int32Array(ROWS*COLS).fill(-1), vung=[];
+  for(let i=0;i<o.length;i++){
+    if(!o[i]||tham[i]>=0) continue;
+    const id=vung.length, hang=[i]; tham[i]=id;
+    let x0=COLS,y0=ROWS,x1=0,y1=0,dem=0;
+    while(hang.length){
+      const p=hang.pop(), pr=(p/COLS)|0, pc=p%COLS; dem++;
+      if(pc<x0)x0=pc; if(pc>x1)x1=pc; if(pr<y0)y0=pr; if(pr>y1)y1=pr;
+      for(let dr=-1;dr<=1;dr++)for(let dc=-1;dc<=1;dc++){
+        const nr=pr+dr,nc=pc+dc;
+        if(nr<0||nc<0||nr>=ROWS||nc>=COLS) continue;
+        const q=nr*COLS+nc; if(o[q]&&tham[q]<0){tham[q]=id;hang.push(q);} } }
+    vung.push({x0,y0,x1,y1,dem});
+  }
+  return vung.filter(z=>{const w=z.x1-z.x0+1,h=z.y1-z.y0+1;
+    return z.dem>=4 && w/h>1.8 && w/h<16;}).sort((a,b)=>b.dem-a.dem).slice(0,2);
+}
+
+function vong(){
+  if(!stream) return;
+  if(v.videoWidth){
+    if(ve.width!==v.clientWidth){ve.width=v.clientWidth;ve.height=v.clientHeight;}
+    vungCuoi=phanTich();
+    ctx.clearRect(0,0,ve.width,ve.height);
+    const sx=ve.width/COLS, sy=ve.height/ROWS;
+    vungCuoi.forEach((z,i)=>{
+      const x=z.x0*sx,y=z.y0*sy,w=(z.x1-z.x0+1)*sx,h=(z.y1-z.y0+1)*sy;
+      ctx.strokeStyle=i===0?'#4ADE9B':'rgba(74,222,155,.45)';
+      ctx.lineWidth=i===0?3:2; ctx.strokeRect(x,y,w,h);
+      if(i===0){ctx.fillStyle='rgba(74,222,155,.12)';ctx.fillRect(x,y,w,h);}
+    });
+    if(!dangGui) bao.innerHTML = vungCuoi.length
+      ? '<span class="ok">Thấy vùng ngày — bấm Chụp.</span>'
+      : '<span class="cho">Chưa thấy. Đưa máy lại gần ô in ngày.</span>';
+    demFrame++; const t=performance.now();
+    if(t-tTruoc>500){fps=demFrame*1000/(t-tTruoc);demFrame=0;tTruoc=t;}
+    sohieu.textContent=`${fps.toFixed(0)} hình/giây · ${vungCuoi.length} vùng · ${v.videoWidth}×${v.videoHeight}`;
+  }
+  requestAnimationFrame(vong);
+}
+
+/* ---------- chụp: cắt từ ảnh GỐC (lỗi #3), phóng to, không thu nhỏ (lỗi #5) ---------- */
+function catAnh(){
+  const c=document.createElement('canvas');
+  c.width=v.videoWidth; c.height=v.videoHeight;
+  c.getContext('2d').drawImage(v,0,0);
+  if(document.getElementById('canh').checked || !vungCuoi.length)
+    return {canvas:c, cao:null, ghi:'cả ảnh '+c.width+'×'+c.height};
+
+  const z=vungCuoi[0], pad=0.25;
+  const w=(z.x1-z.x0+1)/COLS, h=(z.y1-z.y0+1)/ROWS;
+  const px=w*pad*.5, py=h*pad;
+  const x0=Math.max(0,(z.x0/COLS-px))*c.width, y0=Math.max(0,(z.y0/ROWS-py))*c.height;
+  const x1=Math.min(1,(z.x1+1)/COLS+px)*c.width, y1=Math.min(1,(z.y1+1)/ROWS+py)*c.height;
+  const cw=Math.round(x1-x0), chh=Math.round(y1-y0);
+
+  const he=Math.min(4,Math.max(1,Math.round(240/Math.max(1,chh))));   // chỉ phóng to
+  const cc=document.createElement('canvas');
+  cc.width=cw*he; cc.height=chh*he;
+  const g=cc.getContext('2d'); g.imageSmoothingEnabled=true; g.imageSmoothingQuality='high';
+  g.drawImage(c,x0,y0,cw,chh,0,0,cc.width,cc.height);
+  return {canvas:cc, cao:chh, ghi:`crop ${cw}×${chh} ×${he}`};
+}
+
+function heVerdict(vd,ly,doc){
+  khungKQ.style.display='block';
+  khungKQ.className='v-'+vd;
+  const ten={DAT:'🟢 ĐẠT',KHONG_DAT:'🔴 KHÔNG ĐẠT — báo Leader, dừng in',
+    CHUP_LAI:'🟡 CHỤP LẠI — lại gần hơn',CAN_XAC_NHAN:'🟠 CẦN XÁC NHẬN — báo Leader',
+    LOI:'⚪ LỖI'}[vd]||vd;
+  document.getElementById('kq_to').textContent=ten;
+  document.getElementById('kq_ly').textContent=ly||'';
+  document.getElementById('kq_doc').textContent=doc?('Máy đọc:\n'+doc):'';
+  document.getElementById('suahop').style.display='none';
+  document.getElementById('mosua').style.display=(vd==='LOI')?'none':'block';
+  document.getElementById('sua').value=doc||'';
+}
+
+nutChup.onclick=async()=>{
+  if(!selSku.value){ bao.innerHTML='<span class="xau">Chọn mã item trước.</span>'; return; }
+  if(!inNguoi.value.trim()){ bao.innerHTML='<span class="xau">Điền tên người kiểm.</span>'; return; }
+  const a=catAnh();
+  dangGui=true; nutChup.disabled=true;
+  bao.innerHTML='<span class="cho">Đang gửi… ('+a.ghi+')</span>';
+  caoVungCuoi=a.cao;
+  try{
+    const r=await goiTram({act:'kiem',
+      anh_b64:a.canvas.toDataURL('image/jpeg',.92).split(',')[1],
+      ma_item:selSku.value, cap_bao_bi:selCap.value,
+      line:inLine.value, nguoi_kiem:inNguoi.value, cao_vung_px:a.cao});
+    if(!r||!r.ok){ heVerdict('LOI', (r&&r.loi)||'Trạm không trả lời', ''); }
+    else{
+      idLuot=r.id;
+      heVerdict(r.verdict, r.ly_do, (r.chuoi_doc||[]).join('\n'));
+      bao.innerHTML='<span class="ok">Đã ghi. Mã lượt '+r.id+'</span>';
+    }
+  }catch(e){ heVerdict('LOI', String(e.message||e), ''); }
+  dangGui=false; nutChup.disabled=false;
+};
+
+document.getElementById('mosua').onclick=()=>{
+  document.getElementById('suahop').style.display='block';
+};
+
+document.getElementById('guisua').onclick=async()=>{
+  const t=document.getElementById('sua').value.trim();
+  if(!t||!idLuot) return;
+  bao.innerHTML='<span class="cho">Đang gửi bản sửa…</span>';
+  try{
+    const r=await goiTram({act:'sua',id:idLuot,ma_item:selSku.value,
+      chuoi_sua:t,cao_vung_px:caoVungCuoi});
+    if(r&&r.ok){
+      heVerdict(r.verdict, 'Sau khi sửa: '+r.ly_do, t);
+      bao.innerHTML='<span class="ok">Đã lưu bản sửa — dùng làm dữ liệu train.</span>';
+    } else bao.innerHTML='<span class="xau">'+((r&&r.loi)||'lỗi')+'</span>';
+  }catch(e){ bao.innerHTML='<span class="xau">'+e.message+'</span>'; }
+};
+
+document.getElementById('doi').onclick=()=>{camSau=!camSau;moCamera();};
+
+taiMaster();
+moCamera();
+</script>
+</body>
+</html>
