@@ -125,6 +125,10 @@ button.ghost{width:100%;padding:11px;background:#fff;border:1px solid var(--hair
       <button id="refresh" type="button">Cập nhật master</button>
     </div>
     <div class="who">
+      <label for="tram">Trạm đọc ảnh</label>
+      <input id="tram" placeholder="Dán link .../exec của Apps Script" autocomplete="off" spellcheck="false">
+    </div>
+    <div class="who">
       <label for="who">Người kiểm</label>
       <input id="who" placeholder="Họ tên hoặc mã nhân viên" autocomplete="name">
     </div>
@@ -421,6 +425,24 @@ function toCSV(rows,cols){
 }
 async function loadMaster(){
   const dot=$('dot'), txt=$('srctxt');
+
+  /* 1. Google Sheet qua trạm — nguồn thật, sửa master trên Sheet là mọi máy thấy ngay */
+  if(TRAM_URL){
+    try{
+      const res=await fetch(TRAM_URL+'?act=master&t='+Date.now(),{cache:'no-store'});
+      const j=await res.json();
+      if(j&&j.ok&&j.csv){
+        const m=parseCSV(j.csv);
+        if(m.length&&m[0].item_code){
+          MASTER=m; dot.className='dot ok';
+          txt.textContent=m.length+' item · Google Sheet'+(j.sua_luc?' · sửa '+j.sua_luc:'');
+          buildDupIndex(); render(); return;
+        }
+      }
+    }catch(e){}
+  }
+
+  /* 2. file CSV đặt cạnh index.html */
   try{
     const res=await fetch(MASTER_URL+'?t='+Date.now(),{cache:'no-store'});
     if(!res.ok) throw 0;
@@ -428,8 +450,9 @@ async function loadMaster(){
     if(!m.length||!m[0].item_code) throw 0;
     MASTER=m; dot.className='dot ok'; txt.textContent=m.length+' item · master_datecode.csv';
   }catch(e){
+    /* 3. bản nhúng — chỉ để app không chết, KHÔNG phải nguồn thật */
     MASTER=parseCSV(EMBEDDED_CSV); dot.className='dot warn';
-    txt.textContent=MASTER.length+' item · bản nhúng trong app';
+    txt.textContent=MASTER.length+' item · bản nhúng trong app (chưa nối Sheet)';
   }
   buildDupIndex(); render();
 }
@@ -730,6 +753,15 @@ $('q').addEventListener('input',render);
 $('results').addEventListener('click',e=>{const h=e.target.closest('.hit');if(h)showItem(h.dataset.c);});
 $('results').addEventListener('keydown',e=>{if(e.key==='Enter'){const h=e.target.closest('.hit');if(h)showItem(h.dataset.c);}});
 $('refresh').onclick=loadMaster;
+
+/* URL trạm nhập thẳng trong app, lưu trên máy — không phải sửa file trên GitHub */
+$('tram').value=TRAM_URL;
+$('tram').onchange=()=>{
+  TRAM_URL=$('tram').value.trim().replace(/\s+/g,'');
+  store.set('dc_tram',TRAM_URL);
+  loadMaster();
+  if(CUR) showItem(CUR.item_code);   /* vẽ lại để hiện khối camera */
+};
 $('pick').onclick=()=>$('file').click();
 $('file').onchange=e=>{const f=e.target.files[0];if(!f)return;const rd=new FileReader();
   rd.onload=()=>{try{const m=parseCSV(rd.result);if(!m.length||!m[0].item_code)throw 0;
@@ -768,7 +800,7 @@ paintBadge(); loadMaster();
 
 /* Dán URL web app Apps Script (.../exec). Để trống thì app chạy đúng như cũ,
    không có camera, không phụ thuộc mạng ngoài. */
-const TRAM_URL = '';
+let TRAM_URL = store.get('dc_tram') || '';
 
 const CAM = {
   COLS: 40, ROWS: 30,
