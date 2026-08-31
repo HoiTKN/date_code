@@ -125,6 +125,10 @@ button.ghost{width:100%;padding:11px;background:#fff;border:1px solid var(--hair
       <button id="refresh" type="button">Cập nhật master</button>
     </div>
     <div class="who">
+      <label for="site">Nhà máy</label>
+      <select id="site" style="flex:1;padding:10px;border-radius:8px"></select>
+    </div>
+    <div class="who">
       <label for="tram">Trạm đọc ảnh</label>
       <input id="tram" placeholder="Dán link .../exec của Apps Script" autocomplete="off" spellcheck="false">
     </div>
@@ -184,6 +188,10 @@ const store={
    URL mặc định gắn sẵn — QC không phải dán gì. Ô nhập ở đầu màn hình chỉ để
    đổi sang deployment khác khi cần, và chỉ đổi trên máy đó.
    PHẢI khai báo trước mọi chỗ dùng, nếu không sẽ đứt phần khởi tạo. */
+var BAN_DUNG = 'b5 · master chuẩn';
+var SITE_KY_TU = { MBP:'I', MIP:'A', MHP:'B', MGP:'G', MBA:'' };
+var SITE_TEN   = { MBP:'MMB — Nghệ An', MIP:'MSI', MHP:'MHP', MGP:'MGP', MBA:'MBA' };
+var SITE_APP   = store.get('dc_site') || 'MBP';
 var TRAM_MAC_DINH = 'https://script.google.com/macros/s/AKfycbzFOhrxosY7-5yivMmhF9GtzsMMAFYdp0KfUKMucCJmktBqGm_udam2jm2hQH9zkf_X/exec';
 var TRAM_URL = store.get('dc_tram') || TRAM_MAC_DINH;
 
@@ -426,6 +434,31 @@ function parseCSV(text){
   const head=rows.shift().map(h=>h.trim());
   return rows.filter(r=>r.length>1&&r[0]).map(r=>{const o={};head.forEach((h,i)=>o[h]=(r[i]||'').trim());return o;});
 }
+/* Master dùng schema chuẩn (ma_item, dong1..4_*). Hàm check() vốn đọc
+   item_code/segN_*. Chuyển ở đây thay vì sửa hàm kết luận đã chạy đúng. */
+function chuanHoaMaster(rows){
+  if(!rows.length) return rows;
+  if(rows[0].item_code!==undefined) return rows;      // bảng đời cũ, để nguyên
+  return rows.map(r=>{
+    const o={
+      item_code:r.ma_item, pkg_code:'', ten_san_pham:r.ten_san_pham,
+      tu_khoa:r.tu_khoa||'', cap_bao_bi:r.cap_bao_bi||'',
+      site_ap_dung:r.site_ap_dung||'', thi_truong:r.thi_truong||'',
+      hsd_thang:r.so_thang_ap_dung||'', nguon_hsd:r.nguon_hsd||'',
+      nguon_form:r.nguon_form||'', ghi_chu_in:r.ghi_chu_in||'',
+      ghi_chu_tctp:'', canh_bao:r.canh_bao||'',
+      trang_thai:(r.trang_thai_duyet==='DA_DUYET'&&!r.canh_bao)?'SAN_SANG':'THIEU_DU_LIEU'
+    };
+    for(let i=1;i<=4;i++){
+      o['seg'+i+'_loai']  = r['dong'+i+'_loai']||'';
+      o['seg'+i+'_nhan']  = r['dong'+i+'_nhan']||'';
+      o['seg'+i+'_format']= r['dong'+i+'_mau_ngay']||'';
+      o['seg'+i+'_them']  = r['dong'+i+'_thanh_phan']||'';
+    }
+    return o;
+  });
+}
+
 function toCSV(rows,cols){
   const q=v=>{v=(v??'')+''; return /[",\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v;};
   return '\uFEFF'+cols.join(',')+'\n'+rows.map(r=>cols.map(c=>q(r[c])).join(',')).join('\n');
@@ -433,38 +466,56 @@ function toCSV(rows,cols){
 async function loadMaster(){
   const dot=$('dot'), txt=$('srctxt');
   let loiTram='';
+  const nhan=t=>{ txt.textContent=t+'  ·  '+BAN_DUNG; };
+  nhan('Đang gọi trạm…');
 
-  /* 1. Google Sheet qua trạm — nguồn thật, sửa master trên Sheet là mọi máy thấy ngay */
+  /* 1. Google Sheet qua trạm — nguồn thật. Có hạn giờ 20 giây: mạng xưởng
+        chập chờn thì phải rơi xuống bản dự phòng, không được treo màn hình. */
   if(TRAM_URL){
     try{
-      /* POST cùng đường với phần đọc ảnh — tham số GET có thể bị rớt
-         qua bước chuyển hướng của Apps Script. text/plain để không sinh preflight. */
-      const res=await fetch(TRAM_URL,{method:'POST',redirect:'follow',cache:'no-store',
-        headers:{'Content-Type':'text/plain;charset=utf-8'},
-        body:JSON.stringify({act:'master'})});
-      const j=await res.json();
-      if(j&&j.ok&&j.csv){
-        const m=parseCSV(j.csv);
-        if(m.length&&m[0].item_code){
-          MASTER=m; dot.className='dot ok';
-          txt.textContent=m.length+' item · Google Sheet'+(j.sua_luc?' · sửa '+j.sua_luc:'');
-          buildDupIndex(); render(); return;
-        }
+      const bo=new AbortController();
+      const hen=setTimeout(()=>bo.abort(),20000);
+      let res;
+      try{
+        res=await fetch(TRAM_URL,{method:'POST',redirect:'follow',cache:'no-store',
+          signal:bo.signal, headers:{'Content-Type':'text/plain;charset=utf-8'},
+          body:JSON.stringify({act:'master'})});
+      } finally { clearTimeout(hen); }
+
+      const chu=await res.text();
+      let j=null;
+      try{ j=JSON.parse(chu); }
+      catch(_){
+        /* Trạm trả HTML = deployment chưa có mã mới, hoặc quyền truy cập
+           đang bắt đăng nhập nên Google trả về trang login. */
+        throw new Error(chu.indexOf('<')===0
+          ? 'trạm trả HTML chứ không phải JSON — deployment chưa cập nhật hoặc chưa mở quyền'
+          : 'trạm trả nội dung lạ');
       }
-    }catch(e){ loiTram=e.message||'không gọi được trạm'; }
+      if(!j.ok) throw new Error(j.loi||'trạm báo lỗi');
+      if(!j.csv) throw new Error('trạm không trả bảng master');
+
+      const m=chuanHoaMaster(parseCSV(j.csv));
+      if(!m.length||!m[0].item_code) throw new Error('bảng master sai cột');
+      MASTER=m; dot.className='dot ok';
+      nhan(m.length+' item · Google Sheet'+(j.sua_luc?' · sửa '+j.sua_luc:''));
+      buildDupIndex(); render(); return;
+    }catch(e){
+      loiTram=(e&&e.name==='AbortError')?'trạm không trả lời sau 20 giây':(e.message||'không gọi được trạm');
+    }
   }
 
   /* 2. file CSV đặt cạnh index.html */
   try{
     const res=await fetch(MASTER_URL+'?t='+Date.now(),{cache:'no-store'});
     if(!res.ok) throw 0;
-    const m=parseCSV(await res.text());
+    const m=chuanHoaMaster(parseCSV(await res.text()));
     if(!m.length||!m[0].item_code) throw 0;
-    MASTER=m; dot.className='dot ok'; txt.textContent=m.length+' item · master_datecode.csv';
+    MASTER=m; dot.className='dot ok'; nhan(m.length+' item · master_datecode.csv');
   }catch(e){
     /* 3. bản nhúng — chỉ để app không chết, KHÔNG phải nguồn thật */
-    MASTER=parseCSV(EMBEDDED_CSV); dot.className='dot warn';
-    txt.textContent=MASTER.length+' item · bản nhúng'+(loiTram?' · trạm lỗi: '+loiTram:'');
+    MASTER=chuanHoaMaster(parseCSV(EMBEDDED_CSV)); dot.className='dot warn';
+    nhan(MASTER.length+' item · bản nhúng'+(loiTram?' · TRẠM LỖI: '+loiTram:''));
   }
   buildDupIndex(); render();
 }
@@ -522,8 +573,8 @@ function stripLabel(s){let t=String(s).trim().toUpperCase().replace(/^[:\s]+/,''
   for(const L of LABELS) if(t.startsWith(L)) return {found:L,rest:t.slice(L.length).replace(/^[:\s.]+/,'')};
   return {found:null,rest:t};}
 
-function segments(it){const o=[];for(let i=1;i<=3;i++){const k=it['seg'+i+'_loai'],f=it['seg'+i+'_format'];
-  if(k&&f)o.push({i,kind:k,label:it['seg'+i+'_nhan'],fmt:f});}return o;}
+function segments(it){const o=[];for(let i=1;i<=4;i++){const k=it['seg'+i+'_loai'],f=it['seg'+i+'_format'];
+  if(k&&f)o.push({i,kind:k,label:it['seg'+i+'_nhan'],fmt:f,them:it['seg'+i+'_them']||''});}return o;}
 
 function check(it,nsx,inputs){
   const lines=[];let fail=false,warn=false;
@@ -593,6 +644,12 @@ function pushRecent(code){
   const r=recents().filter(c=>c!==code); r.unshift(code); store.set('dc_recent',JSON.stringify(r.slice(0,6)));
 }
 
+/* Chỉ hiện mã có khai cho nhà máy đang chọn. Mã không khai cho site này
+   mà vẫn kiểm được thì đó là lỗi master, không phải chuyện app tự nới ra. */
+function hopSite(r){
+  if(!r.site_ap_dung) return true;               // bảng đời cũ không có cột site
+  return r.site_ap_dung.toUpperCase().indexOf(SITE_APP)>=0;
+}
 function render(){
   const q=$('q').value.trim().toUpperCase(), box=$('results');
   let head='', list=[];
@@ -601,13 +658,21 @@ function render(){
     if(!rc.length){ box.innerHTML='<div class="empty">Gõ 2 ký tự trở lên để tìm.<br>Các mã vừa kiểm sẽ hiện sẵn ở đây.</div>'; return; }
     head='Vừa kiểm gần đây'; list=rc;
   } else {
-    head=''; list=MASTER.filter(r=>r.item_code.toUpperCase().includes(q)
-      ||r.ten_san_pham.toUpperCase().includes(q)||(r.thi_truong||'').toUpperCase()===q).slice(0,40);
+    head=''; list=MASTER.filter(hopSite).filter(r=>r.item_code.toUpperCase().includes(q)
+      ||r.ten_san_pham.toUpperCase().includes(q)
+      ||(r.tu_khoa||'').toUpperCase().includes(q)
+      ||(r.thi_truong||'').toUpperCase()===q).slice(0,40);
+    if(!list.length){
+      const ngoai=MASTER.filter(r=>!hopSite(r)).filter(r=>r.item_code.toUpperCase().includes(q)
+        ||r.ten_san_pham.toUpperCase().includes(q)||(r.tu_khoa||'').toUpperCase().includes(q));
+      if(ngoai.length) head='Không có mã nào của '+SITE_APP+
+        '. '+ngoai.length+' mã khớp nhưng khai cho nhà máy khác — kiểm lại master.';
+    }
   }
   box.innerHTML=(head?'<div class="listhead">'+head+'</div>':'')+
     (list.length?list.map(r=>`<div class="hit" tabindex="0" data-c="${r.item_code}">
       <div class="c">${r.item_code}${r.thi_truong?' · '+r.thi_truong:''}</div>
-      <div class="n">${r.ten_san_pham}</div></div>`).join('')
+      <div class="n">${r.ten_san_pham}${r.tu_khoa?' · '+r.tu_khoa:''}</div></div>`).join('')
      :'<div class="empty">Không có item nào khớp.</div>');
 }
 
@@ -767,6 +832,11 @@ $('results').addEventListener('keydown',e=>{if(e.key==='Enter'){const h=e.target
 $('refresh').onclick=loadMaster;
 
 /* URL trạm nhập thẳng trong app, lưu trên máy — không phải sửa file trên GitHub */
+$('site').innerHTML=Object.keys(SITE_TEN).map(k=>
+  `<option value="${k}"${k===SITE_APP?' selected':''}>${k} — ${SITE_TEN[k]}${SITE_KY_TU[k]?' · chữ '+SITE_KY_TU[k]:''}</option>`).join('');
+$('site').onchange=()=>{ SITE_APP=$('site').value; store.set('dc_site',SITE_APP);
+  $('q').value=''; render(); };
+
 $('tram').value=TRAM_URL;
 $('tram').onchange=()=>{
   TRAM_URL=$('tram').value.trim().replace(/\s+/g,'') || TRAM_MAC_DINH;
