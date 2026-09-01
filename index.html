@@ -103,6 +103,12 @@ button.ghost{width:100%;padding:11px;background:#fff;border:1px solid var(--hair
 .logrow .b .s{display:block;color:var(--steel);font-size:11.5px;margin-top:2px}
 .hidden{display:none}
 
+
+.echo{font:12px ui-monospace,monospace;margin-top:4px;min-height:16px}
+.echo.ok{color:#2E7D5B}.echo.no{color:#B4453A}
+.suahop{margin-top:12px;padding:10px;border:1px solid #d8dcda;border-radius:8px;background:#fbfcfc;display:none}
+.suahop label{display:block;font-size:13px;margin-bottom:6px;font-weight:600}
+.suahop select{width:100%;padding:10px;border-radius:8px;border:1px solid #ccd2cf;font:14px system-ui}
 /* ===== KHỐI CAMERA — thêm ===== */
 #camboc{position:relative;width:100%;background:#000;overflow:hidden;border-radius:10px}
 #camboc video{width:100%;display:block}
@@ -188,7 +194,7 @@ const store={
    URL mặc định gắn sẵn — QC không phải dán gì. Ô nhập ở đầu màn hình chỉ để
    đổi sang deployment khác khi cần, và chỉ đổi trên máy đó.
    PHẢI khai báo trước mọi chỗ dùng, nếu không sẽ đứt phần khởi tạo. */
-var BAN_DUNG = 'b6 · mốc theo bao bì';
+var BAN_DUNG = 'b7 · crop + chặn năm';
 var SITE_KY_TU = { MBP:'I', MIP:'A', MHP:'B', MGP:'G', MBA:'' };
 var SITE_TEN   = { MBP:'MMB — Nghệ An', MIP:'MSI', MHP:'MHP', MGP:'MGP', MBA:'MBA' };
 var SITE_APP   = store.get('dc_site') || 'MBP';
@@ -340,6 +346,10 @@ function readDate(str,fmt,loose){
     else if(t==='MMM')mo=MMM.indexOf(v)+1||null;
     else if(t==='YYYY')y=+v; else if(t==='YY')y=2000+ +v;});
   if(!d||!mo||!y||mo<1||mo>12||d<1||d>31)return null;
+  /* Chặn năm ngoài cửa sổ hợp lý. OCR đọc 160826 -> 160839 cho ra năm 2039;
+     không chặn thì một cặp ngày vô lý vẫn có thể khớp phép trừ và cho ĐẠT. */
+  const nayY=new Date().getUTCFullYear();
+  if(y < nayY-3 || y > nayY+6) return null;
   const dt=new Date(Date.UTC(y,mo-1,d));
   if(dt.getUTCDate()!==d||dt.getUTCMonth()!==mo-1)return null;
   return dt;}
@@ -493,8 +503,21 @@ function render(){
      :'<div class="empty">Không có item nào khớp.</div>');
 }
 
+/* Ô nào máy điền, ô nào người sửa — tách bạch để sau này dựng bảng nhầm lẫn.
+   Không có cái này thì mọi ô đều là "người gõ", không học được gì. */
+var AUTOFILL={}, DA_SUA={};
+function danhDauSua(i,giaTri){
+  if(AUTOFILL[i]===undefined) return;
+  const khac = String(giaTri).toUpperCase().replace(/[^A-Z0-9]/g,'')
+             !== String(AUTOFILL[i]).toUpperCase().replace(/[^A-Z0-9]/g,'');
+  if(khac) DA_SUA[i]=giaTri; else delete DA_SUA[i];
+  const hop=document.getElementById('suahop');
+  if(hop) hop.style.display = Object.keys(DA_SUA).length ? 'block' : 'none';
+}
+
 function showItem(code){
   CUR=MASTER.find(r=>r.item_code===code); if(!CUR)return;
+  AUTOFILL={}; DA_SUA={};
   $('q').value=''; render(); $('verdict').innerHTML=''; LASTID=null;
   const it=CUR, segs=segments(it), today=new Date().toISOString().slice(0,10);
 
@@ -546,16 +569,45 @@ function showItem(code){
     </div>
     <div id="camtt">đang mở camera…</div>
     <div id="camdoc"></div>
-    <div class="camnho">Máy đọc chỉ điền sẵn vào ô bên dưới. Kết luận vẫn tính từ ngày sản xuất theo lot — sửa lại nếu máy đọc sai.</div>`:''}
+    <div class="camnho">Máy đọc chỉ điền sẵn vào ô bên dưới. Kết luận tính từ ngày IN TRÊN BAO. Ngày QC nhập chỉ để đối chiếu. Máy đọc sai thì sửa lại ô bên dưới.</div>`:''}
   `+
   segs.map(s=>`<div class="field">
      <label>${s.kind==='EXPIRY'?'Hạn sử dụng':s.kind==='PROD'?'Ngày sản xuất':'Lot'}${s.label?' — '+s.label:''}</label>
-     <input class="code" id="in${s.i}" autocomplete="off" spellcheck="false" placeholder="${s.fmt}"></div>`).join('')+
+     <input class="code" id="in${s.i}" autocomplete="off" spellcheck="false" placeholder="${s.fmt}"
+        inputmode="${/MMM/.test(s.fmt)?'text':'numeric'}">
+     <div class="echo" id="ec${s.i}"></div></div>`).join('')+
+  `<div class="suahop" id="suahop">
+     <label>Vì sao phải sửa? (bắt buộc chọn — dùng để máy đọc tốt hơn)</label>
+     <select id="lydosua">
+       <option value="">— chọn —</option>
+       <option value="DOC_SAI_SO">Máy đọc sai chữ số</option>
+       <option value="DOC_SAI_NHAN">Máy đọc sai nhãn (NSX/HSD/MFG/EXP)</option>
+       <option value="KHONG_DOC_DUOC">Máy không đọc được — chữ mờ, đứt nét</option>
+       <option value="ANH_XA_MO">Ảnh chụp xa hoặc mờ</option>
+       <option value="IN_SAI_THAT">Máy in in sai thật — không phải lỗi đọc</option>
+     </select>
+   </div>`+
   `<div class="hint">Gõ nguyên văn theo đúng thứ tự đang in, kể cả nhãn và dấu chấm/gạch.</div>
    <div style="margin-top:14px"><button class="go" type="button" id="run">Kiểm tra và ghi sổ</button></div></div>`;
 
   $('item').innerHTML=h;
   $('run').onclick=run;
+
+  /* Echo trực tiếp: gõ tới đâu hiện ngay máy hiểu thành ngày nào.
+     Chặn gõ bừa mà không cần khoá cứng ô nhập. */
+  segs.forEach(sg=>{
+    const o=$('in'+sg.i), e=$('ec'+sg.i); if(!o||!e) return;
+    const ve=()=>{
+      const v=o.value.trim();
+      if(!v){ e.textContent=''; e.className='echo';
+              if(AUTOFILL[sg.i]!==undefined) danhDauSua(sg.i,o.value); return; }
+      const dt=readDate(stripLabel(v).rest, sg.fmt, true);
+      e.textContent = dt ? '→ '+fmtVN(dt) : '→ chưa đọc được theo '+sg.fmt;
+      e.className = 'echo '+(dt?'ok':'no');
+      danhDauSua(sg.i,o.value);
+    };
+    o.addEventListener('input',ve); ve();
+  });
   if(TRAM_URL) camKhoiDong(segs);
 }
 
@@ -580,11 +632,14 @@ function run(){
 
   /* gửi kết quả cuối về sổ chung của trạm — để đo 2 cột chỉ số */
   if(TRAM_URL && LAST_OCR && LAST_OCR.id){
+    const lyDo=($('lydosua')&&$('lydosua').value)||'';
     const chuoi=segs.map(s=>inputs[s.i]).filter(x=>x).join(' | ');
     fetch(TRAM_URL,{method:'POST',redirect:'follow',
       headers:{'Content-Type':'text/plain;charset=utf-8'},
       body:JSON.stringify({act:'ketqua',id:LAST_OCR.id,chuoi_xac_nhan:chuoi,
-        ket_luan:head,ly_do:sub,ngay_sx:v})}).catch(()=>{});
+        ket_luan:head,ly_do:sub,ngay_sx:v,line:(($('line')&&$('line').value)||''),
+        ly_do_sua:lyDo, o_da_sua:Object.keys(DA_SUA).join(';'),
+        may_doc:(LAST_OCR.dong||[]).join(' | ')})}).catch(()=>{});
     LAST_OCR=null;
   }
 
@@ -715,7 +770,7 @@ const CAM = {
   GIU_KHUNG: 10       // mất dấu thì vẫn giữ khung thêm 10 vòng
 };
 
-var LAST_OCR=null;
+var LAST_OCR=null, KQ_TACH=null;
 let camStream=null, camSau=true, camSegs=[], camRAF=null;
 let camLuoi=null, camLctx=null;
 let camKhung=null, camDem=0, camMat=0, camNguongEMA=null, camLanCuoi=0, camCaoGoc=null;
@@ -853,26 +908,18 @@ function camVe(){
 }
 
 /* ---- chụp: cắt từ ảnh GỐC, chỉ phóng to ---- */
-/* Gửi CẢ ẢNH, không bắt QC căn khung.
-   Lý do: OCR của Google đọc ảnh nguyên tấm đạt 78% trên tập đo của MMB, và
-   nó miễn phí nên cắt crop không tiết kiệm được gì. Khung xanh chỉ còn để
-   QC biết máy đã nhìn thấy vùng ngày. Việc lọc ra dòng ngày làm bằng code
-   sau khi đọc, không bắt người phải căn máy. */
+/* Cắt theo khung xanh khi thấy được, gửi cả ảnh khi không thấy.
+   Đo trên ảnh thật của MMB: gửi cả ảnh thì OCR đọc được date trên THÙNG
+   (chữ to, nền giấy) nhưng bỏ qua date trên GÓI (chữ phun nhỏ, nền bóng) —
+   nó chỉ trả về bảng thành phần in offset. Cắt vùng rồi phóng to là cách
+   duy nhất để chữ phun đủ lớn cho OCR. Không thấy khung thì vẫn gửi cả ảnh,
+   và nếu tách được 0 ô thì tự gửi lại lần hai bằng ảnh nguyên tấm. */
 function camCat(){
   const v=document.getElementById('camv');
   const c=document.createElement('canvas');
   c.width=v.videoWidth; c.height=v.videoHeight;
   c.getContext('2d').drawImage(v,0,0);
-  return {canvas:c, cao:(camKhung&&camDem>=CAM.CAN_LIEN)
-    ? Math.round((camKhung.y1-camKhung.y0+1)/CAM.ROWS*c.height) : null};
-}
-
-function camCatCu(){
-  const v=document.getElementById('camv');
-  const c=document.createElement('canvas');
-  c.width=v.videoWidth; c.height=v.videoHeight;
-  c.getContext('2d').drawImage(v,0,0);
-  if(!camKhung||camDem<CAM.CAN_LIEN) return {canvas:c,cao:null};
+  if(!camKhung||camDem<CAM.CAN_LIEN) return {canvas:c,cao:null,cat:false};
 
   const pad=0.25;
   const w=(camKhung.x1-camKhung.x0+1)/CAM.COLS, h=(camKhung.y1-camKhung.y0+1)/CAM.ROWS;
@@ -882,12 +929,12 @@ function camCatCu(){
   const x1=Math.min(1,(camKhung.x1+1)/CAM.COLS+px)*c.width;
   const y1=Math.min(1,(camKhung.y1+1)/CAM.ROWS+py)*c.height;
   const cw=Math.round(x1-x0), chh=Math.round(y1-y0);
-  const he=Math.min(4,Math.max(1,Math.round(240/Math.max(1,chh))));
+  const he=Math.min(6,Math.max(2,Math.round(320/Math.max(1,chh))));
   const cc=document.createElement('canvas');
   cc.width=cw*he; cc.height=chh*he;
   const g=cc.getContext('2d'); g.imageSmoothingEnabled=true; g.imageSmoothingQuality='high';
   g.drawImage(c,x0,y0,cw,chh,0,0,cc.width,cc.height);
-  return {canvas:cc,cao:chh};
+  return {canvas:cc,cao:chh,cat:true};
 }
 
 async function camChup(){
@@ -991,7 +1038,8 @@ function camDienVaoO(dong){
        không chọn lần đầu tiên. Không lần nào ra ngày thì để trống cho QC gõ. */
     for(const p of ung){
       const cum=camCumNgay(p.doan, sg.fmt);
-      if(cum){ o.value=cum; daDien++; break; }
+      if(cum){ o.value=cum; AUTOFILL[sg.i]=cum; daDien++;
+               o.dispatchEvent(new Event('input')); break; }
     }
   });
   return {daDien, soNhan:nhan.length};
@@ -1012,22 +1060,36 @@ function camGuiAnh(canvas, cao){
       if(!r||!r.ok) throw new Error((r&&r.loi)||'trạm không trả lời');
       LAST_OCR={id:r.id, dong:r.dong||[]};
       const kq=camDienVaoO(r.dong||[]);
+      KQ_TACH=kq;
       hop.textContent = kq.daDien===kq.soNhan
         ? 'Đã điền '+kq.daDien+'/'+kq.soNhan+' ô. Đối chiếu với bao bì, sai thì sửa.'
         : 'Chỉ tách được '+kq.daDien+'/'+kq.soNhan+' ô — gõ tay ô còn thiếu.\n\n'+
           'Máy đọc được:\n'+(r.dong||[]).join('\n').slice(0,600);
       if(tt) tt.textContent='đọc xong — kiểm lại rồi bấm Kiểm tra';
    })
+   .then(()=>KQ_TACH)
    .catch(e=>{
       hop.textContent='Không đọc được: '+e.message+'\nGõ tay vào ô bên dưới như bình thường.';
+      return null;
    });
 }
 
 async function camChup(){
   const nut=document.getElementById('camchup');
+  const v=document.getElementById('camv');
   const a=camCat();
   nut.disabled=true; camCaoGoc=a.cao;
-  await camGuiAnh(a.canvas, a.cao);
+  const kq=await camGuiAnh(a.canvas, a.cao);
+
+  /* Crop trượt thì thử lại một lần bằng ảnh nguyên tấm — OCR miễn phí,
+     lần hai không tốn gì ngoài vài giây. */
+  if(kq && kq.daDien===0 && a.cat){
+    const c=document.createElement('canvas');
+    c.width=v.videoWidth; c.height=v.videoHeight;
+    c.getContext('2d').drawImage(v,0,0);
+    document.getElementById('camtt').textContent='crop không ra — thử lại cả ảnh…';
+    await camGuiAnh(c, null);
+  }
   nut.disabled=false;
 }
 
