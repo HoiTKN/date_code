@@ -2,6 +2,8 @@
 <html lang="vi">
 <head>
 <meta charset="utf-8">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Kiểm date code hàng xuất khẩu</title>
 <style>
@@ -129,6 +131,13 @@ button.ghost{width:100%;padding:11px;background:#fff;border:1px solid var(--hair
 #xn_sai{background:#e6eae8;color:#22312c}
 #mucanh{display:none;margin-top:12px;padding:12px;border-radius:10px;
         background:#4a3a12;color:#FBEFCB;font-size:14px;line-height:1.5}
+
+.dong1{display:flex;align-items:center;gap:10px}
+.dong1 h1{flex:1;margin:0}
+#mocaidat{background:rgba(255,255,255,.10);color:#fff;border:none;border-radius:8px;
+          width:40px;height:40px;font-size:19px;cursor:pointer;flex:0 0 auto}
+.tomtat{font-size:12.5px;color:#93A2A8;margin-top:4px;font-variant-numeric:tabular-nums}
+#caidat{display:none;margin-top:10px;padding-top:10px;border-top:1px solid rgba(255,255,255,.12)}
 /* ===== KHỐI CAMERA — thêm ===== */
 #camboc{position:relative;width:100%;background:#000;overflow:hidden;border-radius:10px}
 #camboc video{width:100%;display:block}
@@ -145,22 +154,30 @@ button.ghost{width:100%;padding:11px;background:#fff;border:1px solid var(--hair
 
 <header>
   <div class="inner">
-    <h1>Kiểm date code hàng xuất khẩu</h1>
-    <div class="srcline">
-      <span class="dot" id="dot"></span><span id="srctxt">Đang tải master…</span>
-      <button id="refresh" type="button">Cập nhật master</button>
+    <div class="dong1">
+      <h1>Kiểm date code</h1>
+      <button id="mocaidat" type="button" aria-label="Cài đặt">⚙</button>
     </div>
-    <div class="who">
-      <label for="site">Nhà máy</label>
-      <select id="site" style="flex:1;padding:10px;border-radius:8px"></select>
-    </div>
-    <div class="who">
-      <label for="tram">Trạm đọc ảnh</label>
-      <input id="tram" placeholder="Dán link .../exec của Apps Script" autocomplete="off" spellcheck="false">
-    </div>
-    <div class="who">
-      <label for="who">Người kiểm</label>
-      <input id="who" placeholder="Họ tên hoặc mã nhân viên" autocomplete="name">
+    <div class="tomtat" id="tomtat">—</div>
+
+    <!-- Cài đặt: đặt một lần rồi ẩn. QC không cần nhìn mỗi ca. -->
+    <div id="caidat">
+      <div class="who">
+        <label for="site">Nhà máy</label>
+        <select id="site" style="flex:1;padding:10px;border-radius:8px"></select>
+      </div>
+      <div class="who">
+        <label for="who">Người kiểm</label>
+        <input id="who" placeholder="Họ tên hoặc mã nhân viên" autocomplete="name">
+      </div>
+      <div class="who">
+        <label for="tram">Trạm đọc ảnh</label>
+        <input id="tram" placeholder="Dán link .../exec của Apps Script" autocomplete="off" spellcheck="false">
+      </div>
+      <div class="srcline">
+        <span class="dot" id="dot"></span><span id="srctxt">Đang tải master…</span>
+        <button id="refresh" type="button">Cập nhật master</button>
+      </div>
     </div>
   </div>
 </header>
@@ -214,7 +231,7 @@ const store={
    URL mặc định gắn sẵn — QC không phải dán gì. Ô nhập ở đầu màn hình chỉ để
    đổi sang deployment khác khi cần, và chỉ đổi trên máy đó.
    PHẢI khai báo trước mọi chỗ dùng, nếu không sẽ đứt phần khởi tạo. */
-var BAN_DUNG = 'b13 · nút uỷ quyền + hiện lỗi';
+var BAN_DUNG = 'b14 · gọn đầu trang';
 var SITE_KY_TU = { MBP:'I', MIP:'A', MHP:'B', MGP:'G', MBA:'' };
 var SITE_TEN   = { MBP:'MMB — Nghệ An', MIP:'MSI', MHP:'MHP', MGP:'MGP', MBA:'MBA' };
 var SITE_APP   = store.get('dc_site') || 'MBP';
@@ -306,7 +323,7 @@ async function loadMaster(){
 
       const m=chuanHoaMaster(parseCSV(j.csv));
       if(!m.length||!m[0].item_code) throw new Error('bảng master sai cột');
-      MASTER=m; dot.className='dot ok';
+      MASTER=m; dot.className='dot ok'; setTimeout(veTomTat,0);
       nhan(m.length+' item · Google Sheet'+(j.sua_luc?' · sửa '+j.sua_luc:''));
       buildDupIndex(); render(); return;
     }catch(e){
@@ -326,7 +343,7 @@ async function loadMaster(){
     MASTER=chuanHoaMaster(parseCSV(EMBEDDED_CSV)); dot.className='dot warn';
     nhan(MASTER.length+' item · bản nhúng'+(loiTram?' · TRẠM LỖI: '+loiTram:''));
   }
-  buildDupIndex(); render();
+  buildDupIndex(); render(); veTomTat();
 }
 
 /* item trùng tên gần giống → cảnh báo chọn nhầm quy cách */
@@ -762,15 +779,30 @@ function tuKiemApp(){
   return false;
 }
 
+/* Dòng tóm tắt: chỉ những gì QC cần liếc mỗi lượt.
+   Nhà máy · người kiểm · số mã · bản dựng. Còn lại nằm sau nút bánh răng. */
+function veTomTat(){
+  var t=$('tomtat'); if(!t) return;
+  var n=(MASTER&&MASTER.length)||0;
+  t.textContent = SITE_APP + ' · ' + ((($('who')||{}).value||'chưa điền tên')) +
+                  ' · ' + n + ' mã · ' + BAN_DUNG;
+}
+$('mocaidat').onclick=function(){
+  var c=$('caidat');
+  c.style.display = (c.style.display==='block') ? 'none' : 'block';
+};
+
 $('refresh').onclick=loadMaster;
 
 /* URL trạm nhập thẳng trong app, lưu trên máy — không phải sửa file trên GitHub */
 $('site').innerHTML=Object.keys(SITE_TEN).map(k=>
   `<option value="${k}"${k===SITE_APP?' selected':''}>${k} — ${SITE_TEN[k]}${SITE_KY_TU[k]?' · chữ '+SITE_KY_TU[k]:''}</option>`).join('');
 $('site').onchange=()=>{ SITE_APP=$('site').value; store.set('dc_site',SITE_APP);
-  $('q').value=''; render(); };
+  $('q').value=''; render(); veTomTat(); };
 
 $('tram').value=TRAM_URL;
+if($('who')) $('who').addEventListener('input',veTomTat);
+veTomTat();
 $('tram').onchange=()=>{
   TRAM_URL=$('tram').value.trim().replace(/\s+/g,'') || TRAM_MAC_DINH;
   store.set('dc_tram',TRAM_URL);
@@ -807,6 +839,9 @@ $('clr').onclick=()=>{if(confirm('Xóa toàn bộ sổ trên máy này? Tải fi
   writeLog([]);paintLog();}};
 
 tuKiemApp(); paintBadge(); loadMaster();
+/* Lần đầu trên máy mới: chưa có tên người kiểm thì mở sẵn cài đặt,
+   những lần sau thu gọn lại. */
+if(!(($('who')||{}).value||'').trim()) $('caidat').style.display='block';
 
 /* ==================================================================
    KHỐI CAMERA — thêm vào bản gốc. Không đụng tới hàm check().
