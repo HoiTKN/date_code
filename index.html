@@ -196,227 +196,10 @@ var TRAM_MAC_DINH = 'https://script.google.com/macros/s/AKfycbzFOhrxosY7-5yivMmh
 var TRAM_URL = store.get('dc_tram') || TRAM_MAC_DINH;
 
 /* ===== 2. MASTER DATA ===== */
-const EMBEDDED_CSV = `item_code,pkg_code,ten_san_pham,thi_truong,hsd_thang,nguon_hsd,nguon_form,seg1_loai,seg1_nhan,seg1_format,seg2_loai,seg2_nhan,seg2_format,seg3_loai,seg3_nhan,seg3_format,ghi_chu_in,ghi_chu_tctp,trang_thai,canh_bao
-03HH00050,,Bộ ba XK Costco 3bl x 8bộ (1 Sriracha 500gr + 2 Original 500gr),US,18,TCTP,HDDG,EXPIRY,BBF,MMDDYY,,,,,,,Lddmmyy (Lot number theo ngày/tháng/năm sản xuất) | Ghi chú: Hạn sử dụng 18 tháng,,SAN_SANG,
-03NM00754,BGNA01706,CCBD XK Canada (WTD) 12chai x 720ml (His TP<=200),CA,36,TCTP,HDDG,EXPIRY,BBF,YYYY MM DD,,,,,,,HSD sản phẩm: 36 tháng | LOTDDMMYY HH:MM | WD: là ký hiệu khách hàng Wealth Dragon,,SAN_SANG,
-03NM00902,BGNA01707,CCBD XK Canada 12chai x 720ml (His TP<=200),CA,36,TCTP,HDDG,EXPIRY,BBF,YYYY MM DD,,,,,,,HSD sản phẩm: 36 tháng | LOTDDMMYY HH:MM,,SAN_SANG,
-03NM00751,BGNA01337,CCBD XK Mỹ 12chai x 720ml,US,36,TCTP,HDDG,EXPIRY,BBF,MMM DD YY,,,,,,,HSD sản phẩm: 36 tháng,,SAN_SANG,
-03NM00627,BGNA01777,CSCH XK Australia (DHN) 15 chai x 500ml,AU,18,TCTP,HDDG,EXPIRY,BBF,DD.MM.YYYY,,,,,,,hh:mm + line đóng gói và chữ A,,SAN_SANG,
-03NM00775,,CSCH XK Australia (Golden Star) 15chai x 500ml,AU,18,TCTP,HDDG,EXPIRY,BBF,DD.MM.YYYY,,,,,,,hh:mm + line đóng gói và chữ A,,SAN_SANG,
-03NM00665,BGNA01778,CSCH XK Australia (Lotus) 15chai x 500ml,AU,18,TCTP,HDDG,EXPIRY,BBF,DD.MM.YYYY,,,,,,,hh:mm,,SAN_SANG,
-03NM00611,,CSCH XK Canada (WTD) 15 chai x 500ml (KCBQ),CA,36,TCTP,HDDG,EXPIRY,BBF,YYYY MM DD,LOT,LOT,DDMMYY,,,,(ngày/tháng/năm hết hạn),"TCTP nâng HSD Canada 36 tháng đang trình ký, chưa ban hành hệ thống",SAN_SANG,
-03NM00901,,CSCH XK Canada 15chai x 500ml,CA,36,TCTP,HDDG,EXPIRY,BBF,YYYY MM DD,LOT,LOT,DDMMYY,,,,(ngày/tháng/năm hết hạn),"TCTP nâng HSD Canada 36 tháng đang trình ký, chưa ban hành hệ thống",SAN_SANG,
-03NM00711,,CSCH XK China (XingBao) 15chai x 500ml,CN,24,TCTP,HDDG,PROD,NSX,DDMMYYYY,EXPIRY,HSD,DDMMYYYY,,,,,,SAN_SANG,
-03NM299,,CSCH XK Macau (XYX) 15chai x 500ml,MO,18,TCTP,HDDG,EXPIRY,BBF,DD/MM/YYYY,,,,,,,,,SAN_SANG,
-03NM00612,,CSCH XK Mỹ 12chai x 500ml,US,36,TCTP,HDDG,PROD,MFG,MMM DD YY,EXPIRY,BBF,MMM DD YY,,,,,,SAN_SANG,
-03NM00828,,CSCH XK New Zealand (Gai Lee) 15chai x 500ml,NZ,18,TCTP,HDDG,EXPIRY,BBF,DD.MM.YYYY,,,,,,,hh:mm + line đóng gói và chữ A,,SAN_SANG,
-03NM00592,,CSCH XK Russia 1 (Bonta) 15chai x 500ml,RU,18,TCTP,THUCTE,PROD,MFG,DDMMYYYY,EXPIRY,EXP,DDMMYYYY,,,,,,SAN_SANG,DUNG_FORM_THUC_TE
-03NM00589,,CSCH XK Taiwan 2 (N.I.M) 15chai x 500ml,TW,18,TCTP,HDDG,EXPIRY,EXP,DD/MM/YYYY,,,,,,,hh:mm + packaging line and letter A,,SAN_SANG,
-03NM00588,,CSCH XK Taiwan 1 (Asean VIP) 15chai x 500ml,TW,18,TCTP,HDDG,PROD,MFG,DD/MM/YYYY,EXPIRY,EXP,DD/MM/YYYY,,,,hh:mm + packaging line and letter A,,SAN_SANG,
-03OS00015,,DHCS sò điệp XK Cambodia 12chai x 820gr,KH,12,TCTP,HDDG,PROD,MFG,DDMMYY,EXPIRY,EXP,DDMMYY,,,,Ghi chú: Hạn sử dụng 12 tháng.,,SAN_SANG,
-03OS00016,,DHCS sò điệp XK Cambodia 24chai x 400gr,KH,12,TCTP,HDDG,PROD,MFG,DDMMYY,EXPIRY,EXP,DDMMYY,,,,Ghi chú: Hạn sử dụng 12 tháng.,,SAN_SANG,
-03HG00162,,HNCS Nấm Shiitake & Tảo Kombu XK Mỹ 6hũ x 450gr,US,18,TCTP,HDDG,EXPIRY,BEST IF USED BY,MM/DD/YYYY,,,,,,,,,SAN_SANG,
-03HG00161,,HNCS Nấm Shiitake & Tảo Kombu XK Nhật 6hũ x 450gr,JP,18,TCTP,HDDG,EXPIRY,BEST BEFORE,YYYY.MM.DD,,,,,,,,,SAN_SANG,
-03HG00246,,HNCS ngọt thanh x5 xương hầm cô đặc & rau củ XKGT China (Lotus CN) 16gói x 400gr,CN,12,TCTP,HDDG,PROD,NSX,DDMMYY,EXPIRY,HSD,DDMMYY,,,,,,SAN_SANG,
-03HG00226,,HNCS tôm hùm XK Canada (WDT) 6hũ x 450gr,CA,18,TCTP,HDDG,EXPIRY,BBF,YYYY MM DD,,,,,,,,Mô tả: Lot DDMMYY hh:mm line đóng gói,SAN_SANG,
-03HG00241,,HNCS tôm hùm XK Canada 6hũ x 450gr,CA,18,TCTP,HDDG,EXPIRY,BBF,YYYY MM DD,,,,,,,,Mô tả: Lot DDMMYY hh:mm line đóng gói,SAN_SANG,
-03HG00203,,HNCS tôm hùm XK Hàn Quốc 6gói x 2kg,KR,18,TCTP,HDDG,PROD,MFG,DD MM YYYY,EXPIRY,EXP,DD MM YYYY,,,,,,SAN_SANG,
-03HG00206,,HNCS tôm hùm XK Hàn Quốc 6hũ x 450gr,KR,18,TCTP,HDDG,PROD,MFG,DD MM YYYY,EXPIRY,EXP,DD MM YYYY,,,,,,SAN_SANG,
-03HG00201,,HNCS tôm hùm XK Mỹ 6gói x 2kg,US,18,TCTP,HDDG,EXPIRY,BEST IF USED BY,MM/DD/YYYY,,,,,,,,,SAN_SANG,
-03HG00204,,HNCS tôm hùm XK Mỹ 6hũ x 450gr,US,18,TCTP,HDDG,EXPIRY,BEST IF USED BY,MM/DD/YYYY,,,,,,,,,SAN_SANG,
-03NM00926,BGNA01837,NC CHIN-SU Foods Đồng tiền vàng XK Cam (HSL) 4chai x 4.8L,KH,,,NONE,,,,,,,,,,,Chưa sx,THIEU_DU_LIEU,THIEU_FORM_DATE;THIEU_HSD
-03NM00925,BGNA01836,NC CHIN-SU Foods Đồng tiền vàng XK Cam (HSL) 6chai x 1.8L,KH,12,TCTP,NONE,,,,,,,,,,,Chưa sx,THIEU_DU_LIEU,THIEU_FORM_DATE
-03NM00712,,NC NN Đệ Nhị XK China (XingBao) 15chai x 900ml,CN,24,TCTP,HDDG,PROD,NSX,DDMMYYYY,EXPIRY,HSD,DDMMYYYY,,,,,,SAN_SANG,
-03NM00916,,NC NN Đồng Tiền VÀng XK CPC (HSL) 18chai x 800ml,KH,12,TCTP,HDDG,PROD,MFG,DDMMYY,EXPIRY,EXP,DDMMYY,,,,,,SAN_SANG,
-03NT00587,,NC TTT Nhị ca XK China (Xingbao) 4bl x 6chai x 500ml,CN,18,TCTP,HDDG,PROD,NSX,DDMMYYYY,EXPIRY,HSD,DDMMYYYY,,,,,,SAN_SANG,
-03NT00437,,NC TTT Nhị ca XK CPC (DMF) 4bl x 6chai x 500ml,KH,12,TCTP,HDDG,PROD,MFG,DDMMYY,EXPIRY,EXP,DDMMYY,,,,,,SAN_SANG,
-03NM00813,BGNA01506,"NM CHIN-SU CCBD XK Mỹ 40chai x 50ml (Giống 720ml Mỹ, His<=400)",US,36,TCTP,HDDG,EXPIRY,BBF,MM/DD/YYYY,,,,,,,,,SAN_SANG,
-03NM00614,,NM Chinsu NN XK Nhật 18Chai x 750ml,JP,12,TCTP,HDDG,EXPIRY,BBF,YYYYMMDD,,,,,,,hh:mm + line đóng gói và chữ A,,SAN_SANG,
-03NM00615,,NM Chinsu NN XK Nhật 24Chai x 500ml,JP,12,TCTP,HDDG,EXPIRY,BBF,YYYYMMDD,,,,,,,hh:mm + line đóng gói và chữ A,,SAN_SANG,
-03NM00765,BGNA01374,NM CHIN-SU XK Mỹ 6can x 2L,US,24,TCTP,HDDG,EXPIRY,BBF,MMDDYYYY,,,,,,,,Thực tế date ko /,SAN_SANG,
-03NM00771,,NM CS CC Đậm Đặc XK Korea 1 - 6can x 2L,KR,24,TCTP,HDDG,EXPIRY,EXP,DD MM YYYY,,,,,,,,Thực tế date ko /,SAN_SANG,
-03NM00543,,NM CS Yod Thong XK Thái Lan 2bl x 6chai x 650ml,TH,24,TCTP,HDDG,PROD,MFG,DDMMYY,EXPIRY,EXP,DDMMYY,,,,,,SAN_SANG,
-03NM00542,,NM CS Yod Thong XK Thái Lan 4bl x 6chai x 300ml,TH,24,TCTP,HDDG,PROD,MFG,DDMMYY,EXPIRY,EXP,DDMMYY,,,,,,SAN_SANG,
-03NM00633,,NM CSCH XK Czech (Dalat) 12chai x 635ml,CZ,18,TCTP,HDDG,EXPIRY,,DD MM YYYY,,,,,,,Dòng 2: Mã số lô hàng,,SAN_SANG,
-03NM00591,,Nm CSCH XK Czech (Dalat) 15chai x 500ml,CZ,18,TCTP,HDDG,PROD,MFG,DD MM YYYY,EXPIRY,BBF,DD MM YYYY,,,,,,SAN_SANG,
-03NM00910,,NM CSCH XK Netherlands (LTP) 12chai x 635ml,NL,18,TCTP,NONE,,,,,,,,,,,,THIEU_DU_LIEU,THIEU_FORM_DATE
-03NM00637,,NM CSCH XK Poland (Asia-Foods) 12chai x 635ml,PL,18,TCTP,HDDG,EXPIRY,BBF,DD MM YYYY,,,,,,,Dòng 2: VN/845/IV…… (mã số lô hàng),,SAN_SANG,
-03NM00636,,NM CSCH XK Poland (Asia-Foods) 15chai x 500ml,PL,18,TCTP,HDDG,EXPIRY,BBF,DDMMYYYY,,,,,,,VN/845/IV…… (mã số lô hàng (*)) | hh:mm + line đóng gói và chữ A | (*) xem văn bản 2468/TS-KHCN;29.8.1998 - Bộ thuỷ sản,,SAN_SANG,
-03NM00899,,NM CSCH XK Sweden (Hungfat) 12chai x 635ml,SE,18,TCTP,THUCTE,EXPIRY,,DD MM YYYY,,,,,,,VN/845/IV/STT LÔ,,SAN_SANG,DUNG_FORM_THUC_TE
-03NM00688,,NM CSCH XK Thụy Điển (Hungfat) 15chai x 500ml,SE,18,TCTP,HDDG,EXPIRY,BBF,DDMMYYYY,,,,,,,VN/845/IV…… (mã số lô hàng (*)) | hh:mm + line đóng gói và chữ A | (*) xem văn bản 2468/TS-KHCN;29.8.1998 - Bộ thuỷ sản,,SAN_SANG,
-03NM00699,,NM CSCH XK UK (Longdan) 12chai x 635ml,GB,18,TCTP,HDDG,EXPIRY,BBF,DD MM YYYY,,,,,,,Dòng 2: VN/845/IV…… (mã số lô hàng) + hh:mm + line đóng gói và chữ A,,SAN_SANG,
-03NM00678,,NM CSCH XK UK (Longdan) 15chai x 500ml,GB,18,TCTP,NONE,,,,,,,,,,,,THIEU_DU_LIEU,THIEU_FORM_DATE
-03NM00690,,NM CSCH XK XK Germany (Asropa) 12chai x 635ml,DE,18,TCTP,HDDG,EXPIRY,BBF,DD MM YYYY,,,,,,,VN/845/IV......( mã số lô hàng ),,SAN_SANG,
-03NM00647,,NM NN cao cấp XK Mỹ 12chai x 500ml,US,36,TCTP,HDDG,EXPIRY,BBF,MM/DD/YYYY,,,,,,,Lddmmyy,,SAN_SANG,
-03NM00708,,NM NN cao cấp XK Nhật 12chai x 500ml,JP,36,TCTP,HDDG,EXPIRY,BBD,YYMMDD,,,,,,,,,SAN_SANG,
-03NM00626,,NM NN XK Australia (DHN) 18Chai x 750ml,AU,15,TCTP,HDDG,EXPIRY,BBF,DD.MM.YYYY,,,,,,,hh:mm | (Hạn sử dụng: ngày/tháng/năm + Lot No.),,SAN_SANG,
-03NM00893,BGNA01663,NM NN XK Australia 2 (DHN) 4can x 4.8L,AU,15,TCTP,HDDG,EXPIRY,BBD,DD MM YYYY,,,,,,,,Thực tế date ko /,SAN_SANG,
-03NM00677,,NM NN XK Australia Lotus 18Chai x 750ml,AU,15,TCTP,HDDG,EXPIRY,BBF,DD.MM.YYYY,,,,,,,hh:mm | (Hạn sử dụng: ngày/tháng/năm + Lot No.),,SAN_SANG,
-03NM00805,,NM NN XK China 12 chai x 1.2L,CN,24,TCTP,HDDG,PROD,NSX,DDMMYYYY,EXPIRY,HSD,DDMMYYYY,,,,hh:mm + line đóng gói và chữ I,,SAN_SANG,
-03NM00629,,NM NN XK CPC (DMF) 3Bl x 6 chai x 750ml,KH,12,TCTP,THUCTE,PROD,MFG,DDMMYY,EXPIRY,EXP,DDMMYY,,,,,,SAN_SANG,DUNG_FORM_THUC_TE
-03NM00630,,NM NN XK CPC (DMF) 3bl x 8chai x 500ml,KH,12,TCTP,HDDG,PROD,MFG,DDMMYY,EXPIRY,EXP,DDMMYY,,,,,,SAN_SANG,
-03NM00918,,NM NN XK Đầu bếp đặc biệt CPC (HSL) 3Bl x 6 chai x 750ml,KH,12,TCTP,HDDG,PROD,MFG,DDMMYY,EXPIRY,EXP,DDMMYY,,,,,,SAN_SANG,
-03NM00917,,NM NN XK Đầu bếp đặc biệt CPC (HSL) 3bl x 8chai x 500ml,KH,12,TCTP,HDDG,PROD,MFG,DDMMYY,EXPIRY,EXP,DDMMYY,,,,,,SAN_SANG,
-03NM00778,BGNA01432,NM NN XK Korea (Hyosung) 6can x 2L,KR,18,TCTP,HDDG,,,,,,,,,,TOKEN_LA: YY/MMMM,,THIEU_DU_LIEU,KHONG_PARSE_DUOC;TOKEN_LA
-03NM00744,,NM NN XK Korea (O Ye) 15chai x 900ml,KR,18,TCTP,HDDG,EXPIRY,EXP,DD MM YYYY,,,,,,,hh:mm + line hh:mm + line đóng gói và chữ A,,SAN_SANG,
-03NM00745,,NM NN XK Korea (O Ye) 4can x 4.8lít,KR,18,TCTP,HDDG,EXPIRY,EXP,DD MM YYYY,,,,,,,,"Thực tế date ko /.
-HDĐG sai item nhãn, RD chưa update lại",SAN_SANG,
-03NM00889,,NM NN XK Korea (OTL) 3bl x 8chai x 500ml,KR,18,TCTP,HDDG,EXPIRY,EXP,DD MM YYYY,,,,,,,hh:mm + line hh:mm + line đóng gói và chữ A,,SAN_SANG,
-03NM00458,,NM NN XK Macau 18Chai x 750ml,MO,12,TCTP,HDDG,EXPIRY,BBF,DD/MM/YYYY,,,,,,,hh:mm + line đóng gói và chữ A | hh:mm + line đóng gói và chữ I,,SAN_SANG,
-03NM00459,,NM NN XK Macau 24Chai x 500ml,MO,12,TCTP,HDDG,EXPIRY,BBF,DD/MM/YYYY,,,,,,,hh:mm + line đóng gói và chữ A | hh:mm + line đóng gói và chữ I,,SAN_SANG,
-03NM00888,,NM NN XK Malaysia (Sangla) 18chai x 750ml,MY,18,TCTP,HDDG,EXPIRY,EXP,DD/MM/YYYY,,,,,,,hh:mm + line đóng gói và chữ A,,SAN_SANG,
-03NM00795,,NM NN XK Nhật 12 chai x 1.2L,JP,12,TCTP,HDDG,EXPIRY,BBD,YYYYMMDD,,,,,,,hh:mm + line đóng gói và chữ A | (năm hết hạn/tháng/ngày),,SAN_SANG,
-03NM00586,,NM NN XK Taiwan (Asean VIP) 24Chai x 500ml,TW,12,TCTP,HDDG,PROD,MFG,DD MM YYYY,EXPIRY,EXP,DD MM YYYY,,,,hh:mm + line đóng gói và chữ I,,SAN_SANG,
-03NM00907,BGNA01708,NM NN XK Taiwan (Fullerton) 4can x 4.8L,TW,12,TCTP,HDDG,EXPIRY,EXP,DD MM YYYY,,,,,,,,Thực tế date ko /,SAN_SANG,
-03NM00460,,NM NN XK Taiwan (N.I.M) 24Chai x 500ml,TW,12,TCTP,HDDG,EXPIRY,EXP,DD/MM/YYYY,,,,,,,hh:mm + line đóng gói và chữ I,,SAN_SANG,
-03NM00587,,NM NN XK Taiwan 1 (Asean VIP) 18Chai x 750ml,TW,12,TCTP,HDDG,PROD,MFG,DD MM YYYY,EXPIRY,EXP,DD MM YYYY,,,,hh:mm + packaging line and letter I,,SAN_SANG,
-03NM00466,,NM NN XK Taiwan 2 (N.I.M) 15chai x 900ml,TW,12,TCTP,HDDG,EXPIRY,EXP,DD/MM/YYYY,,,,,,,hh:mm + line đóng gói và chữ I,,SAN_SANG,
-03NM00443,,NM NN XK Taiwan 2 (N.I.M) 18chai x 750ml,TW,12,TCTP,HDDG,EXPIRY,EXP,DD/MM/YYYY,,,,,,,hh:mm + line đóng gói và chữ I,,SAN_SANG,
-03NM00764,,NM NN XK Korea (Hyosung) 2bl x 6chai x 650ml,KR,18,TCTP,HDDG,EXPIRY,EXP,DD MM YYYY,,,,,,,hh:mm + line đóng gói và chữ A,,SAN_SANG,
-03NM00763,,NM NN XK Korea (Hyosung) 4bl x 6chai x 300ml,KR,18,TCTP,HDDG,EXPIRY,EXP,DD MM YYYY,,,,,,,hh:mm + line đóng gói và chữ A,,SAN_SANG,
-03NM00728,,NMCS CCBD XK Nhật 6chai x 500ml,JP,18,TCTP,HDDG,EXPIRY,EXP,YYMMDD,,,,,,,1 dòng duy nhất | Z = A – sản xuất tại MSI,,SAN_SANG,
-03NM00896,BGNA01673,NMCS chua ngọt XK Korea (OTL) 12chai x 300ml,KR,12,TCTP,HDDG,EXPIRY,EXP,DD MM YYYY,,,,,,,,Thực tế date ko /,SAN_SANG,
-03NM00911,BGNA01718,NMCS chua ngọt XK Korea (OTL) 24chai x 100ml,KR,12,TCTP,HDDG,EXPIRY,EXP,DD MM YYYY,,,,,,,,Thực tế date ko /,SAN_SANG,
-03NM00825,BGNA01527,NMCS chua ngọt XK Mỹ 48chai x 100ml,US,15,TCTP,HDDG,EXPIRY,BBF,MMDDYYYY,,,,,,,,Thực tế date ko /,SAN_SANG,
-03NM00803,04MS01759,NMCS chua ngọt XK Mỹ 4bịch x 50gói x 30ml,US,9,TCTP,HDDG,EXPIRY,BBF,MMDDYYYY,,,,,,,,"TCTP đang trình ký lại, đã báo LocCH check thêm HSD gói 30ml",SAN_SANG,
-99NM80085,BGNA00304,NMCS chua ngọt XK Mỹ 4canx4.8L,US,,,NONE,,,,,,,,,,,Chưa sx,THIEU_DU_LIEU,THIEU_FORM_DATE;THIEU_HSD
-03NM00904,,NMCS Hiệu Tôm Hùm 12x696ml XK Canada,CA,36,TCTP,HDDG,EXPIRY,BBF,YYYY MM DD,LOT,LOT,DDMMYYYY,,,,Ví dụ: BBF 2028 DE 18 | 08:00 6A Lot 18122025,"TCTP đang trình ký, chưa ban hành hệ thống",SAN_SANG,
-03NM00857,,NMCS Hiệu Tôm Hùm 12x696ml XK Mỹ,US,36,TCTP,HDDG,EXPIRY,BBF,MM/DD/YYYY,,,,,,,"LaabbA | Lot No: L là lot number, aa là số tự ló xuất đi, bb là năm sản xuất, A là đóng gói ở MSI",,SAN_SANG,
-03NM00780,BGNA01743,NMCS tỏi ớt pha sẵn XK Mỹ 12chai x 500ml,US,18,TCTP,HDDG,EXPIRY,BBF,MM/DD/YYYY,,,,,,,,,SAN_SANG,
-03NT00465,,NT TTT nhất ca XK Australia (DHN) 12chai x 650ml (Chai mới),AU,12,TCTP,HDDG,EXPIRY,BBF,DDMMYYYY,,,,,,,,,SAN_SANG,
-03NT00483,,NT TTT nhất ca XK Australia (Lotus) 12chai x 650ml (Chai mới),AU,12,HDDG,HDDG,EXPIRY,BBF,DDMMYYYY,,,,,,,,,SAN_SANG,
-03NT00608,,NT TTT Nhất ca XK Canada (WDT) 2bl x 6chai x 650ml,CA,24,TCTP,HDDG,EXPIRY,BBF,YYYY MM DD,LOT,LOT,DDMMYY,,,,,"TCTP đang trình ký, chưa ban hành",SAN_SANG,
-03NT00596,,NT TTT nhất ca XK Canada 2bl x 6chai x 650ml (Chai mới),CA,24,TCTP,HDDG,EXPIRY,BBF,YYYY MM DD,LOT,LOT,DDMMYY,,,,,"TCTP đang trình ký, chưa ban hành",SAN_SANG,
-03NT00446,,NT TTT nhất ca XK China 4bl x 6chai x 500ml,CN,,,NONE,,,,,,,,,,,,THIEU_DU_LIEU,THIEU_FORM_DATE;THIEU_HSD
-03NT00468,BNNT00073,NT TTT Nhất ca XK CPC (DMF) 4bl x 6chai x 500ml,KH,12,TCTP,HDDG,PROD,MFG,DDMMYY,EXPIRY,EXP,DDMMYY,,,,,,SAN_SANG,
-03NT00403,BGNT00371,NT TTT nhất ca XK Korea (Oye) 24chai x 500ml (Chai mới),KR,18,TCTP,HDDG,EXPIRY,EXP,DD MM YYYY,,,,,,,,Thực tế date ko /,SAN_SANG,
-03NT00462,,NT TTT nhất ca XK Mỹ 2bl x 6chai x 650ml (Chai mới),US,24,TCTP,HDDG,EXPIRY,BBF,MM DD YY,,,,,,,,,SAN_SANG,
-03NT00577,BGNT00400,NT TTT Nhất ca XK Nhật 4bl x 6chai x 500ml (Chai mới),JP,18,TCTP,HDDG,EXPIRY,BBD,YYYYMMDD,,,,,,,,,SAN_SANG,
-03NT00505,,NT TTT Nhất Ca XK Taiwan 1 (Asean VIP) 12chai x 650ml (Chai mới),TW,18,TCTP,HDDG,PROD,MFG,DD/MM/YYYY,EXPIRY,EXP,DD/MM/YYYY,,,,,,SAN_SANG,
-03NT00440,BGNT00350,NT TTT Nhất ca XK Taiwan 2 (N.I.M) 24chai x 500ml (Chai mới),TW,18,TCTP,HDDG,EXPIRY,EXP,DDMMYYYY,,,,,,,,Thực tế date ko /,SAN_SANG,
-03NT00615,,NTCS Nấm Shiitake XK Czech (Dalat) 24chai x 330ml,CZ,24,TCTP,HDDG,EXPIRY,BBF,DDMMYYYY,,,,,,,,TCTP bản ký chưa ban hành,SAN_SANG,
-03NT00572,,NTCS Nấm Shiitake XK Korea (Hyosung) 24chai x 330ml,KR,18,TCTP,HDDG,EXPIRY,EXP,DDMMYYYY,,,,,,,,,SAN_SANG,
-03NT00576,BGNT00399,NTCS Nấm Shiitake XK Mỹ 12chai x 500ml,US,24,TCTP,HDDG,PROD,MFG,MMM DD YY,EXPIRY,BBF,MMM DD YY,,,,,"Thực tế date ko /, date tháng bằng chữ",SAN_SANG,
-03NT00604,,NTCS Nấm Shiitake XK Poland (Pitaya Kuchnia) 24chai x 330ml,PL,24,TCTP,HDDG,EXPIRY,BBF,DD MM YYYY,,,,,,,,TCTP bản ký chưa ban hành,SAN_SANG,
-03NT00391,BGNT00434,NTCS Nấm XK Nga - KBG 24chai x 275gr,RU,18,TCTP,HDDG,PROD,MFG,DDMMYYYY,EXPIRY,EXP,DDMMYYYY,,,,,,SAN_SANG,
-03NT00599,BGNT00430,NTCS Nấm XK Nga (Grand Trade) 24chai x 275gr,RU,18,TCTP,HDDG,PROD,MFG,DDMMYYYY,EXPIRY,EXP,DDMMYYYY,,,,,,SAN_SANG,
-03NT00590,BGNT00416,NTCS Nấm XK Nga (KBG) CZ 24chai x 250ml,RU,18,TCTP,HDDG,PROD,MFG,DDMMYYYY,EXPIRY,EXP,DDMMYYYY,,,,,,SAN_SANG,
-03NT00477,BNNT00077,NTCS Tỏi ớt XK CPC (DMF) 4bl x 6chai x 250ml,KH,12,TCTP,HDDG,PROD,MFG,DDMMYY,EXPIRY,EXP,DDMMYY,,,,,,SAN_SANG,
-03NT00424,BGNT00276,NTCS Tỏi ớt XK Czech (Dalat) 12chai x 500ml,CZ,18,TCTP,HDDG,EXPIRY,BBF,DDMMYYYY,,,,,,,,,SAN_SANG,
-03NT00402,BGNT00273,NTCS Tỏi ớt XK Czech 12chai x 250ml,CZ,18,TCTP,HDDG,EXPIRY,BBF,DDMMYYYY,,,,,,,,Thực tế date không cách,SAN_SANG,
-03NT00398,BGNT00248,NTCS Tỏi ớt XK Hungary (Chimpex) 12chai x 250ml,HU,18,TCTP,HDDG,EXPIRY,BBF,DDMMYYYY,,,,,,,,Thực tế không có dấu chấm (.),SAN_SANG,
-03NT00514,BGNT00370,NTCS Tỏi ớt XK Korea (Datafood) 24chai x 250ml,KR,18,TCTP,HDDG,EXPIRY,EXP,DDMMYYYY,,,,,,,,Thực tế date ko /,SAN_SANG,
-03NT00526,BGNT00340,NTCS Tỏi Ớt XK Korea (Hyosung) 24chai x 330ml,KR,18,TCTP,HDDG,EXPIRY,EXP,DDMMYYYY,,,,,,,,Thực tế date ko /,SAN_SANG,
-03NT00460,,NTCS Tỏi ớt XK Mỹ 24chai x 250ml,US,24,TCTP,HDDG,EXPIRY,BBF,MMM DD YY,,,,,,,,,SAN_SANG,
-03NT00392,BGNT00433,NTCS Tỏi ớt XK Nga - KBG 24chai x 275gr,RU,18,TCTP,HDDG,PROD,MFG,DDMMYYYY,EXPIRY,EXP,DDMMYYYY,,,,,,SAN_SANG,
-03NT00598,BGNT00429,NTCS Tỏi ớt XK Nga (Grand Trade) 24chai x 275gr,RU,18,TCTP,HDDG,PROD,MFG,DDMMYYYY,EXPIRY,EXP,DDMMYYYY,,,,,,SAN_SANG,
-03NT00589,BGNT00415,NTCS Tỏi ớt XK Nga (KBG) CZ 24chai x 250ml,RU,18,TCTP,HDDG,PROD,MFG,DDMMYYYY,EXPIRY,EXP,DDMMYYYY,,,,,,SAN_SANG,
-03NT00475,BGNT00240,NTCS Tỏi ớt XK Poland (Asia-Foods) 24chai x 250ml,PL,18,TCTP,HDDG,EXPIRY,BBF,DD MM YYYY,,,,,,,,,SAN_SANG,
-03NT00605,BGNT00438,NTCS Tỏi ớt XK Poland (Pitaya Kuchnia) 24chai x 330ml,PL,18,TCTP,HDDG,EXPIRY,BBF,DD MM YYYY,,,,,,,,,SAN_SANG,
-03NT00439,BGNT00349,NTCS Tỏi ớt XK Taiwan 2 (N.I.M) 24chai x 250ml,TW,18,TCTP,HDDG,EXPIRY,EXP,DD/MM/YYYY,,,,,,,,,SAN_SANG,
-03NT00476,BNNT00076,NTCS XK CPC (DMF) 4bl x 6chai x 250ml,KH,12,TCTP,HDDG,PROD,MFG,DDMMYY,EXPIRY,EXP,DDMMYY,,,,,,SAN_SANG,
-03NT00423,BGNT00269,NTCS XK Czech (Dalat) 12chai x 500ml,CZ,18,TCTP,HDDG,EXPIRY,BBF,DDMMYYYY,,,,,,,,,SAN_SANG,
-03NT00401,BGNT00272,NTCS XK Czech 12chai x 250ml,CZ,18,TCTP,HDDG,EXPIRY,BBF,DDMMYYYY,,,,,,,,,SAN_SANG,
-03NT00397,BGNT00247,NTCS XK Hungary (Chimpex) 12chai x 250ml,HU,18,TCTP,HDDG,EXPIRY,BBF,DDMMYYYY,,,,,,,,Thực tế không có dấu chấm (.),SAN_SANG,
-03NT00459,,NTCS XK Mỹ 24chai x 250ml,US,24,TCTP,HDDG,EXPIRY,BBF,MMM DD YY,,,,,,,,,SAN_SANG,
-03NT00390,BGNT00432,NTCS XK Nga - KBG 24chai x 270gr,RU,18,TCTP,HDDG,PROD,MFG,DDMMYYYY,EXPIRY,EXP,DDMMYYYY,,,,,,SAN_SANG,
-03NT00597,BGNT00428,NTCS XK Nga (Grand Trade) 24chai x 270gr,RU,18,TCTP,HDDG,PROD,MFG,DDMMYYYY,EXPIRY,EXP,DDMMYYYY,,,,,,SAN_SANG,
-03NT00588,BGNT00414,NTCS XK Nga (KBG) CZ 24chai x 250ml,RU,18,TCTP,HDDG,PROD,MFG,DDMMYYYY,EXPIRY,EXP,DDMMYYYY,,,,,,SAN_SANG,
-03NT00474,BGNT00239,NTCS XK Poland (Asia-Foods) 24chai x 250ml,PL,18,TCTP,HDDG,EXPIRY,BBF,DD MM YYYY,,,,,,,,Thực tế date ko /,SAN_SANG,
-03NT00438,BGNT00348,NTCS XK Taiwan 2 (N.I.M) 24chai x 250ml,TW,18,TCTP,HDDG,EXPIRY,EXP,DD/MM/YYYY,,,,,,,,,SAN_SANG,
-08TL00062,,NTL WK 247 - 4bl x 6chai x 330ml XK China,CN,,,NONE,,,,,,,,,,,,THIEU_DU_LIEU,THIEU_FORM_DATE;THIEU_HSD
-08TL00103,,NTL WK 247 - 4bl x 6chai x 330ml XK Korea (OTL),KR,12,TCTP,HDDG,EXPIRY,EXP,DD MM YYYY,,,,,,,LaabbcK hh:pp,,SAN_SANG,
-08TL00100,,NTL WK 247 XK Taiwan (Fullerton) 4bl x 6chai x 330ml,TW,9,TCTP,HDDG,EXPIRY,EXP,DD MM YYYY,,,,,,,LaabbcK hh:pp,,SAN_SANG,
-03OT00437,,TO Horeca XK Campuchia 24chai x 450gr,KH,12,TCTP,HDDG,PROD,MFG,DDMMYY,EXPIRY,EXP,DDMMYY,,,,Ghi chú: Hạn sử dụng 12 tháng,,SAN_SANG,
-03OT00207,,TOCS cay gấp đôi XK Nhật 3bl x 8 chai x 250gr,JP,15,TCTP,HDDG,EXPIRY,EXP,YYMMDD,,,,,,,Ghi chú: Hạn sử dụng 15 tháng.,,SAN_SANG,
-03OT00433,,TOCS cay XK Netherlands (LTP) 3bl x 8chai x 250gr,NL,15,TCTP,HDDG,EXPIRY,BBD,DD/MM/YYYY,,,,,,,Lddmmyy (Lotno theo ngày/tháng/năm sản xuất) | Ghi chú: Hạn sử dụng 15 tháng,,SAN_SANG,
-03OT00485,,TOCS chai eo XK Cambodia 2bl x 6chai x490gr,KH,12,TCTP,HDDG,PROD,MFG,DDMMYY,EXPIRY,EXP,DDMMYY,,,,Hạn sử dụng 12 tháng,,SAN_SANG,
-03OT00380,,TOCS chua ngọt XK Hàn Quốc 3bl x 8chai x 295gr (CT),KR,15,TCTP,HDDG,EXPIRY,EXP,DD MM YYYY,,,,,,,Ghi chú: Hạn sử dụng 15 tháng,,SAN_SANG,
-03OT00459,,TOCS chua ngọt XK Nga 24chai x 265gr (CT),RU,,,NONE,,,,,,,,,,,,THIEU_DU_LIEU,THIEU_FORM_DATE;THIEU_HSD
-03OT00461,,TOCS Original XK Canada (88 Supermarket) 2bl x 6chai x 450ml,CA,,,NONE,,,,,,,,,,,,THIEU_DU_LIEU,THIEU_FORM_DATE;THIEU_HSD
-03OT00460,,TOCS Original XK Canada (88 Supermarket) 3bl x 8chai x 235ml,CA,,,THUCTE,EXPIRY,BBF,YYYY MM DD,,,,,,,,,THIEU_DU_LIEU,DUNG_FORM_THUC_TE;THIEU_HSD
-03OT00465,,TOCS Original XK Canada (Choy-Foong) 2bl x 6chai x 450ml,CA,,,NONE,,,,,,,,,,,,THIEU_DU_LIEU,THIEU_FORM_DATE;THIEU_HSD
-03OT00464,,TOCS Original XK Canada (Choy-Foong) 3bl x 8chai x 235ml,CA,,,THUCTE,EXPIRY,BBF,YYYY MM DD,,,,,,,,,THIEU_DU_LIEU,DUNG_FORM_THUC_TE;THIEU_HSD
-03OT00479,,TOCS Original XK Canada (Legendary) 2bl x 6chai x 450ml,CA,18,TCTP,HDDG,EXPIRY,BBF,YYYY MM DD,,,,,,,HSD: 18 tháng | (Sử dụng tốt nhất trước năm/tháng/ngày) | LOTDDMMYY HH:MM 2M1 | (LOTno ngày/tháng/năm sản xuất) | Ví dụ:,,SAN_SANG,
-03OT00478,,TOCS Original XK Canada (Legendary) 3bl x 8chai x 235ml,CA,18,TCTP,HDDG,EXPIRY,BBF,YYYY MM DD,,,,,,,HSD: 18 tháng | LOTDDMMYY HH:MM 2M1 (LOT no ngày/tháng/năm sản xuất) | Ví dụ: BBF 2027 JL 16 | Lot160126 18:20 2M1,,SAN_SANG,
-03OT00272,,TOCS Original XK Korea (Hyosung) 3bl x 8chai x 250gr,KR,15,TCTP,HDDG,EXPIRY,EXP,DD MM YYYY,,,,,,,Ghi chú: Hạn sử dụng 15 tháng.,,SAN_SANG,
-03OT00318,,TOCS Original XK Korea (Hyosung) 8chai x 1kg,KR,15,TCTP,HDDG,EXPIRY,EXP,DD MM YYYY,,,,,,,,,SAN_SANG,
-03OT00475,,TOCS Original XK Malaysia (Sangla) 3bl x 8chai x 250gr,MY,18,TCTP,HDDG,EXPIRY,EXP,DD/MM/YYYY,,,,,,,Lddmmyy (Lotno theo ngày/tháng/năm sản xuất) | Ghi chú: Hạn sử dụng 18 tháng,,SAN_SANG,
-03OT00440,,TOCS Original XK Mỹ (Seattle) 2bl x 6chai x 500gr,US,18,TCTP,HDDG,EXPIRY,BBF,MM/DD/YY,,,,,,,LaabbcA | Ghi chú: Hạn sử dụng 18 tháng,,SAN_SANG,
-03OT00377,,TOCS Original XK Mỹ 16bịch x 50gói x 10gr,US,18,TCTP,HDDG,PROD,MFG,MMM DD YY,EXPIRY,BBF,MMM DD YY,,,,HSD: 18 tháng,,SAN_SANG,
-03OT00374,,TOCS Original XK Nhật (IMAI) 8chai x 1kg,JP,15,TCTP,HDDG,EXPIRY,EXP,YYMMDD,,,,,,,VD: EXP 210331 | Ghi chú: Hạn sử dụng 15 tháng,,SAN_SANG,
-03OT00239,,TOCS Phở XK Mỹ 2bl x 6chai x 470gr,US,18,TCTP,HDDG,PROD,MFG,MMM DD YY,EXPIRY,BBF,MMM DD YY,,,,Ghi chú: Hạn sử dụng 18 tháng,,SAN_SANG,
-03ST00024,,TOCS sa tế XK Nga (KBG) CZ 3bl x 8chai x 255gr,RU,18,TCTP,HDDG,PROD,MFG,DDMMYY,EXPIRY,EXP,DDMMYY,,,,Ghi chú: Hạn sử dụng 18 tháng,,SAN_SANG,
-03ST00019,,"TOCS sa tế XK LB Nga, KAZ, Mongolia - KBG 24chai x 255gr",RU,18,TCTP,HDDG,PROD,MFG,DDMMYY,EXPIRY,EXP,DDMMYY,,,,Ghi chú: Hạn sử dụng 18 tháng,,SAN_SANG,
-03OT00349,,TOCS Sriracha (CD) XK Hàn (Hyosung) 3bl x 8chai x 275gr,KR,,,NONE,,,,,,,,,,,,THIEU_DU_LIEU,THIEU_FORM_DATE;THIEU_HSD
-03OT00476,,TOCS Sriracha (CD) XK Malaysia (Sangla) 3bl x 8chai x 250gr,MY,18,TCTP,HDDG,EXPIRY,EXP,DD/MM/YYYY,,,,,,,Lddmmyy (Lotno theo ngày/tháng/năm sản xuất) | Ghi chú: Hạn sử dụng 18 tháng,,SAN_SANG,
-03OT00340,,TOCS Sriracha (CD) XK Nhật 3bl x 8chai x 275gr,JP,15,TCTP,HDDG,EXPIRY,EXP,YYMMDD,,,,,,,Ghi chú: Hạn sử dụng 15 tháng.,,SAN_SANG,
-03OT00348,,TOCS Sriracha (CT) XK Hàn (Hyosung) 3bl x 8chai x 115gr,KR,,,NONE,,,,,,,,,,,,THIEU_DU_LIEU,THIEU_FORM_DATE;THIEU_HSD
-03OT00383,,TOCS Sriracha (CT) XK Mỹ 3bl x 8chai x 115gr,US,18,TCTP,HDDG,EXPIRY,BBF,MMDDYY,,,,,,,Lddmmyy (Lot number theo ngày/tháng/năm sản xuất) | Ghi chú: Hạn sử dụng 18 tháng.,,SAN_SANG,
-03OT00457,,TOCS Sriracha (CT) XK Nga (Magnit) 3bl x 8chai x 275gr,RU,15,TCTP,HDDG,PROD,MFG,DDMMYYYY,EXPIRY,EXP,DDMMYYYY,,,,(Ngày sản xuất: ngày/tháng/năm) | Ghi chú: Hạn sử dụng 15 tháng,,SAN_SANG,
-03OT00463,,TOCS Sriracha XK (CT) Canada (88 Supermarket) 3bl x 8chai x 235ml,CA,,,NONE,,,,,,,,,,,,THIEU_DU_LIEU,THIEU_FORM_DATE;THIEU_HSD
-03OT00467,,TOCS Sriracha XK (CT) Canada (Choy-Foong) 3bl x 8chai x 235ml,CA,,,NONE,,,,,,,,,,,,THIEU_DU_LIEU,THIEU_FORM_DATE;THIEU_HSD
-03OT00480,,TOCS Sriracha XK (CT) Canada (Legendary) 3bl x 8chai x 235ml,CA,18,TCTP,HDDG,EXPIRY,BBF,YYYY MM DD,,,,,,,HSD: 18 tháng | LOTDDMMYY HH:MM | (Sử dụng tốt nhất trước năm/tháng/ngày) | Ví dụ: BBF 2020 FE 18 | 08:00 6A Lot 221124,,SAN_SANG,
-03OT00372,,TOCS Sriracha XK (CT) Czech (Dalat) 3bl x 8chai x 275gr,CZ,18,TCTP,HDDG,EXPIRY,BBF,DDMMYYYY,PROD,NSX,DDMMYY,,,,(Sử dụng tốt nhất trước ngày/tháng/năm + Lot No.) | Ghi chú: Hạn sử dụng 18 tháng,,SAN_SANG,
-03OT00419,,TOCS Sriracha XK Australia (DHN) 3bl x 8chai x 275gr,AU,15,TCTP,HDDG,EXPIRY,BBD,DD MM YYYY,,,,,,,(Hạn sử dụng: ngày/tháng/năm + LotNo) | Ghi chú: Hạn sử dụng 15 tháng,,SAN_SANG,
-03OT00371,,TOCS Sriracha XK Czech (Dalat) 3bl x 6chai x 535gr,CZ,18,TCTP,HDDG,EXPIRY,BBF,DDMMYYYY,,,,,,,(Sử dụng tốt nhất trước ngày/tháng/năm + Lot No.) | Ghi chú: Hạn sử dụng 18 tháng,,SAN_SANG,
-03OT00430,,TOCS Sriracha XK Mỹ (CT) 2bl x 6chai x 500gr,US,18,TCTP,HDDG,EXPIRY,BBF,MMDDYY,,,,,,,LaabbcA | Ghi chú: Hạn sử dụng 18 tháng.,,SAN_SANG,
-03OT00384,,TOCS Sriracha XK Mỹ (CT) 3bl x 8chai x 250gr,US,18,TCTP,HDDG,EXPIRY,BBF,MMDDYY,,,,,,,Lddmmyy (Lot number theo ngày/tháng/năm sản xuất) | Ghi chú: Hạn sử dụng 18 tháng.,,SAN_SANG,
-03OT00453,,TOCS Sriracha XK Mỹ (Seattle) 16bịch x 50gói x 10gr,US,,,NONE,,,,,,,,,,,,THIEU_DU_LIEU,THIEU_FORM_DATE;THIEU_HSD
-03OT00444,,TOCS Sriracha XK Mỹ (Seattle) 2bl x 6chai x 500gr (CT mới),US,18,TCTP,HDDG,EXPIRY,BBF,MMDDYY,,,,,,,Lddmmyy (Lot number theo ngày/tháng/năm sản xuất) | Ghi chú: Hạn sử dụng 18 tháng,,SAN_SANG,
-03OT00378,,TOCS Sriracha XK Mỹ XK Mỹ 16bịch x 50gói x 10gr,US,18,TCTP,HDDG,EXPIRY,BBF,MMDDYY,,,,,,,HSD: 18 tháng | Lddmmyy (Lot number theo ngày/tháng/năm sản xuất),,SAN_SANG,
-03OT00379,,TOCS Sriracha XK Nhật 16bịch x 50gói x 10gr,JP,15,TCTP,HDDG,EXPIRY,EXP,YYMMDD,,,,,,,Ghi chú: Hạn sử dụng 15 tháng,,SAN_SANG,
-03OT00424,,TOCS Sriracha XK Taiwan (Fullerton) 3bl x 6chai x 535gr,TW,15,TCTP,HDDG,EXPIRY,EXP,DD.MM.YYYY,,,,,,,(Hạn sử dụng: ngày/tháng/năm + LotNo) | Ghi chú: Hạn sử dụng 15 tháng,,SAN_SANG,
-03OT00370,,TOCS Sriracha XK Thụy Điển (Hungfat) 3bl x 6chai x 535gr,SE,18,TCTP,HDDG,EXPIRY,BBF,DDMMYYYY,,,,,,,(Sử dụng tốt nhất trước ngày/tháng/năm + Lot No.) | Ghi chú: Hạn sử dụng 18 tháng,,SAN_SANG,
-03OT00344,,TOCS Sriracha XK (CT) Canada 3bl x 8chai x 235ml,CA,18,TCTP,HDDG,EXPIRY,BBF,YYYYMMDD,,,,,,,WD hh:mm line đóng gói | Ghi chú: Hạn sử dụng 18 tháng.,,SAN_SANG,
-03OT00346,,TOCS Sriracha XK (CT) Hyosung 3bl x 8chai x 275gr,,15,TCTP,HDDG,EXPIRY,EXP,DD MM YYYY,,,,,,,Ghi chú: Hạn sử dụng 15 tháng.,,SAN_SANG,
-03OT00481,,TOCS Sriracha XK Canada (Hen Long) (CT-CBQ) 3bl x 8chai x 235ml,CA,,,NONE,,,,,,,,,,,,THIEU_DU_LIEU,THIEU_FORM_DATE;THIEU_HSD
-03OT00160,,TOCS XK Australia (DHN) 24chai x 250gr,AU,18,TCTP,HDDG,EXPIRY,BBF,DDMMYYYY,,,,,,,"(L là viết tắt của Lot Number, aa là số thứ tự lô xuất đi nước đó, bb là năm sản xuất, cA là line đóng gói) | Ghi chú: H",,SAN_SANG,
-03OT00287,,TOCS XK Australia (DHN) 2bl x 6chai x 480gr,AU,18,TCTP,HDDG,EXPIRY,BBF,DD MM YYYY,,,,,,,"(L là viết tắt của Lot Number, aa là số thứ tự lô xuất đi nước đó, bb là năm sản xuất, cA là line đóng gói) | Ghi chú: H",,SAN_SANG,
-03OT00391,,TOCS XK Australia (DHN) 2bl x 6chai x 960gr,AU,18,TCTP,HDDG,EXPIRY,BBF,DD MM YYYY,,,,,,,Ghi chú: Hạn sử dụng 18 tháng,,SAN_SANG,
-03OT00351,,TOCS XK Australia (Golden Star) 2bl x 6chai x 480gr,AU,18,TCTP,HDDG,EXPIRY,BBF,DD MM YYYY,,,,,,,"(L là viết tắt của Lot Number, aa là số thứ tự lô xuất đi nước đó, bb là năm sản xuất, cA là line đóng gói) | Ghi chú: H",,SAN_SANG,
-03OT00350,,TOCS XK Australia (Golden Star) 3bl x 8chai x 250gr,AU,18,TCTP,HDDG,EXPIRY,BBF,DDMMYYYY,,,,,,,"(L là viết tắt của Lot number, aa là số thứ tự lô sản xuất đi nước đó, bb là năm sản xuất, cA là line đóng gói) | Ghi ch",,SAN_SANG,
-03OT00286,,TOCS XK Australia (Lotus) 2bl x 6chai x 480gr,AU,18,TCTP,HDDG,EXPIRY,BBF,DD MM YYYY,,,,,,,"(L là viết tắt của Lot Number, aa là số thứ tự lô xuất đi nước đó, bb là năm sản xuất, cA là line đóng gói) | Ghi chú: H",,SAN_SANG,
-03OT00392,,TOCS XK Australia (Lotus) 2bl x 6chai x 960gr,AU,18,TCTP,HDDG,EXPIRY,BBF,DD MM YYYY,,,,,,,Ghi chú: Hạn sử dụng 18 tháng,,SAN_SANG,
-03OT00406,,TOCS XK Canada (Hen Long) 2bl x 6chai x 450ml,CA,,,NONE,,,,,,,,,,,,THIEU_DU_LIEU,THIEU_FORM_DATE;THIEU_HSD
-03OT00405,,TOCS XK Canada (Hen Long) 3bl x 8 chai x 235ml,CA,,,THUCTE,EXPIRY,BBF,YYYY MM DD,,,,,,,,,THIEU_DU_LIEU,DUNG_FORM_THUC_TE;THIEU_HSD
-03OT00321,,TOCS XK Canada (WDT) 2bl x 6chai x 450ml,CA,18,TCTP,HDDG,EXPIRY,BBF,YYYY MM DD,,,,,,,HSD: 18 tháng | (Sử dụng tốt nhất trước năm/tháng/ngày) | LOTDDMMYY hh:mm line | (LOTno ngày/tháng/năm sản xuất) | Ví dụ,,SAN_SANG,
-03OT00320,,TOCS XK Canada (WDT) 3bl x 8 chai x 235ml,CA,18,TCTP,HDDG,EXPIRY,BBF,YYYY MM DD,,,,,,,HSD: 18 tháng | LOTDDMMYY + hh:mm line đóng gói (LOT no ngày/tháng/năm sản xuất) | Ví dụ: BBF 2027 JL 16 WD | Lot160126 ,,SAN_SANG,
-03OT00164,,"TOCS XK Cay LB Nga, KAZ, Mongolia - KBG 24chai x 250gr",RU,18,TCTP,HDDG,PROD,MFG,DDMMYY,EXPIRY,EXP,DDMMYY,,,,Ghi chú: Hạn sử dụng 18 tháng,,SAN_SANG,
-03OT00290,,TOCS XK CPC 24chai x 250gr,KH,18,TCTP,HDDG,PROD,MFG,DDMMYY,EXPIRY,BBF,DDMMYY,,,,Vị trí in trên chai: HSD: 18 tháng,,SAN_SANG,
-03OT00169,,TOCS XK Czech (Dalat) 3bl x 8chai x 250gr,CZ,18,TCTP,HDDG,EXPIRY,BBF,DDMMYYYY,PROD,NSX,DDMMYY,,,,( Sử dụng tốt nhất trước ngày/tháng/năm + Lot No.) | Ghi chú: Hạn sử dụng 18 tháng.,,SAN_SANG,
-03OT00190,,TOCS XK Hà Lan (Herman) 24chai x 250gr,,18,TCTP,HDDG,EXPIRY,BBF,DD MM YYYY,,,,,,,(Sử dụng tốt nhất trước ngày/tháng/năm) | Ghi chú: Hạn sử dụng 18 tháng.,,SAN_SANG,
-03OT00250,,TOCS XK Hà Lan (Mooijer) 3bl x 8chai x 250gr,,18,TCTP,HDDG,EXPIRY,BBF,DD MM YYYY,,,,,,,(Sử dụng tốt nhất trước ngày/tháng/năm) | Ghi chú: Hạn sử dụng 18 tháng.,,SAN_SANG,
-03OT00248,,TOCS XK Hungary (Chimpex) 3bl x 8chai x 250gr,HU,18,TCTP,HDDG,EXPIRY,BBF,DDMMYYYY,PROD,NSX,DDMMYY,,,,(Sử dụng tốt nhất trước ngày/tháng/năm + Lot No.) | Ghi chú: Hạn sử dụng 18 tháng.,,SAN_SANG,
-03OT00289,,TOCS XK Korea 2 (Hyosung) 2bl x 6chai x 500gr,KR,15,TCTP,HDDG,EXPIRY,EXP,DD MM YYYY,,,,,,,Ghi chú: Hạn sử dụng 15 tháng.,,SAN_SANG,
-03OT00205,,TOCS XK Mỹ 12chai x 500gr,US,18,TCTP,HDDG,EXPIRY,BBF,MMDDYY,,,,,,,Lddmmyy (Lot number theo ngày/tháng/năm sản xuất) | Ghi chú: Hạn sử dụng 18 tháng,,SAN_SANG,
-03OT00152,,TOCS XK Mỹ 24chai x 250gr,US,18,TCTP,HDDG,EXPIRY,BBF,MMDDYY,,,,,,,HSD: 18 tháng | Lddmmyy (Lot number theo ngày/tháng/năm sản xuất),,SAN_SANG,
-03OT00228,,TOCS XK Mỹ 8chai x 1kg,US,18,TCTP,HDDG,EXPIRY,BBF,MMDDYY,,,,,,,Lddmmyy (Lot number theo ngày/tháng/năm sản xuất) | Ghi chú: Hạn sử dụng 18 tháng,,SAN_SANG,
-03OT00434,,TOCS XK Netherlands (LTP) 2bl x 6chai x 480gr,NL,15,TCTP,HDDG,EXPIRY,BBD,DD/MM/YYYY,,,,,,,Lddmmyy (Lotno theo ngày/tháng/năm sản xuất) | Ghi chú: Hạn sử dụng 15 tháng,,SAN_SANG,
-03OT00404,,TOCS XK New Zealand (Gai Lee) 2bl x 6chai x 480gr,NZ,18,TCTP,HDDG,EXPIRY,BBF,DD MM YYYY,,,,,,,"(L là viết tắt của Lot Number, aa là số thứ tự lô xuất đi nước đó, bb là năm sản xuất, cA là line đóng gói) | Ghi chú: H",,SAN_SANG,
-03OT00474,,TOCS XK Nga (KBG) CZ 3bl x 8chai x 250gr,RU,18,TCTP,HDDG,PROD,MFG,DDMMYY,EXPIRY,EXP,DDMMYY,,,,Ghi chú: Hạn sử dụng 18 tháng,,SAN_SANG,
-03OT00456,,TOCS XK Nga (Magnit) 3bl x 8chai x 250gr,RU,15,TCTP,HDDG,PROD,MFG,DDMMYYYY,EXPIRY,EXP,DDMMYYYY,,,,(Ngày sản xuất: ngày/tháng/năm | Hạn sử dụng: ngày/tháng/năm + LotNo),,SAN_SANG,
-03OT00241,,TOCS XK Nhật 16bịch x 50gói x 10gr,JP,15,TCTP,HDDG,EXPIRY,EXP,YYMMDD,,,,,,,Ghi chú: Hạn sử dụng 15 tháng,,SAN_SANG,
-03OT00194,,TOCS XK Nhật 2bl x 6chai x 520gr,JP,15,TCTP,HDDG,EXPIRY,EXP,YYYY.MM.DD,,,,,,,Ghi chú: Hạn sử dụng 15 tháng,,SAN_SANG,
-03OT00399,,TOCS XK Nhật 3bl x 8chai x 100gr,JP,15,TCTP,HDDG,EXPIRY,EXP,YYMMDD,,,,,,,Ghi chú: Hạn sử dụng 15 tháng,,SAN_SANG,
-03OT00174,,TOCS XK Nhật 3bl x 8chai x 250gr,JP,15,TCTP,HDDG,EXPIRY,EXP,YYYY.MM.DD,,,,,,,Ghi chú: Hạn sử dụng 15 tháng,,SAN_SANG,
-03OT00400,,TOCS XK Nhật Sriracha (CD) 3bl x 8chai x 115gr,JP,15,TCTP,HDDG,EXPIRY,EXP,YYMMDD,,,,,,,Ghi chú: Hạn sử dụng 15 tháng,,SAN_SANG,
-03OT00491,,TOCS XK Poland (Asean Foods) 2bl x 6chai x 480gr,PL,15,TCTP,HDDG,EXPIRY,BBF,DD MM YYYY,,,,,,,Lddmmyy (Lotno theo ngày/tháng/năm sản xuất) | Ghi chú: Hạn sử dụng 15 tháng,,SAN_SANG,
-03OT00202,,TOCS XK Poland (Asia-Foods) 3bl x 8chai x 250gr,PL,18,TCTP,HDDG,EXPIRY,BBF,DD MM YYYY,,,,,,,(Sử dụng tốt nhất trước ngày/tháng/năm) | Ghi chú: Hạn sử dụng 18 tháng.,,SAN_SANG,
-03OT00172,,TOCS XK Russia (Venta) 3bl x 8chai x 250gr,RU,,,NONE,,,,,,,,,,,,THIEU_DU_LIEU,THIEU_FORM_DATE;THIEU_HSD
-03OT00288,,TOCS XK Taiwan 1 (Asean VIP) 2bl x 6chai x 520gr,TW,15,TCTP,HDDG,PROD,MFG,DD/MM/YYYY,EXPIRY,EXP,DD/MM/YYYY,,,,hh:mm + line đóng gói và chữ A | Ghi chú: Hạn sử dụng 15 tháng.,,SAN_SANG,
-03OT00211,,TOCS XK Taiwan 1 (Asean VIP) 3bl x 8chai x 250gr,TW,15,TCTP,HDDG,PROD,MFG,DD/MM/YYYY,EXPIRY,EXP,DD/MM/YYYY,,,,hh:mm + line đóng gói và chữ A | Ghi chú: Hạn sử dụng 15 tháng.,,SAN_SANG,
-03OT00265,,TOCS XK Taiwan 2 (N.I.M) 2bl x 6chai x 520gr,TW,15,TCTP,HDDG,EXPIRY,EXP,DD.MM.YYYY,,,,,,,Các NỘI DUNG KHÁC nhằm mục đích truy vết sản phẩm sẽ được QA quy định | Ghi chú: Hạn sử dụng 15 tháng.,,SAN_SANG,
-03OT00168,,TOCS XK Taiwan 2 (N.I.M) 3bl x 8chai x 250gr,TW,15,TCTP,HDDG,EXPIRY,EXP,DD.MM.YYYY,,,,,,,"EXP: Hạn sử dụng ngày/tháng/năm | LaabbcA: L viết tắt của Lot Number, aa là số thứ tự lô xuất đi nước đó, bb là năm sản ",,SAN_SANG,
-03OT00425,,TOCS XK Thụy Điển (Hungfat) 2bl x 6chai x 480gr,SE,18,TCTP,HDDG,EXPIRY,BBF,DD MM YYYY,,,,,,,"(L là viết tắt của Lot Number, aa là số thứ tự lô xuất đi nước đó, bb là năm sản xuất, cA là line đóng gói) | Ghi chú: H",,SAN_SANG,
-03OT00210,,TOCS XK Thụy Điển (Hungfat) 3bl x 8chai x 250gr,SE,18,TCTP,HDDG,EXPIRY,BBF,DD MM YYYY,,,,,,,(Sử dụng tốt nhất trước ngày/tháng/năm) | Ghi chú: Hạn sử dụng 18 tháng.,,SAN_SANG,
-03OT00315,,TOCS XK UK (LongDan) 3bl x 8chai x 250gr,GB,18,TCTP,HDDG,EXPIRY,BBF,DDMMYYYY,PROD,NSX,DDMMYY,,,,(Sử dụng tốt nhất trước ngày/tháng/năm + Lot No.) | Ghi chú: Hạn sử dụng 18 tháng.,,SAN_SANG,
-03OT00224,,TOCS XK XingBao 2bl x 6chai x 500gr,,18,TCTP,NONE,,,,,,,,,,,,THIEU_DU_LIEU,THIEU_FORM_DATE
-03OT00225,,TOCS XK XingBao 3bl x 8chai x 250gr,,18,TCTP,THUCTE,PROD,NSX,DD/MM/YYYY,EXPIRY,HSD,DD/MM/YYYY,,,,,,SAN_SANG,DUNG_FORM_THUC_TE
-03OT00284,,TOCS XK Czech (Dalat) 2bl x 6chai x 480gr,CZ,18,TCTP,HDDG,EXPIRY,BBF,DDMMYYYY,PROD,NSX,DDMMYY,,,,(Sử dụng tốt nhất trước ngày/tháng/năm + Lot No.) | Ghi chú: Hạn sử dụng 18 tháng.,,SAN_SANG,
-03OT00198,,Tương ớt CHIN-SU chai eo XK Australia (Lotus) 3bl x 8chai x 250gr,AU,18,TCTP,HDDG,EXPIRY,BBF,DDMMYYYY,,,,,,,"(L là viết tắt của Lot Number, aa là số thứ tự lô xuất đi nước đó, bb là năm sản xuất, cA là line đóng gói) | Ghi chú: H",,SAN_SANG,
-03OT00489,,Tương ớt CHIN-SU chai tròn XK Cambodia 4bl x 6chai x 450gr,KH,,,NONE,,,,,,,,,,,,THIEU_DU_LIEU,THIEU_FORM_DATE;THIEU_HSD
-`;
+/* Không nhúng master vào trang công khai. Bảng này chứa tên khách hàng,
+   thị trường và hạn dùng — dữ liệu nội bộ. Nguồn duy nhất là Google Sheet
+   qua trạm. Mất trạm thì app báo rõ, không chạy bằng bản chép cũ. */
+const EMBEDDED_CSV = 'ma_item,ten_san_pham,site_ap_dung\n';
 const MASTER_URL='master_datecode.csv';
 let MASTER=[];
 
@@ -723,6 +506,10 @@ function showItem(code){
       <button class="go" type="button" id="camchup">Chụp và đọc</button>
       <button class="ghost" type="button" id="camdoi">Đổi cam</button>
     </div>
+    <div class="camhang">
+      <button class="ghost" type="button" id="camchon" style="flex:1">Chọn ảnh có sẵn trong máy</button>
+      <input type="file" id="camfile" accept="image/*" style="display:none">
+    </div>
     <div id="camtt">đang mở camera…</div>
     <div id="camdoc"></div>
     <div class="camnho">Máy đọc chỉ điền sẵn vào ô bên dưới. Kết luận vẫn tính từ ngày sản xuất theo lot — sửa lại nếu máy đọc sai.</div>`:''}
@@ -894,6 +681,7 @@ const CAM = {
   GIU_KHUNG: 10       // mất dấu thì vẫn giữ khung thêm 10 vòng
 };
 
+var LAST_OCR=null;
 let camStream=null, camSau=true, camSegs=[], camRAF=null;
 let camLuoi=null, camLctx=null;
 let camKhung=null, camDem=0, camMat=0, camNguongEMA=null, camLanCuoi=0, camCaoGoc=null;
@@ -906,6 +694,11 @@ function camKhoiDong(segs){
   camKhung=null; camDem=0; camMat=0; camNguongEMA=null;
   document.getElementById('camchup').onclick=camChup;
   document.getElementById('camdoi').onclick=()=>{camSau=!camSau;camMo();};
+  document.getElementById('camchon').onclick=()=>document.getElementById('camfile').click();
+  document.getElementById('camfile').onchange=e=>{
+    if(e.target.files&&e.target.files[0]) camChonAnh(e.target.files[0]);
+    e.target.value='';
+  };
   camMo();
 }
 
@@ -1026,7 +819,21 @@ function camVe(){
 }
 
 /* ---- chụp: cắt từ ảnh GỐC, chỉ phóng to ---- */
+/* Gửi CẢ ẢNH, không bắt QC căn khung.
+   Lý do: OCR của Google đọc ảnh nguyên tấm đạt 78% trên tập đo của MMB, và
+   nó miễn phí nên cắt crop không tiết kiệm được gì. Khung xanh chỉ còn để
+   QC biết máy đã nhìn thấy vùng ngày. Việc lọc ra dòng ngày làm bằng code
+   sau khi đọc, không bắt người phải căn máy. */
 function camCat(){
+  const v=document.getElementById('camv');
+  const c=document.createElement('canvas');
+  c.width=v.videoWidth; c.height=v.videoHeight;
+  c.getContext('2d').drawImage(v,0,0);
+  return {canvas:c, cao:(camKhung&&camDem>=CAM.CAN_LIEN)
+    ? Math.round((camKhung.y1-camKhung.y0+1)/CAM.ROWS*c.height) : null};
+}
+
+function camCatCu(){
   const v=document.getElementById('camv');
   const c=document.createElement('canvas');
   c.width=v.videoWidth; c.height=v.videoHeight;
@@ -1078,19 +885,134 @@ async function camChup(){
   nut.disabled=false;
 }
 
-let LAST_OCR=null;
+/* ============================================================
+   TÁCH DÒNG NGÀY RA KHỎI ĐỐNG CHỮ — chạy trên máy, thuần code.
 
-/* Điền dòng OCR vào đúng ô theo NHÃN mà master khai — không đoán theo thứ tự. */
-function camDienVaoO(dong){
-  const chuan=t=>String(t).toUpperCase().replace(/\s+/g,'');
-  camSegs.forEach(s=>{
-    const o=$('in'+s.i); if(!o||!s.label) return;
-    const nh=chuan(s.label);
-    const hit=dong.find(d=>chuan(d).startsWith(nh));
-    if(hit) o.value=String(hit).trim();
-  });
+   OCR trả về cả trang: mã vạch, thành phần, địa chỉ. Dòng ngày có khi
+   dính cả NSX lẫn HSD trong một dòng:
+       "NSX 06 04 26 C1 07:08 HSD 06 12 26 HY"
+   Nên không thể so bằng "dòng nào bắt đầu bằng nhãn". Phải cắt theo VỊ TRÍ
+   của từng nhãn trong chuỗi, mỗi nhãn lấy tới nhãn kế tiếp.
+
+   Chỉ nhận nhãn mà master khai cho mã item này. Không đoán thêm nhãn nào.
+   ============================================================ */
+
+function camGomChu(dong){
+  return (dong||[]).join(' ').replace(/\s+/g,' ').trim();
 }
 
+/** Trả về [{nhan, doan}] theo đúng thứ tự xuất hiện trong chuỗi. */
+function camCatTheoNhan(chuoi, nhanCanTim){
+  const S=chuoi.toUpperCase();
+  const moc=[];
+  nhanCanTim.forEach(nh=>{
+    if(!nh) return;
+    const N=nh.toUpperCase();
+    let i=0;
+    while((i=S.indexOf(N,i))>=0){
+      const truoc=i===0?' ':S[i-1];
+      if(!/[A-Z0-9]/.test(truoc)) moc.push({nhan:nh,vi:i,dai:N.length});
+      i+=N.length;
+    }
+  });
+  moc.sort((a,b)=>a.vi-b.vi);
+  return moc.map((m,k)=>({
+    nhan:m.nhan,
+    doan:chuoi.slice(m.vi, k+1<moc.length?moc[k+1].vi:chuoi.length).trim()
+  }));
+}
+
+/** Bỏ phần đuôi không thuộc ngày: giữ nhãn + cụm ngày + tối đa 2 token sau. */
+/**
+ * Từ một đoạn "NHÃN + phần còn lại", tìm cụm ngày NGẮN NHẤT đọc được theo
+ * đúng mẫu master khai. Bỏ đuôi giờ và mã line ("C1 07:08", "33 I") — vì
+ * readDate khớp trọn chuỗi, để đuôi lại là hỏng.
+ * Không đọc được thì trả null, KHÔNG đoán bừa.
+ */
+function camCumNgay(doan, fmt){
+  /* Cắt nhãn trên CẢ ĐOẠN trước rồi mới tách token: bao bì MMB in dính
+     "NSX:300826", tách theo khoảng trắng sẽ dính nhãn vào token đầu. */
+  const sl=stripLabel(doan);
+  const t=String(sl.rest).trim().split(/\s+/).filter(Boolean);
+  if(!t.length) return null;
+  for(let n=1; n<=Math.min(4, t.length); n++){
+    const cum=t.slice(0, n).join(' ');
+    if(readDate(cum, fmt, true)) return (sl.found?sl.found+' ':'')+cum;
+  }
+  return null;
+}
+
+function camDienVaoO(dong){
+  const chuoi=camGomChu(dong);
+  const nhan=camSegs.map(x=>x.label).filter(Boolean);
+  const phan=camCatTheoNhan(chuoi, nhan);
+
+  let daDien=0;
+  camSegs.forEach(sg=>{
+    const o=$('in'+sg.i); if(!o||!sg.label) return;
+    const ung=phan.filter(p=>p.nhan.toUpperCase()===sg.label.toUpperCase());
+
+    /* Nhãn xuất hiện nhiều lần: bao bì in sẵn dòng mẫu "NSX/HSD: xem trên bao bì"
+       trước cả dòng phun thật. Chọn lần nào RA ĐƯỢC NGÀY đúng mẫu master khai,
+       không chọn lần đầu tiên. Không lần nào ra ngày thì để trống cho QC gõ. */
+    for(const p of ung){
+      const cum=camCumNgay(p.doan, sg.fmt);
+      if(cum){ o.value=cum; daDien++; break; }
+    }
+  });
+  return {daDien, soNhan:nhan.length};
+}
+
+/* ---- chọn ảnh có sẵn trong máy, không cần camera ---- */
+function camGuiAnh(canvas, cao){
+  const hop=document.getElementById('camdoc'), tt=document.getElementById('camtt');
+  hop.style.display='block'; hop.textContent='Đang gửi ảnh…';
+  return fetch(TRAM_URL,{method:'POST',redirect:'follow',
+    headers:{'Content-Type':'text/plain;charset=utf-8'},
+    body:JSON.stringify({act:'doc',
+      anh_b64:canvas.toDataURL('image/jpeg',.92).split(',')[1],
+      ma_item:(CUR&&CUR.item_code)||'', cao_vung_px:cao,
+      nguoi_kiem:($('who').value||'').trim()})})
+   .then(x=>x.json())
+   .then(r=>{
+      if(!r||!r.ok) throw new Error((r&&r.loi)||'trạm không trả lời');
+      LAST_OCR={id:r.id, dong:r.dong||[]};
+      const kq=camDienVaoO(r.dong||[]);
+      hop.textContent = kq.daDien===kq.soNhan
+        ? 'Đã điền '+kq.daDien+'/'+kq.soNhan+' ô. Đối chiếu với bao bì, sai thì sửa.'
+        : 'Chỉ tách được '+kq.daDien+'/'+kq.soNhan+' ô — gõ tay ô còn thiếu.\n\n'+
+          'Máy đọc được:\n'+(r.dong||[]).join('\n').slice(0,600);
+      if(tt) tt.textContent='đọc xong — kiểm lại rồi bấm Kiểm tra';
+   })
+   .catch(e=>{
+      hop.textContent='Không đọc được: '+e.message+'\nGõ tay vào ô bên dưới như bình thường.';
+   });
+}
+
+async function camChup(){
+  const nut=document.getElementById('camchup');
+  const a=camCat();
+  nut.disabled=true; camCaoGoc=a.cao;
+  await camGuiAnh(a.canvas, a.cao);
+  nut.disabled=false;
+}
+
+/** QC tự chụp bằng app camera rồi chọn ảnh — dùng khi khung xanh không bắt được. */
+function camChonAnh(file){
+  const fr=new FileReader();
+  fr.onload=()=>{
+    const im=new Image();
+    im.onload=()=>{
+      const c=document.createElement('canvas');
+      const ti=Math.min(1, 2000/Math.max(im.width,im.height));   // chỉ thu nhỏ ảnh quá lớn
+      c.width=Math.round(im.width*ti); c.height=Math.round(im.height*ti);
+      c.getContext('2d').drawImage(im,0,0,c.width,c.height);
+      camGuiAnh(c, null);
+    };
+    im.src=fr.result;
+  };
+  fr.readAsDataURL(file);
+}
 </script>
 </body>
 </html>
