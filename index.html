@@ -109,6 +109,26 @@ button.ghost{width:100%;padding:11px;background:#fff;border:1px solid var(--hair
 .suahop{margin-top:12px;padding:10px;border:1px solid #d8dcda;border-radius:8px;background:#fbfcfc;display:none}
 .suahop label{display:block;font-size:13px;margin-bottom:6px;font-weight:600}
 .suahop select{width:100%;padding:10px;border-radius:8px;border:1px solid #ccd2cf;font:14px system-ui}
+
+#khoanh{display:none;margin-top:10px;border:1px solid #d8dcda;border-radius:10px;
+        padding:10px;background:#fbfcfc}
+#khoanhcv{width:100%;display:block;border-radius:6px;touch-action:none;background:#000}
+#khoanhtt{font-size:13px;color:#5b6a70;margin:8px 0 6px}
+.khoanhhang{display:flex;gap:8px;flex-wrap:wrap}
+.khoanhhang button{flex:1;min-width:120px;padding:13px;border-radius:8px;border:none;
+        font:600 15px system-ui;cursor:pointer}
+#kh_doc{background:#123b2c;color:#fff}
+#kh_ca,#kh_lai{background:#e6eae8;color:#22312c}
+
+#xacnhan{display:none;margin-top:12px;border:2px solid #123b2c;border-radius:10px;padding:12px;background:#f2f7f4}
+#xacnhan .may{font:600 17px ui-monospace,monospace;color:#123b2c;line-height:1.7;word-break:break-all}
+#xacnhan .nhac{font-size:13px;color:#4a5a54;margin:8px 0 10px}
+.xnhang{display:flex;gap:8px}
+.xnhang button{flex:1;padding:15px;border:none;border-radius:8px;font:600 15px system-ui;cursor:pointer}
+#xn_dung{background:#123b2c;color:#fff}
+#xn_sai{background:#e6eae8;color:#22312c}
+#mucanh{display:none;margin-top:12px;padding:12px;border-radius:10px;
+        background:#4a3a12;color:#FBEFCB;font-size:14px;line-height:1.5}
 /* ===== KHỐI CAMERA — thêm ===== */
 #camboc{position:relative;width:100%;background:#000;overflow:hidden;border-radius:10px}
 #camboc video{width:100%;display:block}
@@ -194,7 +214,7 @@ const store={
    URL mặc định gắn sẵn — QC không phải dán gì. Ô nhập ở đầu màn hình chỉ để
    đổi sang deployment khác khi cần, và chỉ đổi trên máy đó.
    PHẢI khai báo trước mọi chỗ dùng, nếu không sẽ đứt phần khởi tạo. */
-var BAN_DUNG = 'b7 · crop + chặn năm';
+var BAN_DUNG = 'b11 · pilot';
 var SITE_KY_TU = { MBP:'I', MIP:'A', MHP:'B', MGP:'G', MBA:'' };
 var SITE_TEN   = { MBP:'MMB — Nghệ An', MIP:'MSI', MHP:'MHP', MGP:'MGP', MBA:'MBA' };
 var SITE_APP   = store.get('dc_site') || 'MBP';
@@ -568,7 +588,26 @@ function showItem(code){
       <input type="file" id="camfile" accept="image/*" style="display:none">
     </div>
     <div id="camtt">đang mở camera…</div>
+    <div id="khoanh">
+      <div id="khoanhtt">Kéo ngón tay để khoanh đúng ô in ngày, rồi bấm Đọc vùng này.</div>
+      <canvas id="khoanhcv"></canvas>
+      <div class="khoanhhang" style="margin-top:10px">
+        <button type="button" id="kh_doc">Đọc vùng này</button>
+        <button type="button" id="kh_ca">Đọc cả ảnh</button>
+        <button type="button" id="kh_lai">Chụp lại</button>
+      </div>
+    </div>
     <div id="camdoc"></div>
+    <div id="mucanh"></div>
+    <div id="xacnhan">
+      <div class="nhac">Nhìn lại BAO BÌ, không nhìn màn hình. Máy đọc ra:</div>
+      <div class="may" id="xn_may"></div>
+      <div class="nhac">Khớp với chữ đang in trên bao chứ?</div>
+      <div class="xnhang">
+        <button type="button" id="xn_dung">Đúng — xác nhận</button>
+        <button type="button" id="xn_sai">Sai — tôi sửa</button>
+      </div>
+    </div>
     <div class="camnho">Máy đọc chỉ điền sẵn vào ô bên dưới. Kết luận tính từ ngày IN TRÊN BAO. Ngày QC nhập chỉ để đối chiếu. Máy đọc sai thì sửa lại ô bên dưới.</div>`:''}
   `+
   segs.map(s=>`<div class="field">
@@ -639,6 +678,7 @@ function run(){
       body:JSON.stringify({act:'ketqua',id:LAST_OCR.id,chuoi_xac_nhan:chuoi,
         ket_luan:head,ly_do:sub,ngay_sx:v,line:(($('line')&&$('line').value)||''),
         ly_do_sua:lyDo, o_da_sua:Object.keys(DA_SUA).join(';'),
+        che_do:CHE_DO, giay_xac_nhan:GIAY_XN.toFixed(1), ban_dung:BAN_DUNG,
         may_doc:(LAST_OCR.dong||[]).join(' | ')})}).catch(()=>{});
     LAST_OCR=null;
   }
@@ -761,6 +801,7 @@ paintBadge(); loadMaster();
    Khai báo bằng let ở cuối file sẽ ném ReferenceError cho mọi dòng dùng nó
    phía trên (vùng chết tạm thời), làm đứt cả phần khởi tạo. */
 
+const ROWS_COLS_MAX = 110;   // ~9% diện tích lưới 40x30
 const CAM = {
   COLS: 40, ROWS: 30,
   NHAY: 78,
@@ -771,6 +812,32 @@ const CAM = {
 };
 
 var LAST_OCR=null, KQ_TACH=null;
+
+/* ============================================================
+   KIỂM MÙ — cứ 1 trong TAN_SUAT_MU lượt, máy KHÔNG hiện kết quả đọc,
+   QC phải gõ tay từ bao bì. Sau đó trạm so chuỗi người gõ với chuỗi máy đọc.
+
+   Vì sao bắt buộc có: một bộ đọc duy nhất cộng nút "Đúng" một chạm là con dấu
+   cao su. QC ca ba sẽ bấm mà không nhìn bao. Lượt mù là cách DUY NHẤT đo được
+   tỷ lệ sai ngầm thật, và nó cũng khiến việc bấm bừa không còn an toàn vì
+   không ai biết lượt nào là lượt mù.
+
+   Trong công cụ gán nhãn hồi train, việc này do PHIẾU BẦU của hai bộ đọc đảm
+   nhiệm. Trên line hiện chỉ có một bộ đọc, nên phải bù bằng người.
+   ============================================================ */
+/* PILOT dùng 1/4. Với 18 lượt/ngày, 1/4 cho 63 lượt mù sau 14 ngày ->
+   chặn trên 95% của tỷ lệ sai ngầm ~4.6% nếu không thấy lỗi nào.
+   Để 1/8 thì phải chạy 26 ngày mới đạt cùng độ mạnh. Sau pilot hạ về 8 hoặc 12. */
+var TAN_SUAT_MU = 4;
+var GIAY_XN=0;
+var CHE_DO='THUONG';         // THUONG | MU
+var T0_XACNHAN=0;            // mốc thời gian để đo giây xác nhận
+
+function laLuotMu(){
+  var n=0; try{ n=parseInt(store.get('dc_dem_luot')||'0',10)||0; }catch(e){}
+  n++; try{ store.set('dc_dem_luot',String(n)); }catch(e){}
+  return n % TAN_SUAT_MU === 0;
+}
 let camStream=null, camSau=true, camSegs=[], camRAF=null;
 let camLuoi=null, camLctx=null;
 let camKhung=null, camDem=0, camMat=0, camNguongEMA=null, camLanCuoi=0, camCaoGoc=null;
@@ -783,6 +850,22 @@ function camKhoiDong(segs){
   camKhung=null; camDem=0; camMat=0; camNguongEMA=null;
   document.getElementById('camchup').onclick=camChup;
   document.getElementById('camdoi').onclick=()=>{camSau=!camSau;camMo();};
+  ganSuKienKhoanh(); ganNutKhoanh();
+
+  /* Đúng -> chạy thẳng kết luận. Sai -> mở ô sửa, ghi lý do.
+     Cả hai nhánh đều đi qua đúng phép trừ số học, không có đường tắt. */
+  const nDung=document.getElementById('xn_dung'), nSai=document.getElementById('xn_sai');
+  if(nDung) nDung.onclick=()=>{
+    GIAY_XN=(Date.now()-T0_XACNHAN)/1000;
+    document.getElementById('xacnhan').style.display='none';
+    const r=document.getElementById('run'); if(r) r.click();
+  };
+  if(nSai) nSai.onclick=()=>{
+    GIAY_XN=(Date.now()-T0_XACNHAN)/1000;
+    document.getElementById('xacnhan').style.display='none';
+    const h=document.getElementById('suahop'); if(h) h.style.display='block';
+    const o=$('in'+(camSegs[0]||{i:1}).i); if(o){ o.focus(); o.select&&o.select(); }
+  };
   document.getElementById('camchon').onclick=()=>document.getElementById('camfile').click();
   document.getElementById('camfile').onchange=e=>{
     if(e.target.files&&e.target.files[0]) camChonAnh(e.target.files[0]);
@@ -846,19 +929,31 @@ function camDoVung(){
         const q=nr*CAM.COLS+nc; if(o[q]&&tham[q]<0){tham[q]=id;hang.push(q);} } }
     vung.push({x0,y0,x1,y1,dem});
   }
+  /* Ô ngày và bảng thành phần đều là "vùng sáng nhiều đốm tối". Bảng thành phần
+     to hơn nên luôn thắng nếu chỉ xếp theo kích thước — đó là lý do OCR trả về
+     nguyên bảng thành phần. Ô date code luôn THẤP: 1-2 dòng chữ, tối đa ~5/30 ô
+     lưới. Chặn bằng chiều cao và diện tích, không bằng thứ hạng. */
+  const CAO_TOI_DA = 6;                       // trên 6/30 hàng lưới -> không phải ô ngày
+  const O_TOI_DA   = ROWS_COLS_MAX;           // chặn khối chữ lớn
   return vung.filter(z=>{const w=z.x1-z.x0+1,h=z.y1-z.y0+1;
-    return z.dem>=4 && w/h>1.8 && w/h<16;});
+    return z.dem>=4 && z.dem<=O_TOI_DA && h<=CAO_TOI_DA && w/h>1.8 && w/h<16;});
 }
 
 /* ---- bám khung cũ thay vì luôn lấy vùng to nhất ---- */
+/* Điểm chọn: dáng càng giống DÒNG CHỮ (dài và thấp) càng tốt, không phải càng to
+   càng tốt. Đây là chỗ trước đây chọn nhầm bảng thành phần. */
+function diemDang(z){
+  const w=z.x1-z.x0+1, h=z.y1-z.y0+1;
+  return (w/h) / h;          // dài/thấp -> điểm cao; càng cao càng bị phạt
+}
 function camChon(ds){
   if(!ds.length) return null;
-  if(!camKhung) return ds.sort((a,b)=>b.dem-a.dem)[0];
+  if(!camKhung) return ds.sort((a,b)=>diemDang(b)-diemDang(a))[0];
   const cx=(camKhung.x0+camKhung.x1)/2, cy=(camKhung.y0+camKhung.y1)/2;
   let tot=null, diem=1e9;
   ds.forEach(z=>{
     const zx=(z.x0+z.x1)/2, zy=(z.y0+z.y1)/2;
-    const kc=Math.hypot(zx-cx,zy-cy) - z.dem*0.05;   // gần khung cũ + đủ to
+    const kc=Math.hypot(zx-cx,zy-cy) - diemDang(z)*6;   // gần khung cũ + đúng dáng dòng chữ
     if(kc<diem){diem=kc;tot=z;}
   });
   return tot;
@@ -937,160 +1032,130 @@ function camCat(){
   return {canvas:cc,cao:chh,cat:true};
 }
 
-async function camChup(){
-  const nut=document.getElementById('camchup'), tt=document.getElementById('camtt');
-  const hop=document.getElementById('camdoc');
-  const a=camCat();
-  nut.disabled=true; tt.textContent='đang gửi ảnh…';
-  camCaoGoc=a.cao;
-  try{
-    const r=await fetch(TRAM_URL,{method:'POST',redirect:'follow',
-      headers:{'Content-Type':'text/plain;charset=utf-8'},
-      body:JSON.stringify({act:'doc',
-        anh_b64:a.canvas.toDataURL('image/jpeg',.92).split(',')[1],
-        ma_item:(CUR&&CUR.item_code)||'', cao_vung_px:a.cao,
-        nguoi_kiem:($('who').value||'').trim()})}).then(x=>x.json());
-
-    if(!r||!r.ok) throw new Error((r&&r.loi)||'trạm không trả lời');
-    LAST_OCR = { id:r.id, dong:r.dong||[] };
-    hop.style.display='block';
-    hop.textContent='Máy đọc được:\n'+(r.dong||[]).join('\n')+
-      '\n\nĐã điền vào ô bên dưới. Đối chiếu với bao bì, sai thì sửa.';
-    camDienVaoO(r.dong||[]);
-    tt.textContent='đọc xong — kiểm lại rồi bấm Kiểm tra';
-  }catch(e){
-    hop.style.display='block';
-    hop.textContent='Không đọc được: '+e.message+'\nGõ tay vào ô bên dưới như bình thường.';
-    tt.textContent='đang quét';
-  }
-  nut.disabled=false;
-}
-
 /* ============================================================
-   TÁCH DÒNG NGÀY RA KHỎI ĐỐNG CHỮ — chạy trên máy, thuần code.
-
-   OCR trả về cả trang: mã vạch, thành phần, địa chỉ. Dòng ngày có khi
-   dính cả NSX lẫn HSD trong một dòng:
-       "NSX 06 04 26 C1 07:08 HSD 06 12 26 HY"
-   Nên không thể so bằng "dòng nào bắt đầu bằng nhãn". Phải cắt theo VỊ TRÍ
-   của từng nhãn trong chuỗi, mỗi nhãn lấy tới nhãn kế tiếp.
-
-   Chỉ nhận nhãn mà master khai cho mã item này. Không đoán thêm nhãn nào.
+   KHOANH VÙNG BẰNG TAY — người chọn, máy đọc đúng vùng đó.
+   Bộ dò tự động chỉ còn là gợi ý: nó vẽ sẵn khung, người kéo lại nếu sai.
+   Lý do bỏ nó khỏi đường đi chính: ô ngày và bảng thành phần cùng là
+   "vùng sáng nhiều đốm tối", chỉnh ngưỡng bên này thì hỏng bên kia.
    ============================================================ */
+var ANH_GOC=null;                        // canvas ảnh gốc, độ phân giải đầy đủ
+var KHUNG={x:0.20,y:0.40,w:0.60,h:0.16}; // theo TỈ LỆ 0-1 của ảnh gốc
+var dangKeo=false, keoTu=null;
 
-function camGomChu(dong){
-  return (dong||[]).join(' ').replace(/\s+/g,' ').trim();
+function moKhoanh(canvasGoc, khungGoiY){
+  ANH_GOC=canvasGoc;
+  KHUNG = khungGoiY || {x:0.20,y:0.40,w:0.60,h:0.16};
+  var k=document.getElementById('khoanh'); if(k) k.style.display='block';
+  var t=document.getElementById('camtt'); if(t) t.textContent='khoanh vùng rồi bấm Đọc';
+  veKhoanh();
+}
+function dongKhoanh(){
+  var k=document.getElementById('khoanh'); if(k) k.style.display='none';
 }
 
-/** Trả về [{nhan, doan}] theo đúng thứ tự xuất hiện trong chuỗi. */
-function camCatTheoNhan(chuoi, nhanCanTim){
-  const S=chuoi.toUpperCase();
-  const moc=[];
-  nhanCanTim.forEach(nh=>{
-    if(!nh) return;
-    const N=nh.toUpperCase();
-    let i=0;
-    while((i=S.indexOf(N,i))>=0){
-      const truoc=i===0?' ':S[i-1];
-      if(!/[A-Z0-9]/.test(truoc)) moc.push({nhan:nh,vi:i,dai:N.length});
-      i+=N.length;
-    }
-  });
-  moc.sort((a,b)=>a.vi-b.vi);
-  return moc.map((m,k)=>({
-    nhan:m.nhan,
-    doan:chuoi.slice(m.vi, k+1<moc.length?moc[k+1].vi:chuoi.length).trim()
-  }));
+function veKhoanh(){
+  var cv=document.getElementById('khoanhcv'); if(!cv||!ANH_GOC) return;
+  var rong=cv.clientWidth||360, ti=rong/ANH_GOC.width;
+  cv.width=rong; cv.height=Math.round(ANH_GOC.height*ti);
+  var g=cv.getContext('2d');
+  g.drawImage(ANH_GOC,0,0,cv.width,cv.height);
+  var x=KHUNG.x*cv.width, y=KHUNG.y*cv.height,
+      w=KHUNG.w*cv.width, h=KHUNG.h*cv.height;
+  g.fillStyle='rgba(0,0,0,.45)';
+  g.fillRect(0,0,cv.width,y);
+  g.fillRect(0,y+h,cv.width,cv.height-y-h);
+  g.fillRect(0,y,x,h);
+  g.fillRect(x+w,y,cv.width-x-w,h);
+  g.strokeStyle='#4ADE9B'; g.lineWidth=3; g.strokeRect(x,y,w,h);
+  g.fillStyle='#4ADE9B';
+  [[x,y],[x+w,y],[x,y+h],[x+w,y+h]].forEach(function(p){ g.fillRect(p[0]-5,p[1]-5,10,10); });
 }
 
-/** Bỏ phần đuôi không thuộc ngày: giữ nhãn + cụm ngày + tối đa 2 token sau. */
-/**
- * Từ một đoạn "NHÃN + phần còn lại", tìm cụm ngày NGẮN NHẤT đọc được theo
- * đúng mẫu master khai. Bỏ đuôi giờ và mã line ("C1 07:08", "33 I") — vì
- * readDate khớp trọn chuỗi, để đuôi lại là hỏng.
- * Không đọc được thì trả null, KHÔNG đoán bừa.
- */
-function camCumNgay(doan, fmt){
-  /* Cắt nhãn trên CẢ ĐOẠN trước rồi mới tách token: bao bì MMB in dính
-     "NSX:300826", tách theo khoảng trắng sẽ dính nhãn vào token đầu. */
-  const sl=stripLabel(doan);
-  const t=String(sl.rest).trim().split(/\s+/).filter(Boolean);
-  if(!t.length) return null;
-  for(let n=1; n<=Math.min(4, t.length); n++){
-    const cum=t.slice(0, n).join(' ');
-    if(readDate(cum, fmt, true)) return (sl.found?sl.found+' ':'')+cum;
-  }
-  return null;
+function toaDo(e,cv){
+  var r=cv.getBoundingClientRect();
+  var t=(e.touches&&e.touches[0])||e;
+  return {x:(t.clientX-r.left)/r.width, y:(t.clientY-r.top)/r.height};
 }
 
-function camDienVaoO(dong){
-  const chuoi=camGomChu(dong);
-  const nhan=camSegs.map(x=>x.label).filter(Boolean);
-  const phan=camCatTheoNhan(chuoi, nhan);
-
-  let daDien=0;
-  camSegs.forEach(sg=>{
-    const o=$('in'+sg.i); if(!o||!sg.label) return;
-    const ung=phan.filter(p=>p.nhan.toUpperCase()===sg.label.toUpperCase());
-
-    /* Nhãn xuất hiện nhiều lần: bao bì in sẵn dòng mẫu "NSX/HSD: xem trên bao bì"
-       trước cả dòng phun thật. Chọn lần nào RA ĐƯỢC NGÀY đúng mẫu master khai,
-       không chọn lần đầu tiên. Không lần nào ra ngày thì để trống cho QC gõ. */
-    for(const p of ung){
-      const cum=camCumNgay(p.doan, sg.fmt);
-      if(cum){ o.value=cum; AUTOFILL[sg.i]=cum; daDien++;
-               o.dispatchEvent(new Event('input')); break; }
-    }
-  });
-  return {daDien, soNhan:nhan.length};
+function ganSuKienKhoanh(){
+  var cv=document.getElementById('khoanhcv'); if(!cv) return;
+  function bd(e){ if(!ANH_GOC) return; e.preventDefault(); dangKeo=true;
+    keoTu=toaDo(e,cv); KHUNG={x:keoTu.x,y:keoTu.y,w:0,h:0}; veKhoanh(); }
+  function bm(e){ if(!dangKeo) return; e.preventDefault();
+    var p=toaDo(e,cv);
+    KHUNG={ x:Math.max(0,Math.min(keoTu.x,p.x)), y:Math.max(0,Math.min(keoTu.y,p.y)),
+            w:Math.min(1,Math.abs(p.x-keoTu.x)), h:Math.min(1,Math.abs(p.y-keoTu.y)) };
+    veKhoanh(); }
+  function be(){ if(!dangKeo) return; dangKeo=false;
+    /* kéo hụt vài pixel coi như lỡ tay — trả về khung mặc định, không gửi vùng rỗng */
+    if(KHUNG.w<0.04||KHUNG.h<0.02) KHUNG={x:0.20,y:0.40,w:0.60,h:0.16};
+    veKhoanh(); }
+  cv.addEventListener('touchstart',bd,{passive:false});
+  cv.addEventListener('touchmove',bm,{passive:false});
+  cv.addEventListener('touchend',be);
+  cv.addEventListener('mousedown',bd);
+  window.addEventListener('mousemove',bm);
+  window.addEventListener('mouseup',be);
+  window.addEventListener('resize',veKhoanh);
 }
 
-/* ---- chọn ảnh có sẵn trong máy, không cần camera ---- */
-function camGuiAnh(canvas, cao){
-  const hop=document.getElementById('camdoc'), tt=document.getElementById('camtt');
-  hop.style.display='block'; hop.textContent='Đang gửi ảnh…';
-  return fetch(TRAM_URL,{method:'POST',redirect:'follow',
-    headers:{'Content-Type':'text/plain;charset=utf-8'},
-    body:JSON.stringify({act:'doc',
-      anh_b64:canvas.toDataURL('image/jpeg',.92).split(',')[1],
-      ma_item:(CUR&&CUR.item_code)||'', cao_vung_px:cao,
-      nguoi_kiem:($('who').value||'').trim()})})
-   .then(x=>x.json())
-   .then(r=>{
-      if(!r||!r.ok) throw new Error((r&&r.loi)||'trạm không trả lời');
-      LAST_OCR={id:r.id, dong:r.dong||[]};
-      const kq=camDienVaoO(r.dong||[]);
-      KQ_TACH=kq;
-      hop.textContent = kq.daDien===kq.soNhan
-        ? 'Đã điền '+kq.daDien+'/'+kq.soNhan+' ô. Đối chiếu với bao bì, sai thì sửa.'
-        : 'Chỉ tách được '+kq.daDien+'/'+kq.soNhan+' ô — gõ tay ô còn thiếu.\n\n'+
-          'Máy đọc được:\n'+(r.dong||[]).join('\n').slice(0,600);
-      if(tt) tt.textContent='đọc xong — kiểm lại rồi bấm Kiểm tra';
-   })
-   .then(()=>KQ_TACH)
-   .catch(e=>{
-      hop.textContent='Không đọc được: '+e.message+'\nGõ tay vào ô bên dưới như bình thường.';
-      return null;
-   });
+/** Cắt theo KHUNG từ ảnh GỐC (lỗi #3), chỉ phóng to, không thu nhỏ (lỗi #5). */
+function catTheoKhung(){
+  var x=Math.max(0,Math.round(KHUNG.x*ANH_GOC.width));
+  var y=Math.max(0,Math.round(KHUNG.y*ANH_GOC.height));
+  var w=Math.max(8,Math.min(ANH_GOC.width-x,  Math.round(KHUNG.w*ANH_GOC.width)));
+  var h=Math.max(8,Math.min(ANH_GOC.height-y, Math.round(KHUNG.h*ANH_GOC.height)));
+  /* Chỉ phóng to khi vùng THẤP (chữ nhỏ). Vùng cao là khoanh rộng hoặc cả ảnh —
+     phóng to chỉ làm file nặng, mạng xưởng ì, mà không thêm chi tiết nào. */
+  var he=Math.max(1,Math.min(6,Math.round(320/h)));
+  var c=document.createElement('canvas');
+  c.width=w*he; c.height=h*he;
+  var g=c.getContext('2d'); g.imageSmoothingEnabled=true; g.imageSmoothingQuality='high';
+  g.drawImage(ANH_GOC,x,y,w,h,0,0,c.width,c.height);
+  return {canvas:c, cao:h};
 }
 
+/* Chụp xong KHÔNG gửi ngay. Đóng băng ảnh, mở màn khoanh vùng để QC tự chọn.
+   Khung tự động được vẽ sẵn làm gợi ý — đúng thì bấm Đọc, sai thì kéo lại. */
 async function camChup(){
-  const nut=document.getElementById('camchup');
+  CHE_DO = laLuotMu() ? 'MU' : 'THUONG';
   const v=document.getElementById('camv');
-  const a=camCat();
-  nut.disabled=true; camCaoGoc=a.cao;
-  const kq=await camGuiAnh(a.canvas, a.cao);
+  const c=document.createElement('canvas');
+  c.width=v.videoWidth; c.height=v.videoHeight;
+  c.getContext('2d').drawImage(v,0,0);
 
-  /* Crop trượt thì thử lại một lần bằng ảnh nguyên tấm — OCR miễn phí,
-     lần hai không tốn gì ngoài vài giây. */
-  if(kq && kq.daDien===0 && a.cat){
-    const c=document.createElement('canvas');
-    c.width=v.videoWidth; c.height=v.videoHeight;
-    c.getContext('2d').drawImage(v,0,0);
-    document.getElementById('camtt').textContent='crop không ra — thử lại cả ảnh…';
-    await camGuiAnh(c, null);
+  let goiY=null;
+  if(camKhung&&camDem>=CAM.CAN_LIEN){
+    const pad=0.25;
+    const w=(camKhung.x1-camKhung.x0+1)/CAM.COLS, h=(camKhung.y1-camKhung.y0+1)/CAM.ROWS;
+    goiY={ x:Math.max(0,camKhung.x0/CAM.COLS - w*pad*.5),
+           y:Math.max(0,camKhung.y0/CAM.ROWS - h*pad),
+           w:Math.min(1,w*(1+pad)), h:Math.min(1,h*(1+pad*2)) };
   }
-  nut.disabled=false;
+  moKhoanh(c, goiY);
+}
+
+function ganNutKhoanh(){
+  const doc=document.getElementById('kh_doc'),
+        ca =document.getElementById('kh_ca'),
+        lai=document.getElementById('kh_lai');
+  if(!doc) return;
+  doc.onclick=async()=>{
+    const a=catTheoKhung();
+    doc.disabled=true; camCaoGoc=a.cao;
+    const kq=await camGuiAnh(a.canvas, a.cao);
+    doc.disabled=false;
+    if(kq && kq.daDien===0){
+      document.getElementById('khoanhtt').textContent=
+        'Vùng vừa chọn không ra ngày. Kéo lại sát ô in ngày hơn, hoặc bấm Đọc cả ảnh.';
+    } else dongKhoanh();
+  };
+  ca.onclick=async()=>{
+    ca.disabled=true;
+    await camGuiAnh(ANH_GOC, null);
+    ca.disabled=false; dongKhoanh();
+  };
+  lai.onclick=dongKhoanh;
 }
 
 /** QC tự chụp bằng app camera rồi chọn ảnh — dùng khi khung xanh không bắt được. */
@@ -1103,7 +1168,7 @@ function camChonAnh(file){
       const ti=Math.min(1, 2000/Math.max(im.width,im.height));   // chỉ thu nhỏ ảnh quá lớn
       c.width=Math.round(im.width*ti); c.height=Math.round(im.height*ti);
       c.getContext('2d').drawImage(im,0,0,c.width,c.height);
-      camGuiAnh(c, null);
+      moKhoanh(c, null);
     };
     im.src=fr.result;
   };
