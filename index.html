@@ -188,7 +188,7 @@ const store={
    URL mặc định gắn sẵn — QC không phải dán gì. Ô nhập ở đầu màn hình chỉ để
    đổi sang deployment khác khi cần, và chỉ đổi trên máy đó.
    PHẢI khai báo trước mọi chỗ dùng, nếu không sẽ đứt phần khởi tạo. */
-var BAN_DUNG = 'b5 · master chuẩn';
+var BAN_DUNG = 'b6 · mốc theo bao bì';
 var SITE_KY_TU = { MBP:'I', MIP:'A', MHP:'B', MGP:'G', MBA:'' };
 var SITE_TEN   = { MBP:'MMB — Nghệ An', MIP:'MSI', MHP:'MHP', MGP:'MGP', MBA:'MBA' };
 var SITE_APP   = store.get('dc_site') || 'MBP';
@@ -359,9 +359,36 @@ function stripLabel(s){let t=String(s).trim().toUpperCase().replace(/^[:\s]+/,''
 function segments(it){const o=[];for(let i=1;i<=4;i++){const k=it['seg'+i+'_loai'],f=it['seg'+i+'_format'];
   if(k&&f)o.push({i,kind:k,label:it['seg'+i+'_nhan'],fmt:f,them:it['seg'+i+'_them']||''});}return o;}
 
+/**
+ * LUẬT "PACK" — mốc tính HSD là ngày IN TRÊN BAO, không phải ngày QC gõ.
+ * Ngày QC gõ chỉ để đối chiếu chéo: lệch nhau thì CẦN XÁC NHẬN (QC gõ nhầm,
+ * hoặc máy in đang set sai ngày hệ thống), KHÔNG phải KHÔNG ĐẠT.
+ * Tách hai lỗi này ra là chỗ quan trọng nhất: gộp chung thì lô tốt bị dừng
+ * chỉ vì người gõ sai một số.
+ * Bao bì không in NSX (hàng XK chỉ in BBF) thì mới lấy ngày lot làm mốc.
+ */
+function mocGoc(it,nsx,inputs){
+  for(const s of segments(it)){
+    if(s.kind!=='PROD') continue;
+    const raw=(inputs[s.i]||'').trim(); if(!raw) continue;
+    const {rest}=stripLabel(raw);
+    const dt=readDate(rest,s.fmt,false)||readDate(rest,s.fmt,true);
+    if(dt) return {moc:dt, tu:'bao', seg:s};
+  }
+  return {moc:nsx, tu:'lot', seg:null};
+}
+
 function check(it,nsx,inputs){
   const lines=[];let fail=false,warn=false;
   const months=parseInt(it.hsd_thang,10);
+  const MG=mocGoc(it,nsx,inputs);
+  const goc=MG.moc;
+  if(MG.tu==='lot'){
+    lines.push({m:'wa',t:'Mốc tính hạn',
+      d:'Bao bì không đọc được ngày sản xuất — tạm lấy ngày lot '+fmtVN(nsx)+
+        ' làm mốc. Kết luận hạn sử dụng dựa trên số QC nhập, không dựa trên bao bì.'});
+    warn=true;
+  }
   for(const s of segments(it)){
     const raw=(inputs[s.i]||'').trim();
     const title=(s.kind==='EXPIRY'?'Hạn sử dụng':s.kind==='PROD'?'Ngày sản xuất in trên bao':'Lot')+(s.label?' ('+s.label+')':'');
@@ -382,22 +409,29 @@ function check(it,nsx,inputs){
       d:'Đọc được ngày '+fmtVN(dt)+' nhưng sai dấu phân cách hoặc khoảng trắng. Tiêu chuẩn: '+s.fmt});fail=true;}
     if(s.kind==='PROD'){
       const dd=dayDiff(dt,nsx);
-      if(dd===0)lines.push({m:'ok',t:title,d:fmtVN(dt)+' — khớp ngày sản xuất theo lot.'});
-      else{lines.push({m:'no',t:title,d:'In '+fmtVN(dt)+' nhưng lot sản xuất ngày '+fmtVN(nsx)+' (lệch '+dd+' ngày).'});fail=true;}
+      if(dd===0)lines.push({m:'ok',t:title,d:fmtVN(dt)+' — khớp ngày sản xuất QC nhập.'});
+      else{lines.push({m:'wa',t:title,
+        d:'Bao in '+fmtVN(dt)+', QC nhập '+fmtVN(nsx)+' (lệch '+dd+' ngày). '+
+          'Hạn sử dụng vẫn tính theo ngày IN TRÊN BAO. Kiểm hai khả năng: QC nhập nhầm, '+
+          'hoặc máy in đang set sai ngày hệ thống.'});warn=true;}
     } else if(s.kind==='EXPIRY'){
       if(isNaN(months)){lines.push({m:'wa',t:title,d:'Đọc được '+fmtVN(dt)+' nhưng master chưa có hạn sử dụng TCTP — không tính được.'});warn=true;}
-      else{const exp=addMonths(nsx,months),dd=dayDiff(dt,exp);
-        if(dd===0)lines.push({m:'ok',t:title,d:fmtVN(dt)+' — đúng NSX + '+months+' tháng.'});
-        else if(Math.abs(dd)===1){lines.push({m:'wa',t:title,
-          d:fmtVN(dt)+' lệch '+dd+' ngày so với NSX + '+months+' tháng ('+fmtVN(exp)+'). Xác nhận quy tắc trừ ngày của nhà máy.'});warn=true;}
-        else{lines.push({m:'no',t:title,d:'In '+fmtVN(dt)+', đúng phải là '+fmtVN(exp)+' (NSX + '+months+' tháng). Lệch '+dd+' ngày.'});fail=true;}}
+      else{const exp=addMonths(goc,months),dd=dayDiff(dt,exp);
+        /* Khớp tuyệt đối. KHÔNG có dung sai ±1 ngày: máy in chạy tự động theo
+           ngày thật, lệch một ngày là máy set sai chứ không phải quy ước. */
+        if(dd===0)lines.push({m:'ok',t:title,
+          d:fmtVN(dt)+' — đúng '+fmtVN(goc)+' + '+months+' tháng'+
+            (MG.tu==='bao'?' (theo ngày in trên bao).':' (theo ngày lot QC nhập).')});
+        else lines.push({m:'no',t:title,
+          d:'In '+fmtVN(dt)+', đúng phải là '+fmtVN(exp)+' ('+fmtVN(goc)+' + '+months+
+            ' tháng). Lệch '+dd+' ngày.'}),fail=true;}
     } else lines.push({m:'ok',t:title,d:'Đọc được '+fmtVN(dt)+'.'});
     const alt=swapDM(s.fmt);
     if(alt){const adt=readDate(rest,alt,true);
       if(adt&&adt.getTime()!==dt.getTime()){
         let msg='Chuỗi này cũng đọc được thành '+fmtVN(adt)+' theo kiểu '+alt+'. ';
         if(s.kind==='EXPIRY'&&!isNaN(months)){
-          const exp=addMonths(nsx,months);
+          const exp=addMonths(goc,months);
           if(dayDiff(adt,exp)===0&&dayDiff(dt,exp)!==0){
             lines.push({m:'no',t:'Nghi in nhầm thứ tự ngày/tháng',
               d:msg+'Cách đọc thứ hai lại đúng hạn. Nhiều khả năng máy in đang set '+alt+' thay vì '+s.fmt+'. Dừng và kiểm tra máy in.'});
