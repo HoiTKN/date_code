@@ -214,7 +214,7 @@ const store={
    URL mặc định gắn sẵn — QC không phải dán gì. Ô nhập ở đầu màn hình chỉ để
    đổi sang deployment khác khi cần, và chỉ đổi trên máy đó.
    PHẢI khai báo trước mọi chỗ dùng, nếu không sẽ đứt phần khởi tạo. */
-var BAN_DUNG = 'b11 · pilot';
+var BAN_DUNG = 'b12 · phục hồi bóc chữ';
 var SITE_KY_TU = { MBP:'I', MIP:'A', MHP:'B', MGP:'G', MBA:'' };
 var SITE_TEN   = { MBP:'MMB — Nghệ An', MIP:'MSI', MHP:'MHP', MGP:'MGP', MBA:'MBA' };
 var SITE_APP   = store.get('dc_site') || 'MBP';
@@ -745,6 +745,23 @@ function paintLog(){
 $('q').addEventListener('input',render);
 $('results').addEventListener('click',e=>{const h=e.target.closest('.hit');if(h)showItem(h.dataset.c);});
 $('results').addEventListener('keydown',e=>{if(e.key==='Enter'){const h=e.target.closest('.hit');if(h)showItem(h.dataset.c);}});
+/* Hai lần trong quá trình làm, một khối hàm bị vá đè mất mà app vẫn chạy,
+   vẫn không báo lỗi, chỉ là không bao giờ điền được ô nào. Kiểm cú pháp không
+   bắt được. Chốt này bắt: thiếu hàm nào thì hiện băng đỏ ngay khi mở app. */
+function tuKiemApp(){
+  var can=['bienTheCua','camGomChu','camCatTheoNhan','camCumNgay','camDienVaoO',
+           'camGuiAnh','camChup','camCat','moKhoanh','veKhoanh','catTheoKhung',
+           'ganSuKienKhoanh','ganNutKhoanh','laLuotMu','check','readDate','addMonths'];
+  var thieu=can.filter(function(t){ return typeof window[t]!=='function'; });
+  if(!thieu.length) return true;
+  var d=document.createElement('div');
+  d.style.cssText='background:#7A2118;color:#FFE2DC;padding:12px;font:600 14px system-ui';
+  d.textContent='BẢN DỰNG HỎNG — thiếu hàm: '+thieu.join(', ')+
+                '. Đừng dùng để kiểm lô, báo lại ngay.';
+  document.body.insertBefore(d, document.body.firstChild);
+  return false;
+}
+
 $('refresh').onclick=loadMaster;
 
 /* URL trạm nhập thẳng trong app, lưu trên máy — không phải sửa file trên GitHub */
@@ -789,7 +806,7 @@ $('cp').onclick=()=>{const l=readLog();if(!l.length){alert('Sổ đang trống.'
 $('clr').onclick=()=>{if(confirm('Xóa toàn bộ sổ trên máy này? Tải file .csv về trước khi xóa.')){
   writeLog([]);paintLog();}};
 
-paintBadge(); loadMaster();
+tuKiemApp(); paintBadge(); loadMaster();
 
 /* ==================================================================
    KHỐI CAMERA — thêm vào bản gốc. Không đụng tới hàm check().
@@ -1030,6 +1047,163 @@ function camCat(){
   const g=cc.getContext('2d'); g.imageSmoothingEnabled=true; g.imageSmoothingQuality='high';
   g.drawImage(c,x0,y0,cw,chh,0,0,cc.width,cc.height);
   return {canvas:cc,cao:chh,cat:true};
+}
+
+/* ============================================================
+   BÓC CHỮ — chạy trên máy, thuần code. Khối này từng bị mất một lần
+   trong quá trình vá; nếu thiếu nó thì app vẫn chạy, vẫn không báo lỗi,
+   nhưng không bao giờ điền được ô nào. Có TU_KIEM ở cuối file để bắt.
+   ============================================================ */
+
+/* Nhãn bị OCR đọc lệch là chuyện thường xuyên: tài liệu bàn giao ghi
+   HSD -> HEB, HSD -> RSD; ảnh thùng ly thực tế cho NSX -> NEX, HSD -> HED.
+   Đây KHÔNG phải so mờ — danh sách đóng, tra tường minh, và chỉ tra biến thể
+   của ĐÚNG nhãn master khai cho mã đó, nên NSX không bao giờ lẫn sang HSD. */
+var BIEN_THE_NHAN = {
+  'NSX': ['NSX','N5X','NEX','NSK','MSX','N9X','NSY','H5X','NSXX'],
+  'MFG': ['MFG','MEG','MFC','MTG','MF6'],
+  'HSD': ['HSD','HED','HEB','RSD','H5D','HSO','H9D','HSB','H5O'],
+  'EXP': ['EXP','EPX','FXP','EXR'],
+  'BBF': ['BBF','B8F','BBE','8BF'],
+  'BBD': ['BBD','B8D','BBO'],
+  'LOT': ['LOT','L0T','LDT'],
+  'USE BY': ['USE BY','USEBY'],
+  'BEST BEFORE': ['BEST BEFORE','BESTBEFORE'],
+  'BEST IF USED BY': ['BEST IF USED BY','BESTIFUSEDBY']
+};
+function bienTheCua(nhan){
+  var N=String(nhan||'').toUpperCase().trim();
+  return BIEN_THE_NHAN[N] || [N];
+}
+
+function camGomChu(dong){
+  return (dong||[]).join(' ').replace(/\s+/g,' ').trim();
+}
+
+/* Cắt theo VỊ TRÍ từng nhãn trong cả chuỗi, không theo "dòng nào bắt đầu bằng".
+   Lý do: một dòng OCR có khi chứa cả hai nhãn —
+   "NSX 06 04 26 C1 07:08 HSD 06 12 26 HY". */
+function camCatTheoNhan(chuoi, nhanCanTim){
+  var S=chuoi.toUpperCase(), moc=[];
+  (nhanCanTim||[]).forEach(function(nh){
+    if(!nh) return;
+    bienTheCua(nh).forEach(function(bt){
+      var N=bt.toUpperCase(), i=0;
+      while((i=S.indexOf(N,i))>=0){
+        var truoc = i===0 ? ' ' : S[i-1];
+        if(!/[A-Z0-9]/.test(truoc)) moc.push({nhan:nh, doc:bt, vi:i});
+        i+=N.length;
+      }
+    });
+  });
+  moc.sort(function(a,b){return a.vi-b.vi;});
+  return moc.map(function(m,k){
+    return { nhan:m.nhan, doc:m.doc,
+      doan: chuoi.slice(m.vi, k+1<moc.length ? moc[k+1].vi : chuoi.length).trim() };
+  });
+}
+
+/* Tìm cụm ngày NGẮN NHẤT đọc được theo đúng mẫu master khai.
+   Bỏ đuôi giờ và mã line ("C1 07:08", "33 I") vì readDate khớp trọn chuỗi.
+   Không đọc được thì trả null — KHÔNG đoán. */
+function camCumNgay(doan, fmt){
+  var sl=stripLabel(doan);
+  if(!sl.found){
+    var up=String(doan).toUpperCase().trim();
+    for(var nh in BIEN_THE_NHAN){
+      var ds=BIEN_THE_NHAN[nh];
+      for(var j=0;j<ds.length;j++){
+        if(up.indexOf(ds[j])===0){
+          sl={found:nh, rest:up.slice(ds[j].length).replace(/^[:\s.]+/,'')};
+          break;
+        }
+      }
+      if(sl.found) break;
+    }
+  }
+  var t=String(sl.rest).trim().split(/\s+/).filter(Boolean);
+  if(!t.length) return null;
+  for(var n=1; n<=Math.min(4,t.length); n++){
+    var cum=t.slice(0,n).join(' ');
+    if(readDate(cum, fmt, true)) return (sl.found ? sl.found+' ' : '')+cum;
+  }
+  return null;
+}
+
+function camDienVaoO(dong){
+  var canDien=camSegs.filter(function(x){return x.label;}).length;
+  if(CHE_DO==='MU') return {daDien:0, soNhan:canDien, mu:true};
+
+  var chuoi=camGomChu(dong);
+  var nhan=camSegs.map(function(x){return x.label;}).filter(Boolean);
+  var phan=camCatTheoNhan(chuoi, nhan);
+  var daDien=0;
+
+  camSegs.forEach(function(sg){
+    var o=$('in'+sg.i); if(!o||!sg.label) return;
+    var ung=phan.filter(function(p){
+      return p.nhan.toUpperCase()===sg.label.toUpperCase(); });
+    /* Nhãn xuất hiện nhiều lần: bao bì in sẵn dòng mẫu "NSX/HSD: xem trên bao bì"
+       trước dòng phun thật. Chọn lần nào RA ĐƯỢC NGÀY, không chọn lần đầu. */
+    for(var i=0;i<ung.length;i++){
+      var cum=camCumNgay(ung[i].doan, sg.fmt);
+      if(cum){ o.value=cum; AUTOFILL[sg.i]=cum; daDien++;
+               o.dispatchEvent(new Event('input')); break; }
+    }
+  });
+  return {daDien:daDien, soNhan:canDien};
+}
+
+/* Gửi ảnh lên trạm, nhận chuỗi đọc, điền vào ô. Trả về kết quả tách để
+   camChup biết có cần thử lại bằng ảnh nguyên tấm không. */
+function camGuiAnh(canvas, cao){
+  var hop=document.getElementById('camdoc'), tt=document.getElementById('camtt');
+  hop.style.display='block'; hop.textContent='Đang gửi ảnh…';
+  return fetch(TRAM_URL,{method:'POST',redirect:'follow',
+      headers:{'Content-Type':'text/plain;charset=utf-8'},
+      body:JSON.stringify({act:'doc',
+        anh_b64:canvas.toDataURL('image/jpeg',.92).split(',')[1],
+        ma_item:(CUR&&CUR.item_code)||'', cao_vung_px:cao,
+        nguoi_kiem:(($('who')&&$('who').value)||'').trim()})})
+   .then(function(x){return x.json();})
+   .then(function(r){
+      if(!r||!r.ok) throw new Error((r&&r.loi)||'trạm không trả lời');
+      LAST_OCR={id:r.id, dong:r.dong||[]};
+      var kq=camDienVaoO(r.dong||[]);
+      KQ_TACH=kq;
+
+      var hopLD=document.getElementById('suahop');
+      if(hopLD && kq.daDien<kq.soNhan && CHE_DO!=='MU') hopLD.style.display='block';
+
+      T0_XACNHAN=Date.now();
+      var xn=document.getElementById('xacnhan'), mu=document.getElementById('mucanh');
+      if(CHE_DO==='MU'){
+        mu.style.display='block';
+        mu.innerHTML='<b>Lượt kiểm mù.</b> Máy đã đọc nhưng cố tình không hiện. '+
+          'Gõ tay đúng chữ đang in trên bao. Lượt này dùng để đo máy đọc sai bao nhiêu '+
+          '— gõ theo trí nhớ là làm hỏng số đo.';
+        xn.style.display='none';
+        hop.textContent='Lượt kiểm mù — gõ tay từ bao bì.';
+      }else{
+        mu.style.display='none';
+        hop.textContent = kq.daDien===kq.soNhan
+          ? 'Đã điền '+kq.daDien+'/'+kq.soNhan+' ô.'
+          : 'Chỉ tách được '+kq.daDien+'/'+kq.soNhan+' ô — gõ tay ô còn thiếu.\n\n'+
+            'Máy đọc được:\n'+(r.dong||[]).join('\n').slice(0,600);
+        if(kq.daDien>0){
+          document.getElementById('xn_may').textContent=
+            camSegs.filter(function(x){return x.label;})
+                   .map(function(x){ return (($('in'+x.i)||{}).value)||'—'; }).join('\n');
+          xn.style.display='block';
+        }
+      }
+      if(tt) tt.textContent='đọc xong — đối chiếu bao bì rồi xác nhận';
+      return kq;
+   })
+   .catch(function(e){
+      hop.textContent='Không đọc được: '+e.message+'\nGõ tay vào ô bên dưới như bình thường.';
+      return null;
+   });
 }
 
 /* ============================================================
