@@ -214,7 +214,7 @@ const store={
    URL mặc định gắn sẵn — QC không phải dán gì. Ô nhập ở đầu màn hình chỉ để
    đổi sang deployment khác khi cần, và chỉ đổi trên máy đó.
    PHẢI khai báo trước mọi chỗ dùng, nếu không sẽ đứt phần khởi tạo. */
-var BAN_DUNG = 'b12 · phục hồi bóc chữ';
+var BAN_DUNG = 'b13 · nút uỷ quyền + hiện lỗi';
 var SITE_KY_TU = { MBP:'I', MIP:'A', MHP:'B', MGP:'G', MBA:'' };
 var SITE_TEN   = { MBP:'MMB — Nghệ An', MIP:'MSI', MHP:'MHP', MGP:'MGP', MBA:'MBA' };
 var SITE_APP   = store.get('dc_site') || 'MBP';
@@ -751,7 +751,7 @@ $('results').addEventListener('keydown',e=>{if(e.key==='Enter'){const h=e.target
 function tuKiemApp(){
   var can=['bienTheCua','camGomChu','camCatTheoNhan','camCumNgay','camDienVaoO',
            'camGuiAnh','camChup','camCat','moKhoanh','veKhoanh','catTheoKhung',
-           'ganSuKienKhoanh','ganNutKhoanh','laLuotMu','check','readDate','addMonths'];
+           'ganSuKienKhoanh','baoLoi','laLuotMu','check','readDate','addMonths'];
   var thieu=can.filter(function(t){ return typeof window[t]!=='function'; });
   if(!thieu.length) return true;
   var d=document.createElement('div');
@@ -867,7 +867,7 @@ function camKhoiDong(segs){
   camKhung=null; camDem=0; camMat=0; camNguongEMA=null;
   document.getElementById('camchup').onclick=camChup;
   document.getElementById('camdoi').onclick=()=>{camSau=!camSau;camMo();};
-  ganSuKienKhoanh(); ganNutKhoanh();
+  ganSuKienKhoanh();
 
   /* Đúng -> chạy thẳng kết luận. Sai -> mở ô sửa, ghi lý do.
      Cả hai nhánh đều đi qua đúng phép trừ số học, không có đường tắt. */
@@ -1309,30 +1309,71 @@ async function camChup(){
   moKhoanh(c, goiY);
 }
 
-function ganNutKhoanh(){
-  const doc=document.getElementById('kh_doc'),
-        ca =document.getElementById('kh_ca'),
-        lai=document.getElementById('kh_lai');
-  if(!doc) return;
-  doc.onclick=async()=>{
-    const a=catTheoKhung();
-    doc.disabled=true; camCaoGoc=a.cao;
-    const kq=await camGuiAnh(a.canvas, a.cao);
-    doc.disabled=false;
-    if(kq && kq.daDien===0){
-      document.getElementById('khoanhtt').textContent=
-        'Vùng vừa chọn không ra ngày. Kéo lại sát ô in ngày hơn, hoặc bấm Đọc cả ảnh.';
-    } else dongKhoanh();
-  };
-  ca.onclick=async()=>{
-    ca.disabled=true;
-    await camGuiAnh(ANH_GOC, null);
-    ca.disabled=false; dongKhoanh();
-  };
-  lai.onclick=dongKhoanh;
-}
+/* ============================================================
+   GẮN SỰ KIỆN THEO UỶ QUYỀN.
+   Trước đây gắn onclick trực tiếp lên từng nút bên trong camKhoiDong.
+   Cách đó phụ thuộc vào việc nút đã tồn tại đúng lúc hàm chạy — mà thẻ nút
+   nằm trong khối giao diện được dựng lại mỗi lần chọn sản phẩm. Lệch một nhịp
+   là nút chết câm, không báo gì. Uỷ quyền ở cấp document thì không còn phụ
+   thuộc thứ tự dựng nữa.
+   ============================================================ */
+document.addEventListener('click', function(ev){
+  var el = ev.target && ev.target.closest ? ev.target.closest('button') : null;
+  if(!el || !el.id) return;
+  try{
+    if(el.id==='kh_doc'){
+      ev.preventDefault();
+      if(!ANH_GOC) return baoLoi('Chưa có ảnh để đọc.');
+      var a=catTheoKhung(); el.disabled=true; camCaoGoc=a.cao;
+      camGuiAnh(a.canvas, a.cao).then(function(kq){
+        el.disabled=false;
+        if(kq && kq.daDien===0){
+          document.getElementById('khoanhtt').textContent=
+            'Vùng vừa chọn không ra ngày. Kéo lại sát ô in ngày hơn, hoặc bấm Đọc cả ảnh.';
+        } else dongKhoanh();
+      });
+    }
+    else if(el.id==='kh_ca'){
+      ev.preventDefault();
+      if(!ANH_GOC) return baoLoi('Chưa có ảnh để đọc.');
+      el.disabled=true;
+      camGuiAnh(ANH_GOC, null).then(function(){ el.disabled=false; dongKhoanh(); });
+    }
+    else if(el.id==='kh_lai'){ ev.preventDefault(); dongKhoanh(); }
+    else if(el.id==='xn_dung'){
+      ev.preventDefault();
+      GIAY_XN=(Date.now()-T0_XACNHAN)/1000;
+      document.getElementById('xacnhan').style.display='none';
+      var r=document.getElementById('run'); if(r) r.click();
+    }
+    else if(el.id==='xn_sai'){
+      ev.preventDefault();
+      GIAY_XN=(Date.now()-T0_XACNHAN)/1000;
+      document.getElementById('xacnhan').style.display='none';
+      var h=document.getElementById('suahop'); if(h) h.style.display='block';
+      var o=$('in'+((camSegs[0]||{i:1}).i)); if(o){ o.focus(); }
+    }
+  }catch(e){ baoLoi(el.id+': '+e.message); }
+});
 
-/** QC tự chụp bằng app camera rồi chọn ảnh — dùng khi khung xanh không bắt được. */
+/* Lỗi phải NHÌN THẤY. Trước đây nút chết câm vì lỗi rơi vào console mà
+   không ai mở console trên điện thoại. */
+function baoLoi(t){
+  var d=document.getElementById('bangloi');
+  if(!d){
+    d=document.createElement('div'); d.id='bangloi';
+    d.style.cssText='position:fixed;left:0;right:0;bottom:0;z-index:9999;'+
+      'background:#7A2118;color:#FFE2DC;padding:10px 12px;font:600 13px system-ui';
+    d.onclick=function(){ d.remove(); };
+    document.body.appendChild(d);
+  }
+  d.textContent='LỖI — '+t+'  (chạm để đóng)';
+}
+window.addEventListener('error', function(e){ baoLoi(e.message); });
+window.addEventListener('unhandledrejection', function(e){
+  baoLoi('lời hứa hỏng: '+((e.reason&&e.reason.message)||e.reason));
+});
+
 function camChonAnh(file){
   const fr=new FileReader();
   fr.onload=()=>{
