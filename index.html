@@ -138,6 +138,10 @@ button.ghost{width:100%;padding:11px;background:#fff;border:1px solid var(--hair
           width:40px;height:40px;font-size:19px;cursor:pointer;flex:0 0 auto}
 .tomtat{font-size:12.5px;color:#93A2A8;margin-top:4px;font-variant-numeric:tabular-nums}
 #caidat{display:none;margin-top:10px;padding-top:10px;border-top:1px solid rgba(255,255,255,.12)}
+
+.capnut{padding:10px 16px;border-radius:8px;border:1px solid #ccd2cf;background:#fff;
+        font:600 14px system-ui;cursor:pointer;color:#22312c}
+.capnut.dang{background:#123b2c;color:#fff;border-color:#123b2c}
 /* ===== KHỐI CAMERA — thêm ===== */
 #camboc{position:relative;width:100%;background:#000;overflow:hidden;border-radius:10px}
 #camboc video{width:100%;display:block}
@@ -231,7 +235,7 @@ const store={
    URL mặc định gắn sẵn — QC không phải dán gì. Ô nhập ở đầu màn hình chỉ để
    đổi sang deployment khác khi cần, và chỉ đổi trên máy đó.
    PHẢI khai báo trước mọi chỗ dùng, nếu không sẽ đứt phần khởi tạo. */
-var BAN_DUNG = 'b15 · nhãn train được';
+var BAN_DUNG = 'b16 · cấp bao bì';
 var SITE_KY_TU = { MBP:'I', MIP:'A', MHP:'B', MGP:'M' };
 var SITE_TEN   = { MBP:'MMB — Nghệ An', MIP:'MSI', MHP:'MHP', MGP:'MGP' };
 var SITE_APP   = store.get('dc_site') || 'MBP';
@@ -535,6 +539,11 @@ function render(){
         '. '+ngoai.length+' mã khớp nhưng khai cho nhà máy khác — kiểm lại master.';
     }
   }
+  /* Mã có nhiều dòng master (thùng in khác gói) chỉ hiện MỘT lần trong danh
+     sách; chọn cấp là bước sau, ngay trên thẻ sản phẩm. */
+  const thay={}; list=list.filter(r=>{ if(thay[r.item_code])return false;
+                                       thay[r.item_code]=1; return true; });
+
   box.innerHTML=(head?'<div class="listhead">'+head+'</div>':'')+
     (list.length?list.map(r=>`<div class="hit" tabindex="0" data-c="${r.item_code}">
       <div class="c">${r.item_code}${r.thi_truong?' · '+r.thi_truong:''}</div>
@@ -544,7 +553,7 @@ function render(){
 
 /* Ô nào máy điền, ô nào người sửa — tách bạch để sau này dựng bảng nhầm lẫn.
    Không có cái này thì mọi ô đều là "người gõ", không học được gì. */
-var AUTOFILL={}, DA_SUA={}, MAY_DIEN={}, SO_CAP=0;
+var AUTOFILL={}, DA_SUA={}, MAY_DIEN={}, SO_CAP=0, CAP_HIEN='';
 /* Nhãn dùng để train phải có ĐÚNG MỘT cách viết. Trước đây người gõ tự do nên
    cùng một nội dung ra ba kiểu: "NSX 040926 | HSD 040327", "040926 | 040227",
    "HSD 040227". Máy không học được từ ba mã hoá cho một thứ.
@@ -574,8 +583,25 @@ function danhDauSua(i,giaTri){
   if(hop) hop.style.display = Object.keys(DA_SUA).length ? 'block' : 'none';
 }
 
-function showItem(code){
-  CUR=MASTER.find(r=>r.item_code===code); if(!CUR)return;
+/* Một mã item có thể có NHIỀU dòng master khi thùng in khác gói.
+   Phải chọn đúng DÒNG, không chỉ đúng mã — nếu không, thùng in nhầm format
+   của gói vẫn ra ĐẠT trong khi hàng thật không đạt. */
+function dongCuaItem(code){
+  return MASTER.filter(r=>r.item_code===code);
+}
+/* Tách "gói; thùng" thành từng cấp riêng để hiện cho người chọn. */
+function capCuaDong(r){
+  return String(r.cap_bao_bi||'').split(';').map(x=>x.trim()).filter(Boolean);
+}
+
+function showItem(code, capChon){
+  const ds=dongCuaItem(code); if(!ds.length) return;
+  /* Nhiều dòng -> phải chọn cấp. Chưa chọn thì lấy dòng đầu và HIỆN ô chọn. */
+  CUR = (ds.length>1 && capChon)
+      ? (ds.find(r=>capCuaDong(r).indexOf(capChon)>=0) || ds[0])
+      : ds[0];
+  CAP_HIEN = capChon || (ds.length>1 ? capCuaDong(CUR)[0] : '');
+  if(!CUR)return;
   AUTOFILL={}; DA_SUA={}; MAY_DIEN={}; SO_CAP=0;
   $('q').value=''; render(); $('verdict').innerHTML=''; LASTID=null;
   const it=CUR, segs=segments(it), today=new Date().toISOString().slice(0,10);
@@ -589,6 +615,22 @@ function showItem(code){
       ${it.nguon_form==='THUCTE'?`<span class="tag amber">Form lấy từ thực tế in, chưa có HĐĐG</span>`:''}
       ${DUP[it.item_code]?`<span class="tag amber">Có ${DUP[it.item_code].length} item tên gần giống — đối chiếu quy cách</span>`:''}
     </div>`;
+
+  /* Ô chọn cấp bao bì: CHỈ hiện khi mã này có nhiều dòng master, tức là
+     thùng thật sự in khác gói. Mã một dòng thì không làm phiền người dùng. */
+  if(ds.length>1){
+    const caps=[];
+    ds.forEach(r=>capCuaDong(r).forEach(c=>{ if(caps.indexOf(c)<0) caps.push(c); }));
+    h+=`<div class="strip" style="margin-top:10px">
+      <div class="lbl">Cấp bao bì — mã này in KHÁC nhau giữa các cấp</div>
+      <div class="row" style="display:flex;gap:8px;flex-wrap:wrap;margin-top:6px">
+        ${caps.map(c=>`<button type="button" class="capnut${c===CAP_HIEN?' dang':''}"
+           data-code="${it.item_code}" data-cap="${c}">${c}</button>`).join('')}
+      </div>
+      <div class="hint" style="margin-top:6px">Đang kiểm: <b>${CAP_HIEN||'—'}</b> ·
+        quy cách ${(segs.map(x=>x.label+' '+x.fmt).join(' / '))||'chưa khai'}</div>
+    </div>`;
+  }
 
   if(DUP[it.item_code]){
     h+=`<div class="hint" style="margin-top:8px">Dễ nhầm với: ${DUP[it.item_code].map(c=>{
@@ -761,6 +803,7 @@ function run(){
       headers:{'Content-Type':'text/plain;charset=utf-8'},
       body:JSON.stringify({act:'ketqua',id:LAST_OCR.id,
         chuoi_xac_nhan:nhan, may_dien:mayDien, ma_may:maMay,
+        cap_bao_bi:(CAP_HIEN||CUR.cap_bao_bi||''),
         ket_luan:head, ly_do:sub,
         ly_do_chi_tiet:r.lines.filter(l=>l.m!=='ok').map(l=>l.t+': '+l.d).join(' || '),
         ngay_sx:v, line:(maMay.length>1?maMay.slice(0,-2)||maMay.slice(0,1):''),
@@ -1475,6 +1518,10 @@ document.addEventListener('click', function(ev){
       camGuiAnh(ANH_GOC, null).then(function(){ el.disabled=false; dongKhoanh(); });
     }
     else if(el.id==='kh_lai'){ ev.preventDefault(); dongKhoanh(); }
+    else if(el.classList && el.classList.contains('capnut')){
+      ev.preventDefault();
+      showItem(el.getAttribute('data-code'), el.getAttribute('data-cap'));
+    }
     else if(el.id==='xn_dung'){
       ev.preventDefault();
       GIAY_XN=(Date.now()-T0_XACNHAN)/1000;
