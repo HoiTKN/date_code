@@ -231,9 +231,9 @@ const store={
    URL mặc định gắn sẵn — QC không phải dán gì. Ô nhập ở đầu màn hình chỉ để
    đổi sang deployment khác khi cần, và chỉ đổi trên máy đó.
    PHẢI khai báo trước mọi chỗ dùng, nếu không sẽ đứt phần khởi tạo. */
-var BAN_DUNG = 'b14 · gọn đầu trang';
-var SITE_KY_TU = { MBP:'I', MIP:'A', MHP:'B', MGP:'G', MBA:'' };
-var SITE_TEN   = { MBP:'MMB — Nghệ An', MIP:'MSI', MHP:'MHP', MGP:'MGP', MBA:'MBA' };
+var BAN_DUNG = 'b15 · nhãn train được';
+var SITE_KY_TU = { MBP:'I', MIP:'A', MHP:'B', MGP:'M'' };
+var SITE_TEN   = { MBP:'MMB — Nghệ An', MIP:'MSI', MHP:'MHP', MGP:'MGP' };
 var SITE_APP   = store.get('dc_site') || 'MBP';
 var TRAM_MAC_DINH = 'https://script.google.com/macros/s/AKfycbzFOhrxosY7-5yivMmhF9GtzsMMAFYdp0KfUKMucCJmktBqGm_udam2jm2hQH9zkf_X/exec';
 var TRAM_URL = store.get('dc_tram') || TRAM_MAC_DINH;
@@ -518,7 +518,9 @@ function render(){
   const q=$('q').value.trim().toUpperCase(), box=$('results');
   let head='', list=[];
   if(q.length<2){
-    const rc=recents().map(c=>MASTER.find(r=>r.item_code===c)).filter(Boolean);
+    /* Lọc site cho cả danh sách gần đây. Trước đây nhánh này bỏ qua hopSite,
+       nên mã 03NM00443 chỉ khai cho MIP vẫn hiện ở MBP và bị đem đi kiểm. */
+    const rc=recents().map(c=>MASTER.find(r=>r.item_code===c)).filter(Boolean).filter(hopSite);
     if(!rc.length){ box.innerHTML='<div class="empty">Gõ 2 ký tự trở lên để tìm.<br>Các mã vừa kiểm sẽ hiện sẵn ở đây.</div>'; return; }
     head='Vừa kiểm gần đây'; list=rc;
   } else {
@@ -542,7 +544,27 @@ function render(){
 
 /* Ô nào máy điền, ô nào người sửa — tách bạch để sau này dựng bảng nhầm lẫn.
    Không có cái này thì mọi ô đều là "người gõ", không học được gì. */
-var AUTOFILL={}, DA_SUA={};
+var AUTOFILL={}, DA_SUA={}, MAY_DIEN={}, SO_CAP=0;
+/* Nhãn dùng để train phải có ĐÚNG MỘT cách viết. Trước đây người gõ tự do nên
+   cùng một nội dung ra ba kiểu: "NSX 040926 | HSD 040327", "040926 | 040227",
+   "HSD 040227". Máy không học được từ ba mã hoá cho một thứ.
+   Khuôn duy nhất: mỗi dòng "NHAN:DDMMYY", viết hoa, không khoảng trắng. */
+function nhanChuanHoa(segs, inputs, maMay){
+  const dong=[];
+  segs.forEach(function(s){
+    if(!s.label) return;
+    const raw=String(inputs[s.i]||'').trim(); if(!raw) return;
+    const sl=stripLabel(raw);
+    const dt=readDate(sl.rest, s.fmt, true);
+    if(!dt) return;
+    dong.push(String(s.label).toUpperCase().replace(/\s+/g,'')+':'+
+              String(sl.rest).toUpperCase().replace(/\s+/g,''));
+  });
+  const m=String(maMay||'').toUpperCase().replace(/\s+/g,'');
+  if(m) dong.push('MAY:'+m);
+  return dong.join('\n');
+}
+
 function danhDauSua(i,giaTri){
   if(AUTOFILL[i]===undefined) return;
   const khac = String(giaTri).toUpperCase().replace(/[^A-Z0-9]/g,'')
@@ -554,7 +576,7 @@ function danhDauSua(i,giaTri){
 
 function showItem(code){
   CUR=MASTER.find(r=>r.item_code===code); if(!CUR)return;
-  AUTOFILL={}; DA_SUA={};
+  AUTOFILL={}; DA_SUA={}; MAY_DIEN={}; SO_CAP=0;
   $('q').value=''; render(); $('verdict').innerHTML=''; LASTID=null;
   const it=CUR, segs=segments(it), today=new Date().toISOString().slice(0,10);
 
@@ -632,6 +654,10 @@ function showItem(code){
      <input class="code" id="in${s.i}" autocomplete="off" spellcheck="false" placeholder="${s.fmt}"
         inputmode="${/MMM/.test(s.fmt)?'text':'numeric'}">
      <div class="echo" id="ec${s.i}"></div></div>`).join('')+
+  `<div class="field"><label for="inmay">Mã máy đóng gói — đọc ở cuối dòng hạn dùng</label>
+     <input class="code" id="inmay" autocomplete="off" spellcheck="false"
+        placeholder="VD 13I hoặc 5I (thùng)" inputmode="text">
+     <div class="echo" id="ecmay"></div></div>`+
   `<div class="suahop" id="suahop">
      <label>Vì sao phải sửa? (bắt buộc chọn — dùng để máy đọc tốt hơn)</label>
      <select id="lydosua">
@@ -664,6 +690,24 @@ function showItem(code){
     };
     o.addEventListener('input',ve); ve();
   });
+
+  const om=$('inmay'), em=$('ecmay');
+  if(om&&em){
+    const vm=()=>{
+      const t=om.value.trim().toUpperCase().replace(/\s+/g,'');
+      if(!t){ em.textContent=''; em.className='echo'; }
+      else if(/^[0-9]{1,2}[A-Z0-9]$/.test(t)){
+        const kt=t.slice(-1);
+        const dung = (kt===SITE_KY_TU[SITE_APP]) ||
+                     ((SITE_KY_TU[SITE_APP]==='I') && kt==='1');
+        em.textContent = dung ? '→ line '+t.slice(0,-1)+', nhà máy '+SITE_APP
+                              : '→ ký tự cuối "'+kt+'" không phải của '+SITE_APP;
+        em.className='echo '+(dung?'ok':'no');
+      } else { em.textContent='→ chưa đúng dạng (1-2 số + 1 ký tự)'; em.className='echo no'; }
+      danhDauSua('may', om.value);
+    };
+    om.addEventListener('input',vm); vm();
+  }
   if(TRAM_URL) camKhoiDong(segs);
 }
 
@@ -678,6 +722,22 @@ function run(){
   const segs=segments(CUR), inputs={};
   segs.forEach(s=>inputs[s.i]=(($('in'+s.i)||{}).value||'').trim());
 
+  /* BẮT BUỘC ĐỦ TRƯỜNG. Hai ca KHÔNG ĐẠT trong đợt test đều là do chỉ điền một
+     trường: thiếu NSX thì mốc rơi về ngày lot người gõ, không còn là kiểm bao bì. */
+  const thieu=segs.filter(s=>s.label && !inputs[s.i]);
+  if(thieu.length){
+    alert('Còn trống: '+thieu.map(s=>s.label).join(', ')+
+          '.\nĐọc trên bao bì và điền đủ. Không đọc được thì gõ dấu ? rồi báo Leader.');
+    const o=$('in'+thieu[0].i); if(o) o.focus();
+    return;
+  }
+  const maMay=(($('inmay')||{}).value||'').trim().toUpperCase().replace(/\s+/g,'');
+  if(!maMay){
+    alert('Chưa điền mã máy đóng gói.\nNó nằm ở cuối dòng hạn sử dụng, VD 13I.');
+    const o=$('inmay'); if(o) o.focus();
+    return;
+  }
+
   const r=check(CUR,nsx,inputs);
   const noData=CUR.trang_thai!=='SAN_SANG';
   let cls,head,sub;
@@ -689,13 +749,24 @@ function run(){
   /* gửi kết quả cuối về sổ chung của trạm — để đo 2 cột chỉ số */
   if(TRAM_URL && LAST_OCR && LAST_OCR.id){
     const lyDo=($('lydosua')&&$('lydosua').value)||'';
-    const chuoi=segs.map(s=>inputs[s.i]).filter(x=>x).join(' | ');
+
+    /* Nhãn để train: một khuôn duy nhất, phủ trọn khối chữ in của MỘT gói. */
+    const nhan=nhanChuanHoa(segs, inputs, maMay);
+    /* Máy đã tự điền gì, TRƯỚC khi người sửa — không có cột này thì không tính
+       được sai ngầm, và không dựng được bảng nhầm lẫn. */
+    const mayDien=nhanChuanHoa(segs,
+      Object.assign({}, inputs, MAY_DIEN), MAY_DIEN['may']||'');
+
     fetch(TRAM_URL,{method:'POST',redirect:'follow',
       headers:{'Content-Type':'text/plain;charset=utf-8'},
-      body:JSON.stringify({act:'ketqua',id:LAST_OCR.id,chuoi_xac_nhan:chuoi,
-        ket_luan:head,ly_do:sub,ngay_sx:v,line:(($('line')&&$('line').value)||''),
+      body:JSON.stringify({act:'ketqua',id:LAST_OCR.id,
+        chuoi_xac_nhan:nhan, may_dien:mayDien, ma_may:maMay,
+        ket_luan:head, ly_do:sub,
+        ly_do_chi_tiet:r.lines.filter(l=>l.m!=='ok').map(l=>l.t+': '+l.d).join(' || '),
+        ngay_sx:v, line:(maMay.length>1?maMay.slice(0,-2)||maMay.slice(0,1):''),
         ly_do_sua:lyDo, o_da_sua:Object.keys(DA_SUA).join(';'),
         che_do:CHE_DO, giay_xac_nhan:GIAY_XN.toFixed(1), ban_dung:BAN_DUNG,
+        so_cap_ngay:SO_CAP, nhieu_goi:(SO_CAP>2),
         may_doc:(LAST_OCR.dong||[]).join(' | ')})}).catch(()=>{});
     LAST_OCR=null;
   }
@@ -768,7 +839,7 @@ $('results').addEventListener('keydown',e=>{if(e.key==='Enter'){const h=e.target
 function tuKiemApp(){
   var can=['bienTheCua','camGomChu','camCatTheoNhan','camCumNgay','camDienVaoO',
            'camGuiAnh','camChup','camCat','moKhoanh','veKhoanh','catTheoKhung',
-           'ganSuKienKhoanh','baoLoi','laLuotMu','check','readDate','addMonths'];
+           'ganSuKienKhoanh','baoLoi','laLuotMu','nhanChuanHoa','check','readDate','addMonths'];
   var thieu=can.filter(function(t){ return typeof window[t]!=='function'; });
   if(!thieu.length) return true;
   var d=document.createElement('div');
@@ -1167,7 +1238,8 @@ function camCumNgay(doan, fmt){
 
 function camDienVaoO(dong){
   var canDien=camSegs.filter(function(x){return x.label;}).length;
-  if(CHE_DO==='MU') return {daDien:0, soNhan:canDien, mu:true};
+  MAY_DIEN={};
+  if(CHE_DO==='MU') return {daDien:0, soNhan:canDien, mu:true, soCap:0};
 
   var chuoi=camGomChu(dong);
   var nhan=camSegs.map(function(x){return x.label;}).filter(Boolean);
@@ -1178,15 +1250,43 @@ function camDienVaoO(dong){
     var o=$('in'+sg.i); if(!o||!sg.label) return;
     var ung=phan.filter(function(p){
       return p.nhan.toUpperCase()===sg.label.toUpperCase(); });
-    /* Nhãn xuất hiện nhiều lần: bao bì in sẵn dòng mẫu "NSX/HSD: xem trên bao bì"
-       trước dòng phun thật. Chọn lần nào RA ĐƯỢC NGÀY, không chọn lần đầu. */
     for(var i=0;i<ung.length;i++){
       var cum=camCumNgay(ung[i].doan, sg.fmt);
-      if(cum){ o.value=cum; AUTOFILL[sg.i]=cum; daDien++;
+      if(cum){ o.value=cum; AUTOFILL[sg.i]=cum; MAY_DIEN[sg.i]=cum; daDien++;
                o.dispatchEvent(new Event('input')); break; }
     }
   });
-  return {daDien:daDien, soNhan:canDien};
+
+  /* Mã máy: token 1-2 số + 1 ký tự, đứng SAU cụm ngày của dòng hạn dùng.
+     Chấp nhận cả "13 I" lẫn "13I" — máy in để khoảng trắng không đều. */
+  var om=$('inmay');
+  if(om){
+    var sgH=camSegs.filter(function(x){return x.kind==='EXPIRY'&&x.label;})[0];
+    if(sgH){
+      var ungH=phan.filter(function(p){
+        return p.nhan.toUpperCase()===sgH.label.toUpperCase(); });
+      for(var k=0;k<ungH.length;k++){
+        var t=ungH[k].doan.toUpperCase().replace(/(\d)\s+([A-Z])(?![A-Z0-9])/g,'$1$2')
+              .split(/\s+/).filter(Boolean);
+        for(var j=t.length-1;j>=0;j--){
+          var tk=t[j].replace(/[^A-Z0-9]/g,'');
+          if(/^[0-9]{1,2}[A-Z]$/.test(tk) || /^[0-9]{2,3}$/.test(tk)){
+            om.value=tk; AUTOFILL['may']=tk; MAY_DIEN['may']=tk;
+            om.dispatchEvent(new Event('input')); break;
+          }
+        }
+        if(om.value) break;
+      }
+    }
+  }
+
+  /* Đếm số cặp ngày trong ảnh. Từ 2 trở lên là ảnh nhiều gói -> loại khỏi tập train,
+     vì nhãn chỉ mô tả một gói trong khi ảnh chứa nhiều. */
+  var soCap=phan.filter(function(p){ return camCumNgay(p.doan,
+      (camSegs.filter(function(x){return x.label&&x.label.toUpperCase()===p.nhan.toUpperCase();})[0]||{}).fmt || 'DDMMYY'
+    ); }).length;
+
+  return {daDien:daDien, soNhan:canDien, soCap:soCap};
 }
 
 /* Gửi ảnh lên trạm, nhận chuỗi đọc, điền vào ô. Trả về kết quả tách để
@@ -1205,7 +1305,7 @@ function camGuiAnh(canvas, cao){
       if(!r||!r.ok) throw new Error((r&&r.loi)||'trạm không trả lời');
       LAST_OCR={id:r.id, dong:r.dong||[]};
       var kq=camDienVaoO(r.dong||[]);
-      KQ_TACH=kq;
+      KQ_TACH=kq; SO_CAP=kq.soCap||0;
 
       var hopLD=document.getElementById('suahop');
       if(hopLD && kq.daDien<kq.soNhan && CHE_DO!=='MU') hopLD.style.display='block';
