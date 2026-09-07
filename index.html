@@ -235,7 +235,7 @@ const store={
    URL mặc định gắn sẵn — QC không phải dán gì. Ô nhập ở đầu màn hình chỉ để
    đổi sang deployment khác khi cần, và chỉ đổi trên máy đó.
    PHẢI khai báo trước mọi chỗ dùng, nếu không sẽ đứt phần khởi tạo. */
-var BAN_DUNG = 'b19 · sửa chú thích';
+var BAN_DUNG = 'b20 · lọc site khi chọn cấp';
 var SITE_KY_TU = { MBP:'I', MIP:'A', MHP:'B', MGP:'M' };
 var SITE_TEN   = { MBP:'MMB — Nghệ An', MIP:'MSI', MHP:'MHP', MGP:'MGP' };
 var SITE_APP   = store.get('dc_site') || 'MBP';
@@ -594,7 +594,11 @@ function danhDauSua(i,giaTri){
    Phải chọn đúng DÒNG, không chỉ đúng mã — nếu không, thùng in nhầm format
    của gói vẫn ra ĐẠT trong khi hàng thật không đạt. */
 function dongCuaItem(code){
-  return MASTER.filter(r=>r.item_code===code);
+  /* PHẢI lọc theo site. Cùng một mã item có dòng riêng cho từng nhà máy:
+     02KK00313 có 3 dòng (MBP gói;thùng · MGP gói · MGP thùng), và 02KK00481
+     ở MGP khai gói 5 tháng còn thùng 6 tháng. Không lọc thì QC ở MBP thấy cả
+     nút cấp của MGP và chọn nhầm là lấy sai số tháng. */
+  return MASTER.filter(r=>r.item_code===code).filter(hopSite);
 }
 /* Tách "gói; thùng" thành từng cấp riêng để hiện cho người chọn. */
 function capCuaDong(r){
