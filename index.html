@@ -235,7 +235,7 @@ const store={
    URL mặc định gắn sẵn — QC không phải dán gì. Ô nhập ở đầu màn hình chỉ để
    đổi sang deployment khác khi cần, và chỉ đổi trên máy đó.
    PHẢI khai báo trước mọi chỗ dùng, nếu không sẽ đứt phần khởi tạo. */
-var BAN_DUNG = 'b16 · cấp bao bì';
+var BAN_DUNG = 'b17 · bỏ cảnh báo thừa';
 var SITE_KY_TU = { MBP:'I', MIP:'A', MHP:'B', MGP:'M' };
 var SITE_TEN   = { MBP:'MMB — Nghệ An', MIP:'MSI', MHP:'MHP', MGP:'MGP' };
 var SITE_APP   = store.get('dc_site') || 'MBP';
@@ -487,8 +487,15 @@ function check(it,nsx,inputs){
             lines.push({m:'no',t:'Nghi in nhầm thứ tự ngày/tháng',
               d:msg+'Cách đọc thứ hai lại đúng hạn. Nhiều khả năng máy in đang set '+alt+' thay vì '+s.fmt+'. Dừng và kiểm tra máy in.'});
             fail=true;continue;}}
-        lines.push({m:'wa',t:'Ngày có thể đọc hai cách',
-          d:msg+'Thị trường '+(it.thi_truong||'này')+' dùng '+s.fmt+' — xác nhận đúng chiều trước khi chạy.'});warn=true;}}
+        /* BỎ nhánh cảnh báo "đọc được hai cách".
+           Nó bắn mỗi khi ngày <= 12, tức ~64% số lượt khi tính cả NSX và HSD,
+           và trên 57 lượt test thật nó là nguyên nhân chính của việc quá nửa
+           kết quả ra CẦN XÁC NHẬN.
+           Nó cũng không bắt được lỗi nào: trường hợp máy in set sai thứ tự đã
+           có nhánh KHÔNG ĐẠT ngay phía trên (đọc ngược khớp hạn, đọc xuôi lệch).
+           Nhánh này chỉ bắn khi đọc xuôi ĐÃ ĐÚNG — tức engine đi nghi ngờ chính
+           định dạng mà master khai. Master là nguồn sự thật, không nghi ngờ nó. */
+      }}
   }
   return {lines,fail,warn};
 }
