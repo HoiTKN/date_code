@@ -235,7 +235,7 @@ const store={
    URL mặc định gắn sẵn — QC không phải dán gì. Ô nhập ở đầu màn hình chỉ để
    đổi sang deployment khác khi cần, và chỉ đổi trên máy đó.
    PHẢI khai báo trước mọi chỗ dùng, nếu không sẽ đứt phần khởi tạo. */
-var BAN_DUNG = 'b17 · bỏ cảnh báo thừa';
+var BAN_DUNG = 'b18 · người đọc + máy đọc';
 var SITE_KY_TU = { MBP:'I', MIP:'A', MHP:'B', MGP:'M' };
 var SITE_TEN   = { MBP:'MMB — Nghệ An', MIP:'MSI', MHP:'MHP', MGP:'MGP' };
 var SITE_APP   = store.get('dc_site') || 'MBP';
@@ -795,6 +795,39 @@ function run(){
   else if(r.warn){cls='v-warn';head='CẦN XÁC NHẬN';sub='Có điểm chưa chắc chắn — ghi rõ ai xác nhận và căn cứ gì.';}
   else{cls='v-pass';head='ĐẠT';sub='Khớp tiêu chuẩn in và đúng hạn theo TCTP.';}
 
+  /* ===== SO BA CHIỀU =====
+     1. người đọc  vs  master  -> quyết định ĐẠT / KHÔNG ĐẠT (đã chạy ở check())
+     2. người đọc  vs  máy đọc -> lệch thì hạ xuống CẦN XÁC NHẬN
+     Máy KHÔNG quyết định gì. Nó chỉ là nhân chứng thứ hai: khớp thì yên tâm,
+     lệch thì một trong hai bên sai và phải xem lại, đọc không được thì thôi.
+     Bắt máy phải khớp mới cho ĐẠT sẽ khiến mọi chai in laser không bao giờ đạt. */
+  var soSanhMay = 'MAY_KHONG_DOC_DUOC';
+  if(LAST_OCR && Object.keys(MAY_DIEN).length){
+    var lech=[];
+    segs.forEach(function(sg){
+      if(!sg.label) return;
+      var m=MAY_DIEN[sg.i]; if(!m) return;
+      var a=String(inputs[sg.i]).toUpperCase().replace(/[^A-Z0-9]/g,'');
+      var b=String(m).toUpperCase().replace(/[^A-Z0-9]/g,'');
+      if(a!==b) lech.push(sg.label+': người đọc "'+inputs[sg.i]+'", máy đọc "'+m+'"');
+    });
+    if(lech.length){
+      soSanhMay='LECH';
+      r.lines.push({m:'wa',t:'Người đọc và máy đọc KHÁC nhau',
+        d:lech.join(' · ')+'. Một trong hai bên sai — nhìn lại chai trước khi cho chạy.'});
+      r.warn=true;
+      if(head==='ĐẠT'){ head='CẦN XÁC NHẬN';
+        sub='Người và máy đọc khác nhau — xác nhận lại trên chai.'; }
+    } else {
+      soSanhMay='KHOP';
+      r.lines.push({m:'ok',t:'Máy đọc khớp với người đọc',
+        d:'Hai nguồn độc lập cho cùng kết quả.'});
+    }
+  } else {
+    r.lines.push({m:'ok',t:'Máy không đọc được',
+      d:'Bình thường với chai in laser. Kết luận dựa trên chuỗi người đọc và master.'});
+  }
+
   /* gửi kết quả cuối về sổ chung của trạm — để đo 2 cột chỉ số */
   if(TRAM_URL && LAST_OCR && LAST_OCR.id){
     const lyDo=($('lydosua')&&$('lydosua').value)||'';
@@ -816,7 +849,7 @@ function run(){
         ngay_sx:v, line:(maMay.length>1?maMay.slice(0,-2)||maMay.slice(0,1):''),
         ly_do_sua:lyDo, o_da_sua:Object.keys(DA_SUA).join(';'),
         che_do:CHE_DO, giay_xac_nhan:GIAY_XN.toFixed(1), ban_dung:BAN_DUNG,
-        so_cap_ngay:SO_CAP, nhieu_goi:(SO_CAP>2),
+        so_cap_ngay:SO_CAP, nhieu_goi:(SO_CAP>2), so_sanh_may:soSanhMay,
         may_doc:(LAST_OCR.dong||[]).join(' | ')})}).catch(()=>{});
     LAST_OCR=null;
   }
@@ -1286,57 +1319,55 @@ function camCumNgay(doan, fmt){
   return null;
 }
 
+/**
+ * OCR KHÔNG điền vào ô nhập nữa — chỉ bóc ra và GIỮ KÍN cho tới khi QC gõ xong.
+ *
+ * Lý do đổi: chai in laser OCR đọc rất khó, nên phải có người đọc bằng mắt.
+ * Mà nếu hiện kết quả máy trước thì người sẽ gõ theo máy chứ không theo chai —
+ * mất luôn giá trị của việc có hai nguồn độc lập, và nhãn train cũng nhiễm.
+ * Gõ trước, so sau. Mỗi lượt vì thế là một lượt kiểm mù.
+ */
 function camDienVaoO(dong){
   var canDien=camSegs.filter(function(x){return x.label;}).length;
   MAY_DIEN={};
-  if(CHE_DO==='MU') return {daDien:0, soNhan:canDien, mu:true, soCap:0};
 
   var chuoi=camGomChu(dong);
   var nhan=camSegs.map(function(x){return x.label;}).filter(Boolean);
   var phan=camCatTheoNhan(chuoi, nhan);
-  var daDien=0;
+  var docDuoc=0;
 
   camSegs.forEach(function(sg){
-    var o=$('in'+sg.i); if(!o||!sg.label) return;
+    if(!sg.label) return;
     var ung=phan.filter(function(p){
       return p.nhan.toUpperCase()===sg.label.toUpperCase(); });
     for(var i=0;i<ung.length;i++){
       var cum=camCumNgay(ung[i].doan, sg.fmt);
-      if(cum){ o.value=cum; AUTOFILL[sg.i]=cum; MAY_DIEN[sg.i]=cum; daDien++;
-               o.dispatchEvent(new Event('input')); break; }
+      if(cum){ MAY_DIEN[sg.i]=cum; docDuoc++; break; }
     }
   });
 
-  /* Mã máy: token 1-2 số + 1 ký tự, đứng SAU cụm ngày của dòng hạn dùng.
-     Chấp nhận cả "13 I" lẫn "13I" — máy in để khoảng trắng không đều. */
-  var om=$('inmay');
-  if(om){
-    var sgH=camSegs.filter(function(x){return x.kind==='EXPIRY'&&x.label;})[0];
-    if(sgH){
-      var ungH=phan.filter(function(p){
-        return p.nhan.toUpperCase()===sgH.label.toUpperCase(); });
-      for(var k=0;k<ungH.length;k++){
-        var t=ungH[k].doan.toUpperCase().replace(/(\d)\s+([A-Z])(?![A-Z0-9])/g,'$1$2')
-              .split(/\s+/).filter(Boolean);
-        for(var j=t.length-1;j>=0;j--){
-          var tk=t[j].replace(/[^A-Z0-9]/g,'');
-          if(/^[0-9]{1,2}[A-Z]$/.test(tk) || /^[0-9]{2,3}$/.test(tk)){
-            om.value=tk; AUTOFILL['may']=tk; MAY_DIEN['may']=tk;
-            om.dispatchEvent(new Event('input')); break;
-          }
-        }
-        if(om.value) break;
+  /* Mã máy: token 1-2 số + 1 ký tự đứng sau cụm ngày của dòng hạn dùng. */
+  var sgH=camSegs.filter(function(x){return x.kind==='EXPIRY'&&x.label;})[0];
+  if(sgH){
+    var ungH=phan.filter(function(p){
+      return p.nhan.toUpperCase()===sgH.label.toUpperCase(); });
+    for(var k=0;k<ungH.length && !MAY_DIEN['may'];k++){
+      var t=ungH[k].doan.toUpperCase().replace(/(\d)\s+([A-Z])(?![A-Z0-9])/g,'$1$2')
+            .split(/\s+/).filter(Boolean);
+      for(var j=t.length-1;j>=0;j--){
+        var tk=t[j].replace(/[^A-Z0-9]/g,'');
+        if(/^[0-9]{1,2}[A-Z]$/.test(tk)){ MAY_DIEN['may']=tk; break; }
       }
     }
   }
 
-  /* Đếm số cặp ngày trong ảnh. Từ 2 trở lên là ảnh nhiều gói -> loại khỏi tập train,
-     vì nhãn chỉ mô tả một gói trong khi ảnh chứa nhiều. */
-  var soCap=phan.filter(function(p){ return camCumNgay(p.doan,
-      (camSegs.filter(function(x){return x.label&&x.label.toUpperCase()===p.nhan.toUpperCase();})[0]||{}).fmt || 'DDMMYY'
-    ); }).length;
+  var soCap=phan.filter(function(p){
+    var sg2=camSegs.filter(function(x){
+      return x.label && x.label.toUpperCase()===p.nhan.toUpperCase(); })[0];
+    return camCumNgay(p.doan, (sg2||{}).fmt || 'DDMMYY');
+  }).length;
 
-  return {daDien:daDien, soNhan:canDien, soCap:soCap};
+  return {daDien:docDuoc, soNhan:canDien, soCap:soCap};
 }
 
 /* Gửi ảnh lên trạm, nhận chuỗi đọc, điền vào ô. Trả về kết quả tách để
@@ -1358,30 +1389,20 @@ function camGuiAnh(canvas, cao){
       KQ_TACH=kq; SO_CAP=kq.soCap||0;
 
       var hopLD=document.getElementById('suahop');
-      if(hopLD && kq.daDien<kq.soNhan && CHE_DO!=='MU') hopLD.style.display='block';
+      if(hopLD) hopLD.style.display='none';
 
       T0_XACNHAN=Date.now();
       var xn=document.getElementById('xacnhan'), mu=document.getElementById('mucanh');
-      if(CHE_DO==='MU'){
+      if(xn) xn.style.display='none';
+      if(mu){
         mu.style.display='block';
-        mu.innerHTML='<b>Lượt kiểm mù.</b> Máy đã đọc nhưng cố tình không hiện. '+
-          'Gõ tay đúng chữ đang in trên bao. Lượt này dùng để đo máy đọc sai bao nhiêu '+
-          '— gõ theo trí nhớ là làm hỏng số đo.';
-        xn.style.display='none';
-        hop.textContent='Lượt kiểm mù — gõ tay từ bao bì.';
-      }else{
-        mu.style.display='none';
-        hop.textContent = kq.daDien===kq.soNhan
-          ? 'Đã điền '+kq.daDien+'/'+kq.soNhan+' ô.'
-          : 'Chỉ tách được '+kq.daDien+'/'+kq.soNhan+' ô — gõ tay ô còn thiếu.\n\n'+
-            'Máy đọc được:\n'+(r.dong||[]).join('\n').slice(0,600);
-        if(kq.daDien>0){
-          document.getElementById('xn_may').textContent=
-            camSegs.filter(function(x){return x.label;})
-                   .map(function(x){ return (($('in'+x.i)||{}).value)||'—'; }).join('\n');
-          xn.style.display='block';
-        }
+        mu.innerHTML='<b>Máy đã đọc xong — nhưng chưa hiện.</b> Bây giờ nhìn CHAI và gõ '+
+          'ngày thật vào ô bên dưới. Bấm Kiểm tra rồi máy mới cho biết nó đọc ra gì. '+
+          'Gõ theo chai, đừng đoán.';
       }
+      hop.textContent = kq.daDien>0
+        ? 'Máy đọc được ' + kq.daDien + '/' + kq.soNhan + ' trường (chưa hiện).'
+        : 'Máy KHÔNG đọc được trường nào — bình thường với chai in laser. Gõ tay như thường.';
       if(tt) tt.textContent='đọc xong — đối chiếu bao bì rồi xác nhận';
       return kq;
    })
@@ -1477,7 +1498,7 @@ function catTheoKhung(){
 /* Chụp xong KHÔNG gửi ngay. Đóng băng ảnh, mở màn khoanh vùng để QC tự chọn.
    Khung tự động được vẽ sẵn làm gợi ý — đúng thì bấm Đọc, sai thì kéo lại. */
 async function camChup(){
-  CHE_DO = laLuotMu() ? 'MU' : 'THUONG';
+  CHE_DO='MU';   /* mọi lượt đều mù: QC gõ trước, máy hiện sau */
   const v=document.getElementById('camv');
   const c=document.createElement('canvas');
   c.width=v.videoWidth; c.height=v.videoHeight;
