@@ -235,7 +235,7 @@ const store={
    URL mặc định gắn sẵn — QC không phải dán gì. Ô nhập ở đầu màn hình chỉ để
    đổi sang deployment khác khi cần, và chỉ đổi trên máy đó.
    PHẢI khai báo trước mọi chỗ dùng, nếu không sẽ đứt phần khởi tạo. */
-var BAN_DUNG = 'b20 · lọc site khi chọn cấp';
+var BAN_DUNG = 'b21 · cho gõ chữ';
 var SITE_KY_TU = { MBP:'I', MIP:'A', MHP:'B', MGP:'M' };
 var SITE_TEN   = { MBP:'MMB — Nghệ An', MIP:'MSI', MHP:'MHP', MGP:'MGP' };
 var SITE_APP   = store.get('dc_site') || 'MBP';
@@ -705,11 +705,12 @@ function showItem(code, capChon){
   segs.map(s=>`<div class="field">
      <label>${s.kind==='EXPIRY'?'Hạn sử dụng':s.kind==='PROD'?'Ngày sản xuất':'Lot'}${s.label?' — '+s.label:''}</label>
      <input class="code" id="in${s.i}" autocomplete="off" spellcheck="false" placeholder="${s.fmt}"
-        inputmode="${/MMM/.test(s.fmt)?'text':'numeric'}">
+        inputmode="text" autocapitalize="characters" autocorrect="off">
      <div class="echo" id="ec${s.i}"></div></div>`).join('')+
   `<div class="field"><label for="inmay">Mã máy đóng gói — đọc ở cuối dòng hạn dùng</label>
      <input class="code" id="inmay" autocomplete="off" spellcheck="false"
-        placeholder="VD 13I hoặc 5I (thùng)" inputmode="text">
+        placeholder="VD 13I hoặc 5I (thùng)" inputmode="text"
+        autocapitalize="characters" autocorrect="off">
      <div class="echo" id="ecmay"></div></div>`+
   `<div class="suahop" id="suahop">
      <label>Vì sao phải sửa? (bắt buộc chọn — dùng để máy đọc tốt hơn)</label>
@@ -722,7 +723,7 @@ function showItem(code, capChon){
        <option value="IN_SAI_THAT">Máy in in sai thật — không phải lỗi đọc</option>
      </select>
    </div>`+
-  `<div class="hint">Gõ nguyên văn theo đúng thứ tự đang in trên bao, kể cả nhãn và dấu chấm/gạch.</div>
+  `<div class="hint">Gõ nguyên văn theo đúng thứ tự đang in trên bao — gõ được cả chữ, dấu cách, dấu chấm và gạch. Gõ mỗi phần ngày cũng được, app tự hiểu.</div>
    <div style="margin-top:14px"><button class="go" type="button" id="run">Kiểm tra và ghi sổ</button></div></div>`;
 
   $('item').innerHTML=h;
