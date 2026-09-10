@@ -246,7 +246,7 @@ const store={
    URL mặc định gắn sẵn — QC không phải dán gì. Ô nhập ở đầu màn hình chỉ để
    đổi sang deployment khác khi cần, và chỉ đổi trên máy đó.
    PHẢI khai báo trước mọi chỗ dùng, nếu không sẽ đứt phần khởi tạo. */
-var BAN_DUNG = 'b24 · khuôn mã máy';
+var BAN_DUNG = 'b25 · sửa nút class';
 var SITE_KY_TU = { MBP:'I', MIP:'A', MHP:'B', MGP:'M' };
 var SITE_TEN   = { MBP:'MMB — Nghệ An', MIP:'MSI', MHP:'MHP', MGP:'MGP' };
 var SITE_APP   = store.get('dc_site') || 'MBP';
@@ -1536,6 +1536,15 @@ function moKhoanh(canvasGoc, khungGoiY){
 }
 function dongKhoanh(){
   var k=document.getElementById('khoanh'); if(k) k.style.display='none';
+  /* Trả camera về trạng thái sẵn sàng chụp tiếp: bỏ ảnh đã đóng băng, xoá
+     khung cũ để bộ dò bắt lại từ đầu, và cho video chạy lại.
+     Không làm thì màn hình còn giữ ảnh trước, QC không biết camera đang ngắm đâu. */
+  ANH_GOC=null; camKhung=null; camDem=0; camMat=0;
+  var v=document.getElementById('camv');
+  if(v && v.paused) { try{ v.play(); }catch(e){} }
+  var tt=document.getElementById('camtt'); if(tt) tt.textContent='đang quét — sẵn sàng chụp tiếp';
+  if(k && k.scrollIntoView) { var b=document.getElementById('camboc');
+    if(b && b.scrollIntoView) b.scrollIntoView({block:'center'}); }
 }
 
 function veKhoanh(){
@@ -1630,7 +1639,9 @@ async function camChup(){
    ============================================================ */
 document.addEventListener('click', function(ev){
   var el = ev.target && ev.target.closest ? ev.target.closest('button') : null;
-  if(!el || !el.id) return;
+  /* KHÔNG đòi phải có id. Nút dòng chữ khách yêu cầu và nút chọn cấp bao bì
+     chỉ có class — trước đây dòng này loại chúng ngay, nên bấm không ăn. */
+  if(!el) return;
   try{
     if(el.id==='kh_doc'){
       ev.preventDefault();
