@@ -246,7 +246,7 @@ const store={
    URL mặc định gắn sẵn — QC không phải dán gì. Ô nhập ở đầu màn hình chỉ để
    đổi sang deployment khác khi cần, và chỉ đổi trên máy đó.
    PHẢI khai báo trước mọi chỗ dùng, nếu không sẽ đứt phần khởi tạo. */
-var BAN_DUNG = 'b27 · chọn + OCR kiểm chéo';
+var BAN_DUNG = 'b28 · gõ trước, chụp sau';
 var SITE_KY_TU = { MBP:'I', MIP:'A', MHP:'B', MGP:'M' };
 var SITE_TEN   = { MBP:'MMB — Nghệ An', MIP:'MSI', MHP:'MHP', MGP:'MGP' };
 var SITE_APP   = store.get('dc_site') || 'MBP';
@@ -725,8 +725,26 @@ function showItem(code, capChon){
     <div class="hint">Lấy từ lệnh sản xuất, không lấy từ chữ in trên bao.</div>
   </div>
 
-  <div class="card"><div class="eyebrow">Bước 3 · Chụp hoặc gõ chuỗi đang in trên bao</div>
-    ${TRAM_URL?`<div id="camboc"><video id="camv" playsinline muted autoplay></video><canvas id="camve"></canvas></div>
+  <div class="card"><div class="eyebrow">Bước 3 · Đọc trên bao bì rồi gõ vào đây</div>
+
+  `+
+  segs.map(s=>`<div class="field">
+     <label>${s.kind==='EXPIRY'?'Hạn sử dụng':s.kind==='PROD'?'Ngày sản xuất':'Lot'}${s.label?' — '+s.label:''}</label>
+     <input class="code" id="in${s.i}" autocomplete="off" spellcheck="false" placeholder="${s.fmt}"
+        inputmode="text" autocapitalize="characters" autocorrect="off">
+     <div class="echo" id="ec${s.i}"></div></div>`).join('')+
+
+  (dongChu(it).length ? `<div class="chuhop">
+     <div class="lbl">Dòng chữ khách hàng yêu cầu — đối chiếu với bao bì</div>
+     ${dongChu(it).map(c=>`<div class="chudong">
+       <div class="noi">${c.chu}</div>
+       <div class="chunut">
+         <button type="button" class="chunut-co"    data-chu="${c.i}">Có</button>
+         <button type="button" class="chunut-khong" data-chu="${c.i}">Thiếu / sai</button>
+       </div></div>`).join('')}
+   </div>` : '')+
+  `<div class="eyebrow" style="margin-top:16px">Bước 4 · Chụp ảnh để máy đối chiếu</div>`+
+  (TRAM_URL?`<div id="camboc"><video id="camv" playsinline muted autoplay></video><canvas id="camve"></canvas></div>
     <div class="camhang">
       <button class="go" type="button" id="camchup">Chụp và đọc</button>
       <button class="ghost" type="button" id="camdoi">Đổi cam</button>
@@ -756,23 +774,7 @@ function showItem(code, capChon){
         <button type="button" id="xn_sai">Sai — tôi sửa</button>
       </div>
     </div>
-    <div class="camnho">Máy đã đọc nhưng CHƯA HIỆN. Nhìn bao bì rồi gõ ngày thật vào ô dưới — đừng đoán. Bấm Kiểm tra rồi máy mới cho biết nó đọc ra gì và so với chuỗi anh chị gõ.</div>`:''}
-  `+
-  segs.map(s=>`<div class="field">
-     <label>${s.kind==='EXPIRY'?'Hạn sử dụng':s.kind==='PROD'?'Ngày sản xuất':'Lot'}${s.label?' — '+s.label:''}</label>
-     <input class="code" id="in${s.i}" autocomplete="off" spellcheck="false" placeholder="${s.fmt}"
-        inputmode="text" autocapitalize="characters" autocorrect="off">
-     <div class="echo" id="ec${s.i}"></div></div>`).join('')+
-
-  (dongChu(it).length ? `<div class="chuhop">
-     <div class="lbl">Dòng chữ khách hàng yêu cầu — đối chiếu với bao bì</div>
-     ${dongChu(it).map(c=>`<div class="chudong">
-       <div class="noi">${c.chu}</div>
-       <div class="chunut">
-         <button type="button" class="chunut-co"    data-chu="${c.i}">Có</button>
-         <button type="button" class="chunut-khong" data-chu="${c.i}">Thiếu / sai</button>
-       </div></div>`).join('')}
-   </div>` : '')+
+    <div class="camnho">Chụp xong, máy đọc rồi so với chuỗi anh chị vừa gõ ở trên. Chụp cả khối chữ in — cả ngày lẫn dòng khách yêu cầu.</div>`:'')+
   `<div class="suahop" id="suahop">
      <label>Vì sao phải sửa? (bắt buộc chọn — dùng để máy đọc tốt hơn)</label>
      <select id="lydosua">
