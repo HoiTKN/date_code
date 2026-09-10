@@ -142,6 +142,17 @@ button.ghost{width:100%;padding:11px;background:#fff;border:1px solid var(--hair
 .capnut{padding:10px 16px;border-radius:8px;border:1px solid #ccd2cf;background:#fff;
         font:600 14px system-ui;cursor:pointer;color:#22312c}
 .capnut.dang{background:#123b2c;color:#fff;border-color:#123b2c}
+
+.chuhop{margin-top:14px;padding:12px;border:1px solid #d8dcda;border-radius:10px;background:#fbfcfc}
+.chuhop .lbl{font-size:13px;font-weight:600;margin-bottom:8px}
+.chudong{display:flex;gap:10px;align-items:flex-start;padding:8px 0;border-top:1px solid #eef1f0}
+.chudong:first-of-type{border-top:none}
+.chudong .noi{flex:1;font:13px ui-monospace,monospace;word-break:break-word}
+.chunut{display:flex;gap:6px;flex:0 0 auto}
+.chunut button{padding:8px 12px;border-radius:7px;border:1px solid #ccd2cf;background:#fff;
+      font:600 13px system-ui;cursor:pointer;color:#22312c}
+.chunut button.co{background:#123b2c;color:#fff;border-color:#123b2c}
+.chunut button.khong{background:#7A2118;color:#fff;border-color:#7A2118}
 /* ===== KHỐI CAMERA — thêm ===== */
 #camboc{position:relative;width:100%;background:#000;overflow:hidden;border-radius:10px}
 #camboc video{width:100%;display:block}
@@ -235,7 +246,7 @@ const store={
    URL mặc định gắn sẵn — QC không phải dán gì. Ô nhập ở đầu màn hình chỉ để
    đổi sang deployment khác khi cần, và chỉ đổi trên máy đó.
    PHẢI khai báo trước mọi chỗ dùng, nếu không sẽ đứt phần khởi tạo. */
-var BAN_DUNG = 'b21 · cho gõ chữ';
+var BAN_DUNG = 'b23 · kiểm dòng chữ';
 var SITE_KY_TU = { MBP:'I', MIP:'A', MHP:'B', MGP:'M' };
 var SITE_TEN   = { MBP:'MMB — Nghệ An', MIP:'MSI', MHP:'MHP', MGP:'MGP' };
 var SITE_APP   = store.get('dc_site') || 'MBP';
@@ -407,6 +418,36 @@ function stripLabel(s){let t=String(s).trim().toUpperCase().replace(/^[:\s]+/,''
   for(const L of LABELS) if(t.startsWith(L)) return {found:L,rest:t.slice(L.length).replace(/^[:\s.]+/,'')};
   return {found:null,rest:t};}
 
+/**
+ * Bóc nhãn, ƯU TIÊN nhãn mà master khai cho dòng đó.
+ * Lý do: có bao bì mã hoá ngày sản xuất bằng TIỀN TỐ chứ không bằng nhãn —
+ * "BBF 23 02 2028 L230826 17:19 2M1": hạn dùng có nhãn BBF, còn ngày sản xuất
+ * nằm sau chữ L. Danh sách nhãn cứng không có "L", nên phải để master khai
+ * dongN_nhan = L và engine bóc theo đó.
+ * Chỉ bóc đúng nhãn master khai — không đoán thêm tiền tố nào khác.
+ */
+function bocNhan(raw, nhanMaster){
+  var t=String(raw).trim().toUpperCase().replace(/^[:\s]+/,'');
+  var n=String(nhanMaster||'').trim().toUpperCase();
+  if(n && t.indexOf(n)===0){
+    return {found:n, rest:t.slice(n.length).replace(/^[:\s.\-]+/,'')};
+  }
+  return stripLabel(t);
+}
+
+/* Dòng chữ cố định khách hàng yêu cầu in — tên nhà nhập khẩu, địa chỉ.
+   Không phải ngày nên không parse được, nhưng THIẾU hoặc IN SAI là lỗi thật
+   với hàng xuất khẩu. Master khai loai=CHU và nội dung ở thanh_phan. */
+function dongChu(it){
+  var o=[];
+  for(var i=1;i<=4;i++){
+    if(it['seg'+i+'_loai']==='CHU' && it['seg'+i+'_them']){
+      o.push({i:i, chu:String(it['seg'+i+'_them']).trim()});
+    }
+  }
+  return o;
+}
+
 function segments(it){const o=[];for(let i=1;i<=4;i++){const k=it['seg'+i+'_loai'],f=it['seg'+i+'_format'];
   if(k&&f)o.push({i,kind:k,label:it['seg'+i+'_nhan'],fmt:f,them:it['seg'+i+'_them']||''});}return o;}
 
@@ -422,7 +463,7 @@ function mocGoc(it,nsx,inputs){
   for(const s of segments(it)){
     if(s.kind!=='PROD') continue;
     const raw=(inputs[s.i]||'').trim(); if(!raw) continue;
-    const {rest}=stripLabel(raw);
+    const {rest}=bocNhan(raw,s.label);
     const dt=readDate(rest,s.fmt,false)||readDate(rest,s.fmt,true);
     if(dt) return {moc:dt, tu:'bao', seg:s};
   }
@@ -444,7 +485,7 @@ function check(it,nsx,inputs){
     const raw=(inputs[s.i]||'').trim();
     const title=(s.kind==='EXPIRY'?'Hạn sử dụng':s.kind==='PROD'?'Ngày sản xuất in trên bao':'Lot')+(s.label?' ('+s.label+')':'');
     if(!raw){lines.push({m:'wa',t:title,d:'Chưa nhập — không kết luận được ô này.'});warn=true;continue;}
-    const {found,rest}=stripLabel(raw);
+    const {found,rest}=bocNhan(raw,s.label);
     if(s.label&&found&&found!==s.label){
       lines.push({m:'no',t:title,d:'In nhãn "'+found+'" nhưng tiêu chuẩn là "'+s.label+'".'});fail=true;}
     let dt=readDate(rest,s.fmt,false),sepIssue=false;
@@ -560,7 +601,7 @@ function render(){
 
 /* Ô nào máy điền, ô nào người sửa — tách bạch để sau này dựng bảng nhầm lẫn.
    Không có cái này thì mọi ô đều là "người gõ", không học được gì. */
-var AUTOFILL={}, DA_SUA={}, MAY_DIEN={}, SO_CAP=0, CAP_HIEN='';
+var AUTOFILL={}, DA_SUA={}, MAY_DIEN={}, SO_CAP=0, CAP_HIEN='', CHU_XN={};
 /* Nhãn dùng để train phải có ĐÚNG MỘT cách viết. Trước đây người gõ tự do nên
    cùng một nội dung ra ba kiểu: "NSX 040926 | HSD 040327", "040926 | 040227",
    "HSD 040227". Máy không học được từ ba mã hoá cho một thứ.
@@ -570,7 +611,7 @@ function nhanChuanHoa(segs, inputs, maMay){
   segs.forEach(function(s){
     if(!s.label) return;
     const raw=String(inputs[s.i]||'').trim(); if(!raw) return;
-    const sl=stripLabel(raw);
+    const sl=bocNhan(raw,s.label);
     const dt=readDate(sl.rest, s.fmt, true);
     if(!dt) return;
     dong.push(String(s.label).toUpperCase().replace(/\s+/g,'')+':'+
@@ -613,7 +654,7 @@ function showItem(code, capChon){
       : ds[0];
   CAP_HIEN = capChon || (ds.length>1 ? capCuaDong(CUR)[0] : '');
   if(!CUR)return;
-  AUTOFILL={}; DA_SUA={}; MAY_DIEN={}; SO_CAP=0;
+  AUTOFILL={}; DA_SUA={}; MAY_DIEN={}; SO_CAP=0; CHU_XN={};
   $('q').value=''; render(); $('verdict').innerHTML=''; LASTID=null;
   const it=CUR, segs=segments(it), today=new Date().toISOString().slice(0,10);
 
@@ -709,9 +750,18 @@ function showItem(code, capChon){
      <div class="echo" id="ec${s.i}"></div></div>`).join('')+
   `<div class="field"><label for="inmay">Mã máy đóng gói — đọc ở cuối dòng hạn dùng</label>
      <input class="code" id="inmay" autocomplete="off" spellcheck="false"
-        placeholder="VD 13I hoặc 5I (thùng)" inputmode="text"
+        placeholder="VD 13I · 5I · 2M1" inputmode="text"
         autocapitalize="characters" autocorrect="off">
      <div class="echo" id="ecmay"></div></div>`+
+  (dongChu(it).length ? `<div class="chuhop">
+     <div class="lbl">Dòng chữ khách hàng yêu cầu — đối chiếu với bao bì</div>
+     ${dongChu(it).map(c=>`<div class="chudong">
+       <div class="noi">${c.chu}</div>
+       <div class="chunut">
+         <button type="button" class="chunut-co"    data-chu="${c.i}">Có</button>
+         <button type="button" class="chunut-khong" data-chu="${c.i}">Thiếu / sai</button>
+       </div></div>`).join('')}
+   </div>` : '')+
   `<div class="suahop" id="suahop">
      <label>Vì sao phải sửa? (bắt buộc chọn — dùng để máy đọc tốt hơn)</label>
      <select id="lydosua">
@@ -737,7 +787,7 @@ function showItem(code, capChon){
       const v=o.value.trim();
       if(!v){ e.textContent=''; e.className='echo';
               if(AUTOFILL[sg.i]!==undefined) danhDauSua(sg.i,o.value); return; }
-      const dt=readDate(stripLabel(v).rest, sg.fmt, true);
+      const dt=readDate(bocNhan(v,sg.label).rest, sg.fmt, true);
       e.textContent = dt ? '→ '+fmtVN(dt) : '→ chưa đọc được theo '+sg.fmt;
       e.className = 'echo '+(dt?'ok':'no');
       danhDauSua(sg.i,o.value);
@@ -749,15 +799,21 @@ function showItem(code, capChon){
   if(om&&em){
     const vm=()=>{
       const t=om.value.trim().toUpperCase().replace(/\s+/g,'');
-      if(!t){ em.textContent=''; em.className='echo'; }
-      else if(/^[0-9]{1,2}[A-Z0-9]$/.test(t)){
-        const kt=t.slice(-1);
-        const dung = (kt===SITE_KY_TU[SITE_APP]) ||
-                     ((SITE_KY_TU[SITE_APP]==='I') && kt==='1');
-        em.textContent = dung ? '→ line '+t.slice(0,-1)+', nhà máy '+SITE_APP
-                              : '→ ký tự cuối "'+kt+'" không phải của '+SITE_APP;
+      if(!t){ em.textContent=''; em.className='echo'; danhDauSua('may',om.value); return; }
+      /* Khuôn nội địa: 1-2 số + ký tự truy vết, vd 13I, 5I.
+         Hàng XK in khác hẳn: 2M1, 63M, WD... nên KHÔNG bắt theo một khuôn cứng.
+         Chỉ kiểm ký tự site khi mã đúng khuôn nội địa; ngoài ra chỉ ghi nhận. */
+      const m=/^([0-9]{1,2})([A-Z0-9])$/.exec(t);
+      if(m){
+        const kt=m[2], mong=SITE_KY_TU[SITE_APP]||'';
+        const dung = (kt===mong) || (mong==='I' && kt==='1');
+        em.textContent = dung ? '→ line '+m[1]+', nhà máy '+SITE_APP
+                              : '→ ký tự cuối "'+kt+'" không phải của '+SITE_APP+' ("'+mong+'")';
         em.className='echo '+(dung?'ok':'no');
-      } else { em.textContent='→ chưa đúng dạng (1-2 số + 1 ký tự)'; em.className='echo no'; }
+      } else {
+        em.textContent='→ ghi nhận "'+t+'" (mã ngoài khuôn nội địa)';
+        em.className='echo ok';
+      }
       danhDauSua('may', om.value);
     };
     om.addEventListener('input',vm); vm();
@@ -785,6 +841,13 @@ function run(){
     const o=$('in'+thieu[0].i); if(o) o.focus();
     return;
   }
+  const dsChu=dongChu(CUR);
+  const chuaTL=dsChu.filter(c=>!CHU_XN[String(c.i)]);
+  if(chuaTL.length){
+    alert('Còn '+chuaTL.length+' dòng chữ khách yêu cầu chưa trả lời.\n'+
+          'Nhìn bao bì rồi bấm Có hoặc Thiếu/sai cho từng dòng.');
+    return;
+  }
   const maMay=(($('inmay')||{}).value||'').trim().toUpperCase().replace(/\s+/g,'');
   if(!maMay){
     alert('Chưa điền mã máy đóng gói.\nNó nằm ở cuối dòng hạn sử dụng, VD 13I.');
@@ -799,6 +862,24 @@ function run(){
   else if(r.fail){cls='v-fail';head='KHÔNG ĐẠT';sub='Dừng, không chạy đơn. Báo QA.';}
   else if(r.warn){cls='v-warn';head='CẦN XÁC NHẬN';sub='Có điểm chưa chắc chắn — ghi rõ ai xác nhận và căn cứ gì.';}
   else{cls='v-pass';head='ĐẠT';sub='Khớp tiêu chuẩn in và đúng hạn theo TCTP.';}
+
+  /* ===== DÒNG CHỮ KHÁCH YÊU CẦU =====
+     Thiếu hoặc in sai dòng khách yêu cầu là KHÔNG ĐẠT, không phải cảnh báo:
+     với hàng xuất khẩu đó là vi phạm cam kết với nhà nhập khẩu, và lô đã in
+     rồi thì không sửa được bằng cách xác nhận thêm. */
+  var chuThieu=dsChu.filter(function(c){ return CHU_XN[String(c.i)]==='THIEU'; });
+  if(dsChu.length){
+    if(chuThieu.length){
+      r.lines.push({m:'no',t:'Dòng chữ khách yêu cầu',
+        d:'Thiếu hoặc in sai '+chuThieu.length+'/'+dsChu.length+' dòng: '+
+          chuThieu.map(function(c){return '"'+c.chu.slice(0,60)+'"';}).join(' · ')});
+      r.fail=true; head='KHÔNG ĐẠT';
+      sub='Bao bì thiếu hoặc in sai dòng chữ khách hàng yêu cầu.';
+    } else {
+      r.lines.push({m:'ok',t:'Dòng chữ khách yêu cầu',
+        d:'Đủ '+dsChu.length+' dòng, QC đã đối chiếu trên bao bì.'});
+    }
+  }
 
   /* ===== SO BA CHIỀU =====
      1. người đọc  vs  master  -> quyết định ĐẠT / KHÔNG ĐẠT (đã chạy ở check())
@@ -855,6 +936,9 @@ function run(){
         ly_do_sua:lyDo, o_da_sua:Object.keys(DA_SUA).join(';'),
         che_do:CHE_DO, giay_xac_nhan:GIAY_XN.toFixed(1), ban_dung:BAN_DUNG,
         so_cap_ngay:SO_CAP, nhieu_goi:(SO_CAP>2), so_sanh_may:soSanhMay,
+        dong_chu:dsChu.map(function(c){
+          return (CHU_XN[String(c.i)]==='CO'?'[v] ':'[x] ')+c.chu; }).join(' || '),
+        chu_thieu:chuThieu.length,
         may_doc:(LAST_OCR.dong||[]).join(' | ')})}).catch(()=>{});
     LAST_OCR=null;
   }
@@ -1300,8 +1384,8 @@ function camCatTheoNhan(chuoi, nhanCanTim){
 /* Tìm cụm ngày NGẮN NHẤT đọc được theo đúng mẫu master khai.
    Bỏ đuôi giờ và mã line ("C1 07:08", "33 I") vì readDate khớp trọn chuỗi.
    Không đọc được thì trả null — KHÔNG đoán. */
-function camCumNgay(doan, fmt){
-  var sl=stripLabel(doan);
+function camCumNgay(doan, fmt, nhanMaster){
+  var sl=bocNhan(doan, nhanMaster);
   if(!sl.found){
     var up=String(doan).toUpperCase().trim();
     for(var nh in BIEN_THE_NHAN){
@@ -1346,7 +1430,7 @@ function camDienVaoO(dong){
     var ung=phan.filter(function(p){
       return p.nhan.toUpperCase()===sg.label.toUpperCase(); });
     for(var i=0;i<ung.length;i++){
-      var cum=camCumNgay(ung[i].doan, sg.fmt);
+      var cum=camCumNgay(ung[i].doan, sg.fmt, sg.label);
       if(cum){ MAY_DIEN[sg.i]=cum; docDuoc++; break; }
     }
   });
@@ -1369,7 +1453,7 @@ function camDienVaoO(dong){
   var soCap=phan.filter(function(p){
     var sg2=camSegs.filter(function(x){
       return x.label && x.label.toUpperCase()===p.nhan.toUpperCase(); })[0];
-    return camCumNgay(p.doan, (sg2||{}).fmt || 'DDMMYY');
+    return camCumNgay(p.doan, (sg2||{}).fmt || 'DDMMYY', (sg2||{}).label);
   }).length;
 
   return {daDien:docDuoc, soNhan:canDien, soCap:soCap};
@@ -1551,6 +1635,14 @@ document.addEventListener('click', function(ev){
       camGuiAnh(ANH_GOC, null).then(function(){ el.disabled=false; dongKhoanh(); });
     }
     else if(el.id==='kh_lai'){ ev.preventDefault(); dongKhoanh(); }
+    else if(el.classList && (el.classList.contains('chunut-co')||el.classList.contains('chunut-khong'))){
+      ev.preventDefault();
+      var idx=el.getAttribute('data-chu');
+      CHU_XN[idx] = el.classList.contains('chunut-co') ? 'CO' : 'THIEU';
+      var hop=el.parentNode;
+      hop.querySelectorAll('button').forEach(function(b){ b.className=b.className.split(' ')[0]; });
+      el.className += CHU_XN[idx]==='CO' ? ' co' : ' khong';
+    }
     else if(el.classList && el.classList.contains('capnut')){
       ev.preventDefault();
       showItem(el.getAttribute('data-code'), el.getAttribute('data-cap'));
