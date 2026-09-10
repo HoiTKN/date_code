@@ -246,7 +246,7 @@ const store={
    URL mặc định gắn sẵn — QC không phải dán gì. Ô nhập ở đầu màn hình chỉ để
    đổi sang deployment khác khi cần, và chỉ đổi trên máy đó.
    PHẢI khai báo trước mọi chỗ dùng, nếu không sẽ đứt phần khởi tạo. */
-var BAN_DUNG = 'b26 · gõ dòng chữ';
+var BAN_DUNG = 'b27 · chọn + OCR kiểm chéo';
 var SITE_KY_TU = { MBP:'I', MIP:'A', MHP:'B', MGP:'M' };
 var SITE_TEN   = { MBP:'MMB — Nghệ An', MIP:'MSI', MHP:'MHP', MGP:'MGP' };
 var SITE_APP   = store.get('dc_site') || 'MBP';
@@ -763,19 +763,15 @@ function showItem(code, capChon){
      <input class="code" id="in${s.i}" autocomplete="off" spellcheck="false" placeholder="${s.fmt}"
         inputmode="text" autocapitalize="characters" autocorrect="off">
      <div class="echo" id="ec${s.i}"></div></div>`).join('')+
-  `<div class="field"><label for="inmay">Mã máy đóng gói — đọc ở cuối dòng hạn dùng</label>
-     <input class="code" id="inmay" autocomplete="off" spellcheck="false"
-        placeholder="${it.ma_may_khuon==='#*S'?'VD 13I · 5I (thùng)':(it.ma_may_khuon||'VD 13I · 2M1')}" inputmode="text"
-        autocapitalize="characters" autocorrect="off">
-     <div class="echo" id="ecmay"></div></div>`+
+
   (dongChu(it).length ? `<div class="chuhop">
-     <div class="lbl">Dòng chữ khách hàng yêu cầu — gõ nguyên văn đang in trên bao</div>
-     ${dongChu(it).map((c,k)=>`<div class="field" style="margin-top:8px">
-       <label for="chu${c.i}">Dòng ${k+1}</label>
-       <input class="code" id="chu${c.i}" data-chu="${c.i}" autocomplete="off"
-          spellcheck="false" inputmode="text" autocapitalize="off" autocorrect="off"
-          placeholder="gõ đúng chữ đang in">
-       <div class="echo" id="echu${c.i}"></div></div>`).join('')}
+     <div class="lbl">Dòng chữ khách hàng yêu cầu — đối chiếu với bao bì</div>
+     ${dongChu(it).map(c=>`<div class="chudong">
+       <div class="noi">${c.chu}</div>
+       <div class="chunut">
+         <button type="button" class="chunut-co"    data-chu="${c.i}">Có</button>
+         <button type="button" class="chunut-khong" data-chu="${c.i}">Thiếu / sai</button>
+       </div></div>`).join('')}
    </div>` : '')+
   `<div class="suahop" id="suahop">
      <label>Vì sao phải sửa? (bắt buộc chọn — dùng để máy đọc tốt hơn)</label>
@@ -810,51 +806,9 @@ function showItem(code, capChon){
     o.addEventListener('input',ve); ve();
   });
 
-  /* Ô chữ cố định: gõ tới đâu so tới đó với master, hiện ngay khớp hay lệch. */
-  dongChu(CUR).forEach(function(c){
-    const o=$('chu'+c.i), e=$('echu'+c.i); if(!o||!e) return;
-    const vc=()=>{
-      const g=chuanChu(o.value), m=chuanChu(c.chu);
-      if(!g){ e.textContent=''; e.className='echo'; return; }
-      if(g===m){ e.textContent='→ khớp master'; e.className='echo ok'; }
-      else if(m.indexOf(g)===0){ e.textContent='→ đang gõ, chưa đủ'; e.className='echo'; }
-      else { e.textContent='→ LỆCH master: "'+c.chu.slice(0,44)+'"'; e.className='echo no'; }
-    };
-    o.addEventListener('input',vc); vc();
-  });
-
-  const om=$('inmay'), em=$('ecmay');
-  if(om&&em){
-    const vm=()=>{
-      const t=om.value.trim().toUpperCase().replace(/\s+/g,'');
-      if(!t){ em.textContent=''; em.className='echo'; danhDauSua('may',om.value); return; }
-      const khuon=String((CUR&&CUR.ma_may_khuon)||'').toUpperCase();
-
-      if(khuon && khuon!=='#*S'){
-        /* Mã máy CỐ ĐỊNH theo master, vd 2M1 · 63M · 63A.
-           So thẳng được: in khác khuôn là sai thật, không phải chuyện đọc nhầm. */
-        const dung = (t===khuon);
-        em.textContent = dung ? '→ khớp khuôn "'+khuon+'"'
-                              : '→ master khai "'+khuon+'", đang gõ "'+t+'"';
-        em.className='echo '+(dung?'ok':'no');
-      } else {
-        /* Khuôn #*S: mã suy từ line, dạng [line][máy][ký tự site], vd 52I. */
-        const m=/^([0-9]{1,2})([A-Z0-9])$/.exec(t);
-        if(m){
-          const kt=m[2], mong=SITE_KY_TU[SITE_APP]||'';
-          const dung = (kt===mong) || (mong==='I' && kt==='1');
-          em.textContent = dung ? '→ line '+m[1]+', nhà máy '+SITE_APP
-                                : '→ ký tự cuối "'+kt+'" không phải của '+SITE_APP+' ("'+mong+'")';
-          em.className='echo '+(dung?'ok':'no');
-        } else {
-          em.textContent='→ ghi nhận "'+t+'"';
-          em.className='echo ok';
-        }
-      }
-      danhDauSua('may', om.value);
-    };
-    om.addEventListener('input',vm); vm();
-  }
+  /* Đã bỏ ô mã máy: chỉ để truy vết, không quyết định đúng sai. Vẫn ghi lại
+     mã máy do OCR đọc được vào sổ, nhưng không bắt QC gõ.
+     Dòng chữ khách yêu cầu quay lại dạng chọn Có / Thiếu-sai. */
   if(TRAM_URL) camKhoiDong(segs);
 }
 
@@ -879,23 +833,14 @@ function run(){
     return;
   }
   const dsChu=dongChu(CUR);
-  const chuGo={}, chuThieu=[];
-  for(const c of dsChu){
-    const g=(($('chu'+c.i)||{}).value||'').trim();
-    if(!g){
-      alert('Chưa gõ dòng chữ khách yêu cầu.\nNhìn bao bì và gõ nguyên văn dòng đó.');
-      const o=$('chu'+c.i); if(o) o.focus();
-      return;
-    }
-    chuGo[c.i]=g;
-    if(chuanChu(g)!==chuanChu(c.chu)) chuThieu.push(c);
-  }
-  const maMay=(($('inmay')||{}).value||'').trim().toUpperCase().replace(/\s+/g,'');
-  if(!maMay){
-    alert('Chưa điền mã máy đóng gói.\nNó nằm ở cuối dòng hạn sử dụng, VD 13I.');
-    const o=$('inmay'); if(o) o.focus();
+  const chuaTL=dsChu.filter(c=>!CHU_XN[String(c.i)]);
+  if(chuaTL.length){
+    alert('Còn '+chuaTL.length+' dòng chữ khách yêu cầu chưa trả lời.\n'+
+          'Nhìn bao bì rồi bấm Có hoặc Thiếu/sai cho từng dòng.');
     return;
   }
+  /* Mã máy không còn là ô nhập — chỉ lấy cái OCR đọc được để ghi sổ truy vết. */
+  const maMay=String(MAY_DIEN['may']||'');
 
   const r=check(CUR,nsx,inputs);
   const noData=CUR.trang_thai!=='SAN_SANG';
@@ -906,20 +851,42 @@ function run(){
   else{cls='v-pass';head='ĐẠT';sub='Khớp tiêu chuẩn in và đúng hạn theo TCTP.';}
 
   /* ===== DÒNG CHỮ KHÁCH YÊU CẦU =====
-     QC gõ nguyên văn, app so với master. Thiếu hoặc in sai là KHÔNG ĐẠT:
-     với hàng xuất khẩu đó là vi phạm cam kết với nhà nhập khẩu, và lô đã in
-     rồi thì không xác nhận thêm mà thành đúng được. */
+     Người đối chiếu trên bao rồi chọn Có / Thiếu-sai — đó là kết luận chính.
+     OCR là nhân chứng thứ hai, đúng cách đang làm với NSX và HSD: người bảo CÓ
+     mà máy đọc được cả trang lại không thấy chuỗi đó thì hạ xuống CẦN XÁC NHẬN,
+     không im lặng cho qua. */
+  var chuThieu=dsChu.filter(function(c){ return CHU_XN[String(c.i)]==='THIEU'; });
+  var chuNghi=[];
   if(dsChu.length){
     if(chuThieu.length){
       r.lines.push({m:'no',t:'Dòng chữ khách yêu cầu',
-        d:chuThieu.map(function(c){
-          return 'in "'+(chuGo[c.i]||'').slice(0,50)+'", master khai "'+c.chu.slice(0,50)+'"';
-        }).join(' · ')});
+        d:'Thiếu hoặc in sai '+chuThieu.length+'/'+dsChu.length+' dòng: '+
+          chuThieu.map(function(c){return '"'+c.chu.slice(0,55)+'"';}).join(' · ')});
       r.fail=true; head='KHÔNG ĐẠT';
-      sub='Dòng chữ khách hàng yêu cầu in sai so với master.';
+      sub='Bao bì thiếu hoặc in sai dòng chữ khách hàng yêu cầu.';
     } else {
-      r.lines.push({m:'ok',t:'Dòng chữ khách yêu cầu',
-        d:'Đủ '+dsChu.length+' dòng, khớp master.'});
+      var toanBo = (LAST_OCR && (LAST_OCR.dong||[]).length)
+                 ? chuanChu((LAST_OCR.dong||[]).join(' ')) : '';
+      if(toanBo){
+        dsChu.forEach(function(c){
+          var m=chuanChu(c.chu);
+          /* Chuỗi dài dễ bị OCR đọc sót — chỉ đòi 12 ký tự đầu xuất hiện. */
+          var dau=m.slice(0, Math.min(12, m.length));
+          if(dau && toanBo.indexOf(dau)<0) chuNghi.push(c);
+        });
+      }
+      if(chuNghi.length){
+        r.lines.push({m:'wa',t:'Dòng chữ: người và máy khác nhau',
+          d:'QC xác nhận CÓ in, nhưng máy đọc cả ảnh không thấy: '+
+            chuNghi.map(function(c){return '"'+c.chu.slice(0,45)+'"';}).join(' · ')+
+            '. Nhìn lại bao bì trước khi cho chạy.'});
+        r.warn=true;
+        if(head==='ĐẠT'){ head='CẦN XÁC NHẬN';
+          sub='Người xác nhận có in nhưng máy đọc không thấy.'; }
+      } else {
+        r.lines.push({m:'ok',t:'Dòng chữ khách yêu cầu',
+          d:'Đủ '+dsChu.length+' dòng'+(toanBo?', máy đọc cũng thấy':'')+'.'});
+      }
     }
   }
 
@@ -932,14 +899,6 @@ function run(){
   var soSanhMay = 'MAY_KHONG_DOC_DUOC';
   if(LAST_OCR && Object.keys(MAY_DIEN).length){
     var lech=[];
-    /* So dòng chữ với chuỗi máy đọc: máy đọc cả trang nên chỉ cần CHỨA là đủ. */
-    dsChu.forEach(function(c){
-      var toanBo=chuanChu((LAST_OCR.dong||[]).join(' '));
-      var g=chuanChu(chuGo[c.i]||'');
-      if(g && toanBo && toanBo.indexOf(g)<0){
-        lech.push('dòng chữ "'+(chuGo[c.i]||'').slice(0,32)+'" không thấy trong ảnh máy đọc');
-      }
-    });
     segs.forEach(function(sg){
       if(!sg.label) return;
       var m=MAY_DIEN[sg.i]; if(!m) return;
@@ -981,11 +940,10 @@ function run(){
     const lyDo=($('lydosua')&&$('lydosua').value)||'';
 
     /* Nhãn để train: một khuôn duy nhất, phủ trọn khối chữ in của MỘT gói. */
-    const nhan=nhanChuanHoa(segs, inputs, maMay);
+    const nhan=nhanChuanHoa(segs, inputs, '');
     /* Máy đã tự điền gì, TRƯỚC khi người sửa — không có cột này thì không tính
        được sai ngầm, và không dựng được bảng nhầm lẫn. */
-    const mayDien=nhanChuanHoa(segs,
-      Object.assign({}, inputs, MAY_DIEN), MAY_DIEN['may']||'');
+    const mayDien=nhanChuanHoa(segs, Object.assign({}, inputs, MAY_DIEN), '');
 
     fetch(TRAM_URL,{method:'POST',redirect:'follow',
       headers:{'Content-Type':'text/plain;charset=utf-8'},
@@ -998,7 +956,9 @@ function run(){
         ly_do_sua:lyDo, o_da_sua:Object.keys(DA_SUA).join(';'),
         che_do:CHE_DO, giay_xac_nhan:GIAY_XN.toFixed(1), ban_dung:BAN_DUNG,
         so_cap_ngay:SO_CAP, nhieu_goi:(SO_CAP>2), so_sanh_may:soSanhMay,
-        dong_chu:dsChu.map(function(c){ return c.chu+' => '+(chuGo[c.i]||''); }).join(' || '),
+        dong_chu:dsChu.map(function(c){
+          return (CHU_XN[String(c.i)]==='CO'?'[v] ':'[x] ')+c.chu; }).join(' || '),
+        chu_nghi:chuNghi.length,
         chu_thieu:chuThieu.length,
         may_doc:(LAST_OCR.dong||[]).join(' | ')})}).catch(()=>{});
     LAST_OCR=null;
@@ -1713,6 +1673,14 @@ document.addEventListener('click', function(ev){
       camGuiAnh(ANH_GOC, null).then(function(){ el.disabled=false; dongKhoanh(); });
     }
     else if(el.id==='kh_lai'){ ev.preventDefault(); dongKhoanh(); }
+    else if(el.classList && (el.classList.contains('chunut-co')||el.classList.contains('chunut-khong'))){
+      ev.preventDefault();
+      var idx=el.getAttribute('data-chu');
+      CHU_XN[idx] = el.classList.contains('chunut-co') ? 'CO' : 'THIEU';
+      var hop=el.parentNode;
+      hop.querySelectorAll('button').forEach(function(b){ b.className=b.className.split(' ')[0]; });
+      el.className += CHU_XN[idx]==='CO' ? ' co' : ' khong';
+    }
     else if(el.classList && el.classList.contains('capnut')){
       ev.preventDefault();
       showItem(el.getAttribute('data-code'), el.getAttribute('data-cap'));
