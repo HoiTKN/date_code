@@ -246,7 +246,7 @@ const store={
    URL mặc định gắn sẵn — QC không phải dán gì. Ô nhập ở đầu màn hình chỉ để
    đổi sang deployment khác khi cần, và chỉ đổi trên máy đó.
    PHẢI khai báo trước mọi chỗ dùng, nếu không sẽ đứt phần khởi tạo. */
-var BAN_DUNG = 'b23 · kiểm dòng chữ';
+var BAN_DUNG = 'b24 · khuôn mã máy';
 var SITE_KY_TU = { MBP:'I', MIP:'A', MHP:'B', MGP:'M' };
 var SITE_TEN   = { MBP:'MMB — Nghệ An', MIP:'MSI', MHP:'MHP', MGP:'MGP' };
 var SITE_APP   = store.get('dc_site') || 'MBP';
@@ -287,6 +287,8 @@ function chuanHoaMaster(rows){
       site_ap_dung:r.site_ap_dung||'', thi_truong:r.thi_truong||'',
       hsd_thang:r.so_thang_ap_dung||'', nguon_hsd:r.nguon_hsd||'',
       nguon_form:r.nguon_form||'', ghi_chu_in:r.ghi_chu_in||'',
+      ma_may_khuon:r.ma_may_khuon||'', co_in_ma_item:r.co_in_ma_item||'',
+      co_in_gio:r.co_in_gio||'',
       ghi_chu_tctp:'', canh_bao:r.canh_bao||'',
       trang_thai:(r.trang_thai_duyet==='DA_DUYET'&&!r.canh_bao)?'SAN_SANG':'THIEU_DU_LIEU'
     };
@@ -440,6 +442,11 @@ function bocNhan(raw, nhanMaster){
    với hàng xuất khẩu. Master khai loai=CHU và nội dung ở thanh_phan. */
 function dongChu(it){
   var o=[];
+  /* Master khai bao có in mã item (Item/Code thành phẩm) -> đưa vào khối
+     đối chiếu như một dòng chữ cố định, nội dung chính là mã item. */
+  if(String(it.co_in_ma_item||'').toUpperCase()==='TRUE'){
+    o.push({i:'item', chu:'Mã item in trên bao: '+it.item_code});
+  }
   for(var i=1;i<=4;i++){
     if(it['seg'+i+'_loai']==='CHU' && it['seg'+i+'_them']){
       o.push({i:i, chu:String(it['seg'+i+'_them']).trim()});
@@ -750,7 +757,7 @@ function showItem(code, capChon){
      <div class="echo" id="ec${s.i}"></div></div>`).join('')+
   `<div class="field"><label for="inmay">Mã máy đóng gói — đọc ở cuối dòng hạn dùng</label>
      <input class="code" id="inmay" autocomplete="off" spellcheck="false"
-        placeholder="VD 13I · 5I · 2M1" inputmode="text"
+        placeholder="${it.ma_may_khuon==='#*S'?'VD 13I · 5I (thùng)':(it.ma_may_khuon||'VD 13I · 2M1')}" inputmode="text"
         autocapitalize="characters" autocorrect="off">
      <div class="echo" id="ecmay"></div></div>`+
   (dongChu(it).length ? `<div class="chuhop">
@@ -800,19 +807,28 @@ function showItem(code, capChon){
     const vm=()=>{
       const t=om.value.trim().toUpperCase().replace(/\s+/g,'');
       if(!t){ em.textContent=''; em.className='echo'; danhDauSua('may',om.value); return; }
-      /* Khuôn nội địa: 1-2 số + ký tự truy vết, vd 13I, 5I.
-         Hàng XK in khác hẳn: 2M1, 63M, WD... nên KHÔNG bắt theo một khuôn cứng.
-         Chỉ kiểm ký tự site khi mã đúng khuôn nội địa; ngoài ra chỉ ghi nhận. */
-      const m=/^([0-9]{1,2})([A-Z0-9])$/.exec(t);
-      if(m){
-        const kt=m[2], mong=SITE_KY_TU[SITE_APP]||'';
-        const dung = (kt===mong) || (mong==='I' && kt==='1');
-        em.textContent = dung ? '→ line '+m[1]+', nhà máy '+SITE_APP
-                              : '→ ký tự cuối "'+kt+'" không phải của '+SITE_APP+' ("'+mong+'")';
+      const khuon=String((CUR&&CUR.ma_may_khuon)||'').toUpperCase();
+
+      if(khuon && khuon!=='#*S'){
+        /* Mã máy CỐ ĐỊNH theo master, vd 2M1 · 63M · 63A.
+           So thẳng được: in khác khuôn là sai thật, không phải chuyện đọc nhầm. */
+        const dung = (t===khuon);
+        em.textContent = dung ? '→ khớp khuôn "'+khuon+'"'
+                              : '→ master khai "'+khuon+'", đang gõ "'+t+'"';
         em.className='echo '+(dung?'ok':'no');
       } else {
-        em.textContent='→ ghi nhận "'+t+'" (mã ngoài khuôn nội địa)';
-        em.className='echo ok';
+        /* Khuôn #*S: mã suy từ line, dạng [line][máy][ký tự site], vd 52I. */
+        const m=/^([0-9]{1,2})([A-Z0-9])$/.exec(t);
+        if(m){
+          const kt=m[2], mong=SITE_KY_TU[SITE_APP]||'';
+          const dung = (kt===mong) || (mong==='I' && kt==='1');
+          em.textContent = dung ? '→ line '+m[1]+', nhà máy '+SITE_APP
+                                : '→ ký tự cuối "'+kt+'" không phải của '+SITE_APP+' ("'+mong+'")';
+          em.className='echo '+(dung?'ok':'no');
+        } else {
+          em.textContent='→ ghi nhận "'+t+'"';
+          em.className='echo ok';
+        }
       }
       danhDauSua('may', om.value);
     };
