@@ -246,7 +246,7 @@ const store={
    URL mặc định gắn sẵn — QC không phải dán gì. Ô nhập ở đầu màn hình chỉ để
    đổi sang deployment khác khi cần, và chỉ đổi trên máy đó.
    PHẢI khai báo trước mọi chỗ dùng, nếu không sẽ đứt phần khởi tạo. */
-var BAN_DUNG = 'b25 · sửa nút class';
+var BAN_DUNG = 'b26 · gõ dòng chữ';
 var SITE_KY_TU = { MBP:'I', MIP:'A', MHP:'B', MGP:'M' };
 var SITE_TEN   = { MBP:'MMB — Nghệ An', MIP:'MSI', MHP:'MHP', MGP:'MGP' };
 var SITE_APP   = store.get('dc_site') || 'MBP';
@@ -440,6 +440,14 @@ function bocNhan(raw, nhanMaster){
 /* Dòng chữ cố định khách hàng yêu cầu in — tên nhà nhập khẩu, địa chỉ.
    Không phải ngày nên không parse được, nhưng THIẾU hoặc IN SAI là lỗi thật
    với hàng xuất khẩu. Master khai loai=CHU và nội dung ở thanh_phan. */
+/* So chuỗi chữ cố định: bỏ dấu tiếng Việt và tiếng Đức, bỏ mọi ký tự không
+   phải chữ/số, không phân biệt hoa thường. Máy in CIJ hay mất dấu phẩy, dấu
+   chấm; bắt khớp tuyệt đối thì lô tốt cũng trượt. */
+function chuanChu(t){
+  return String(t||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'')
+    .replace(/[đĐ]/g,'D').toUpperCase().replace(/[^A-Z0-9]/g,'');
+}
+
 function dongChu(it){
   var o=[];
   /* Master khai bao có in mã item (Item/Code thành phẩm) -> đưa vào khối
@@ -761,13 +769,13 @@ function showItem(code, capChon){
         autocapitalize="characters" autocorrect="off">
      <div class="echo" id="ecmay"></div></div>`+
   (dongChu(it).length ? `<div class="chuhop">
-     <div class="lbl">Dòng chữ khách hàng yêu cầu — đối chiếu với bao bì</div>
-     ${dongChu(it).map(c=>`<div class="chudong">
-       <div class="noi">${c.chu}</div>
-       <div class="chunut">
-         <button type="button" class="chunut-co"    data-chu="${c.i}">Có</button>
-         <button type="button" class="chunut-khong" data-chu="${c.i}">Thiếu / sai</button>
-       </div></div>`).join('')}
+     <div class="lbl">Dòng chữ khách hàng yêu cầu — gõ nguyên văn đang in trên bao</div>
+     ${dongChu(it).map((c,k)=>`<div class="field" style="margin-top:8px">
+       <label for="chu${c.i}">Dòng ${k+1}</label>
+       <input class="code" id="chu${c.i}" data-chu="${c.i}" autocomplete="off"
+          spellcheck="false" inputmode="text" autocapitalize="off" autocorrect="off"
+          placeholder="gõ đúng chữ đang in">
+       <div class="echo" id="echu${c.i}"></div></div>`).join('')}
    </div>` : '')+
   `<div class="suahop" id="suahop">
      <label>Vì sao phải sửa? (bắt buộc chọn — dùng để máy đọc tốt hơn)</label>
@@ -800,6 +808,19 @@ function showItem(code, capChon){
       danhDauSua(sg.i,o.value);
     };
     o.addEventListener('input',ve); ve();
+  });
+
+  /* Ô chữ cố định: gõ tới đâu so tới đó với master, hiện ngay khớp hay lệch. */
+  dongChu(CUR).forEach(function(c){
+    const o=$('chu'+c.i), e=$('echu'+c.i); if(!o||!e) return;
+    const vc=()=>{
+      const g=chuanChu(o.value), m=chuanChu(c.chu);
+      if(!g){ e.textContent=''; e.className='echo'; return; }
+      if(g===m){ e.textContent='→ khớp master'; e.className='echo ok'; }
+      else if(m.indexOf(g)===0){ e.textContent='→ đang gõ, chưa đủ'; e.className='echo'; }
+      else { e.textContent='→ LỆCH master: "'+c.chu.slice(0,44)+'"'; e.className='echo no'; }
+    };
+    o.addEventListener('input',vc); vc();
   });
 
   const om=$('inmay'), em=$('ecmay');
@@ -858,11 +879,16 @@ function run(){
     return;
   }
   const dsChu=dongChu(CUR);
-  const chuaTL=dsChu.filter(c=>!CHU_XN[String(c.i)]);
-  if(chuaTL.length){
-    alert('Còn '+chuaTL.length+' dòng chữ khách yêu cầu chưa trả lời.\n'+
-          'Nhìn bao bì rồi bấm Có hoặc Thiếu/sai cho từng dòng.');
-    return;
+  const chuGo={}, chuThieu=[];
+  for(const c of dsChu){
+    const g=(($('chu'+c.i)||{}).value||'').trim();
+    if(!g){
+      alert('Chưa gõ dòng chữ khách yêu cầu.\nNhìn bao bì và gõ nguyên văn dòng đó.');
+      const o=$('chu'+c.i); if(o) o.focus();
+      return;
+    }
+    chuGo[c.i]=g;
+    if(chuanChu(g)!==chuanChu(c.chu)) chuThieu.push(c);
   }
   const maMay=(($('inmay')||{}).value||'').trim().toUpperCase().replace(/\s+/g,'');
   if(!maMay){
@@ -880,20 +906,20 @@ function run(){
   else{cls='v-pass';head='ĐẠT';sub='Khớp tiêu chuẩn in và đúng hạn theo TCTP.';}
 
   /* ===== DÒNG CHỮ KHÁCH YÊU CẦU =====
-     Thiếu hoặc in sai dòng khách yêu cầu là KHÔNG ĐẠT, không phải cảnh báo:
+     QC gõ nguyên văn, app so với master. Thiếu hoặc in sai là KHÔNG ĐẠT:
      với hàng xuất khẩu đó là vi phạm cam kết với nhà nhập khẩu, và lô đã in
-     rồi thì không sửa được bằng cách xác nhận thêm. */
-  var chuThieu=dsChu.filter(function(c){ return CHU_XN[String(c.i)]==='THIEU'; });
+     rồi thì không xác nhận thêm mà thành đúng được. */
   if(dsChu.length){
     if(chuThieu.length){
       r.lines.push({m:'no',t:'Dòng chữ khách yêu cầu',
-        d:'Thiếu hoặc in sai '+chuThieu.length+'/'+dsChu.length+' dòng: '+
-          chuThieu.map(function(c){return '"'+c.chu.slice(0,60)+'"';}).join(' · ')});
+        d:chuThieu.map(function(c){
+          return 'in "'+(chuGo[c.i]||'').slice(0,50)+'", master khai "'+c.chu.slice(0,50)+'"';
+        }).join(' · ')});
       r.fail=true; head='KHÔNG ĐẠT';
-      sub='Bao bì thiếu hoặc in sai dòng chữ khách hàng yêu cầu.';
+      sub='Dòng chữ khách hàng yêu cầu in sai so với master.';
     } else {
       r.lines.push({m:'ok',t:'Dòng chữ khách yêu cầu',
-        d:'Đủ '+dsChu.length+' dòng, QC đã đối chiếu trên bao bì.'});
+        d:'Đủ '+dsChu.length+' dòng, khớp master.'});
     }
   }
 
@@ -906,6 +932,14 @@ function run(){
   var soSanhMay = 'MAY_KHONG_DOC_DUOC';
   if(LAST_OCR && Object.keys(MAY_DIEN).length){
     var lech=[];
+    /* So dòng chữ với chuỗi máy đọc: máy đọc cả trang nên chỉ cần CHỨA là đủ. */
+    dsChu.forEach(function(c){
+      var toanBo=chuanChu((LAST_OCR.dong||[]).join(' '));
+      var g=chuanChu(chuGo[c.i]||'');
+      if(g && toanBo && toanBo.indexOf(g)<0){
+        lech.push('dòng chữ "'+(chuGo[c.i]||'').slice(0,32)+'" không thấy trong ảnh máy đọc');
+      }
+    });
     segs.forEach(function(sg){
       if(!sg.label) return;
       var m=MAY_DIEN[sg.i]; if(!m) return;
@@ -925,9 +959,21 @@ function run(){
       r.lines.push({m:'ok',t:'Máy đọc khớp với người đọc',
         d:'Hai nguồn độc lập cho cùng kết quả.'});
     }
+  } else if(TRAM_LOI){
+    soSanhMay='TRAM_LOI';
+    r.lines.push({m:'wa',t:'Trạm đọc ảnh lỗi — CHƯA đọc lần nào',
+      d:TRAM_LOI+'. Lượt này không có nhân chứng thứ hai: kết luận chỉ dựa trên '+
+        'chuỗi người đọc và master. Báo lại để sửa trạm.'});
+    r.warn=true;
+    if(head==='ĐẠT'){ head='CẦN XÁC NHẬN'; sub='Trạm đọc ảnh lỗi — thiếu lớp kiểm chéo.'; }
+  } else if(LAST_OCR){
+    r.lines.push({m:'ok',t:'Máy đọc không ra chữ nào',
+      d:'Thường gặp với chai in laser. Kết luận dựa trên chuỗi người đọc và master.'});
   } else {
-    r.lines.push({m:'ok',t:'Máy không đọc được',
-      d:'Bình thường với chai in laser. Kết luận dựa trên chuỗi người đọc và master.'});
+    r.lines.push({m:'wa',t:'Chưa chụp ảnh',
+      d:'Lượt này không có ảnh và không có lớp kiểm chéo bằng máy.'});
+    r.warn=true;
+    if(head==='ĐẠT'){ head='CẦN XÁC NHẬN'; sub='Chưa chụp ảnh — thiếu lớp kiểm chéo.'; }
   }
 
   /* gửi kết quả cuối về sổ chung của trạm — để đo 2 cột chỉ số */
@@ -952,8 +998,7 @@ function run(){
         ly_do_sua:lyDo, o_da_sua:Object.keys(DA_SUA).join(';'),
         che_do:CHE_DO, giay_xac_nhan:GIAY_XN.toFixed(1), ban_dung:BAN_DUNG,
         so_cap_ngay:SO_CAP, nhieu_goi:(SO_CAP>2), so_sanh_may:soSanhMay,
-        dong_chu:dsChu.map(function(c){
-          return (CHU_XN[String(c.i)]==='CO'?'[v] ':'[x] ')+c.chu; }).join(' || '),
+        dong_chu:dsChu.map(function(c){ return c.chu+' => '+(chuGo[c.i]||''); }).join(' || '),
         chu_thieu:chuThieu.length,
         may_doc:(LAST_OCR.dong||[]).join(' | ')})}).catch(()=>{});
     LAST_OCR=null;
@@ -1122,7 +1167,7 @@ const CAM = {
   GIU_KHUNG: 10       // mất dấu thì vẫn giữ khung thêm 10 vòng
 };
 
-var LAST_OCR=null, KQ_TACH=null;
+var LAST_OCR=null, KQ_TACH=null, TRAM_LOI='';
 
 /* ============================================================
    KIỂM MÙ — cứ 1 trong TAN_SUAT_MU lượt, máy KHÔNG hiện kết quả đọc,
@@ -1489,7 +1534,7 @@ function camGuiAnh(canvas, cao){
    .then(function(x){return x.json();})
    .then(function(r){
       if(!r||!r.ok) throw new Error((r&&r.loi)||'trạm không trả lời');
-      LAST_OCR={id:r.id, dong:r.dong||[]};
+      TRAM_LOI=''; LAST_OCR={id:r.id, dong:r.dong||[]};
       var kq=camDienVaoO(r.dong||[]);
       KQ_TACH=kq; SO_CAP=kq.soCap||0;
 
@@ -1512,7 +1557,13 @@ function camGuiAnh(canvas, cao){
       return kq;
    })
    .catch(function(e){
-      hop.textContent='Không đọc được: '+e.message+'\nGõ tay vào ô bên dưới như bình thường.';
+      /* Gọi trạm hỏng KHÁC HẲN máy đọc ra rỗng. Trước đây gộp làm một nên app
+         kết luận "máy không đọc được, bình thường với chai laser" rồi cho ĐẠT —
+         trong khi thực ra chưa có lần đọc nào diễn ra. */
+      TRAM_LOI = e.message || 'không gọi được trạm';
+      hop.textContent='TRẠM LỖI: '+TRAM_LOI+
+        '\nChưa có lần đọc nào. Gõ tay thì vẫn kiểm được, nhưng lượt này KHÔNG có '+
+        'nhân chứng thứ hai — sổ sẽ ghi rõ.';
       return null;
    });
 }
@@ -1662,14 +1713,6 @@ document.addEventListener('click', function(ev){
       camGuiAnh(ANH_GOC, null).then(function(){ el.disabled=false; dongKhoanh(); });
     }
     else if(el.id==='kh_lai'){ ev.preventDefault(); dongKhoanh(); }
-    else if(el.classList && (el.classList.contains('chunut-co')||el.classList.contains('chunut-khong'))){
-      ev.preventDefault();
-      var idx=el.getAttribute('data-chu');
-      CHU_XN[idx] = el.classList.contains('chunut-co') ? 'CO' : 'THIEU';
-      var hop=el.parentNode;
-      hop.querySelectorAll('button').forEach(function(b){ b.className=b.className.split(' ')[0]; });
-      el.className += CHU_XN[idx]==='CO' ? ' co' : ' khong';
-    }
     else if(el.classList && el.classList.contains('capnut')){
       ev.preventDefault();
       showItem(el.getAttribute('data-code'), el.getAttribute('data-cap'));
