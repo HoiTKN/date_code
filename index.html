@@ -246,7 +246,7 @@ const store={
    URL mặc định gắn sẵn — QC không phải dán gì. Ô nhập ở đầu màn hình chỉ để
    đổi sang deployment khác khi cần, và chỉ đổi trên máy đó.
    PHẢI khai báo trước mọi chỗ dùng, nếu không sẽ đứt phần khởi tạo. */
-var BAN_DUNG = 'b28 · gõ trước, chụp sau';
+var BAN_DUNG = 'b29 · lọc nhiễu';
 var SITE_KY_TU = { MBP:'I', MIP:'A', MHP:'B', MGP:'M' };
 var SITE_TEN   = { MBP:'MMB — Nghệ An', MIP:'MSI', MHP:'MHP', MGP:'MGP' };
 var SITE_APP   = store.get('dc_site') || 'MBP';
@@ -366,10 +366,20 @@ async function loadMaster(){
 /* item trùng tên gần giống → cảnh báo chọn nhầm quy cách */
 let DUP={};
 function nkey(s){ return s.toLowerCase().normalize('NFD').replace(/[^a-z0-9]/g,'').slice(0,30); }
+/* Cảnh báo "tên gần giống" chỉ có nghĩa khi hai mã THẬT SỰ dễ bị chọn nhầm.
+   Với master xuất khẩu, cùng một sản phẩm bán 15 thị trường nên tên trùng hàng
+   loạt — báo tất cả thì ra 29 mã, QC bỏ qua luôn. Nên chỉ xét mã CÙNG SITE,
+   và phân biệt bằng THỊ TRƯỜNG chứ không phải bằng tên. */
 function buildDupIndex(){
   DUP={}; const c={};
-  MASTER.forEach(r=>{const k=nkey(r.ten_san_pham); (c[k]=c[k]||[]).push(r.item_code);});
-  Object.values(c).forEach(v=>{ if(v.length>1) v.forEach(code=>DUP[code]=v.filter(x=>x!==code)); });
+  MASTER.forEach(r=>{
+    const k=nkey(r.ten_san_pham)+'|'+String(r.site_ap_dung||'').toUpperCase();
+    (c[k]=c[k]||[]).push(r);
+  });
+  Object.values(c).forEach(v=>{
+    const ma=[]; v.forEach(r=>{ if(ma.indexOf(r.item_code)<0) ma.push(r.item_code); });
+    if(ma.length>1) v.forEach(r=>{ DUP[r.item_code]=ma.filter(x=>x!==r.item_code); });
+  });
 }
 
 /* ===== 3. ENGINE ===== */
@@ -680,7 +690,7 @@ function showItem(code, capChon){
       ${it.thi_truong?`<span class="tag">Thị trường ${it.thi_truong}</span>`:''}
       ${it.hsd_thang?`<span class="tag">HSD ${it.hsd_thang} tháng</span>`:`<span class="tag amber">Chưa có HSD trong master</span>`}
       ${it.nguon_form==='THUCTE'?`<span class="tag amber">Form lấy từ thực tế in, chưa có HĐĐG</span>`:''}
-      ${DUP[it.item_code]?`<span class="tag amber">Có ${DUP[it.item_code].length} item tên gần giống — đối chiếu quy cách</span>`:''}
+      ${DUP[it.item_code]?`<span class="tag amber">${DUP[it.item_code].length} mã cùng tên khác thị trường — kiểm đúng mã chưa</span>`:''}
     </div>`;
 
   /* Ô chọn cấp bao bì: CHỈ hiện khi mã này có nhiều dòng master, tức là
@@ -700,10 +710,15 @@ function showItem(code, capChon){
   }
 
   if(DUP[it.item_code]){
-    h+=`<div class="hint" style="margin-top:8px">Dễ nhầm với: ${DUP[it.item_code].map(c=>{
+    const ds=DUP[it.item_code];
+    /* Phân biệt bằng thị trường — đó mới là thứ khác nhau giữa các mã trùng tên.
+       Quá 6 mã thì không liệt kê nữa, liệt kê dài không ai đọc. */
+    const mo=ds.slice(0,6).map(c=>{
       const o=MASTER.find(r=>r.item_code===c);
-      return c+' ('+(o?o.ten_san_pham.replace(/^.*?(\d+bl.*|\d+chai.*|\d+hũ.*|\d+gói.*)$/,'$1'):'')+')';
-    }).join(' · ')}</div>`;
+      return c+(o&&o.thi_truong?' · '+o.thi_truong:'');
+    }).join(' · ');
+    h+=`<div class="hint" style="margin-top:8px">Cùng tên, khác thị trường: ${mo}${
+      ds.length>6?' và '+(ds.length-6)+' mã khác':''} — mã này là <b>${it.thi_truong||'—'}</b></div>`;
   }
 
   if(!segs.length){
@@ -1716,7 +1731,16 @@ function baoLoi(t){
   }
   d.textContent='LỖI — '+t+'  (chạm để đóng)';
 }
-window.addEventListener('error', function(e){ baoLoi(e.message); });
+/* Trình duyệt trong Zalo, Facebook, Messenger tự tiêm script của họ vào trang.
+   Script đó lỗi thì không liên quan gì tới app, nhưng băng đỏ hiện lên làm QC
+   tưởng app hỏng. Chỉ báo lỗi phát ra TỪ chính file này. */
+var LOI_NGOAI = /zalo|fbav|fban|messenger|instagram|webviewprogress|__gCrWeb|adsbygoogle/i;
+window.addEventListener('error', function(e){
+  var tu = String(e.filename || '');
+  if(LOI_NGOAI.test(String(e.message||'')) ) return;
+  if(tu && tu.indexOf(location.pathname) < 0 && tu.indexOf('index.html') < 0) return;
+  baoLoi(e.message);
+});
 window.addEventListener('unhandledrejection', function(e){
   baoLoi('lời hứa hỏng: '+((e.reason&&e.reason.message)||e.reason));
 });
