@@ -210,7 +210,11 @@ button.ghost{width:100%;padding:11px;background:#fff;border:1px solid var(--hair
 
   <section id="tab-log" class="hidden">
     <div class="card">
-      <div class="eyebrow">Sổ kiểm trên máy này</div>
+      <div class="eyebrow">Sổ kiểm</div>
+      <div class="row2" style="margin-bottom:8px">
+        <button class="ghost on" id="so_may" type="button">Máy này</button>
+        <button class="ghost" id="so_chung" type="button">Cả site</button>
+      </div>
       <div class="hint" id="logsum"></div>
       <div class="row2">
         <button class="ghost" id="exp" type="button">Tải sổ về (.csv)</button>
@@ -225,7 +229,8 @@ button.ghost{width:100%;padding:11px;background:#fff;border:1px solid var(--hair
 
   <div class="card" style="border:none;background:none;padding:0">
     <input type="file" id="file" accept=".csv,text/csv" hidden>
-    <button class="ghost" type="button" id="pick">Nạp master từ file trong máy (.csv)</button>
+    <button class="ghost" type="button" id="refresh2">Cập nhật master</button>
+    <button class="ghost" type="button" id="pick" style="margin-top:8px">Nạp master từ file trong máy (.csv)</button>
   </div>
 </div>
 
@@ -246,7 +251,7 @@ const store={
    URL mặc định gắn sẵn — QC không phải dán gì. Ô nhập ở đầu màn hình chỉ để
    đổi sang deployment khác khi cần, và chỉ đổi trên máy đó.
    PHẢI khai báo trước mọi chỗ dùng, nếu không sẽ đứt phần khởi tạo. */
-var BAN_DUNG = 'b29 · lọc nhiễu';
+var BAN_DUNG = 'b30 · sổ chung + may_dien';
 var SITE_KY_TU = { MBP:'I', MIP:'A', MHP:'B', MGP:'M' };
 var SITE_TEN   = { MBP:'MMB — Nghệ An', MIP:'MSI', MHP:'MHP', MGP:'MGP' };
 var SITE_APP   = store.get('dc_site') || 'MBP';
@@ -960,7 +965,12 @@ function run(){
     const nhan=nhanChuanHoa(segs, inputs, '');
     /* Máy đã tự điền gì, TRƯỚC khi người sửa — không có cột này thì không tính
        được sai ngầm, và không dựng được bảng nhầm lẫn. */
-    const mayDien=nhanChuanHoa(segs, Object.assign({}, inputs, MAY_DIEN), '');
+    /* may_dien phải là ĐÚNG cái máy đọc, không lẫn cái người gõ.
+       Bản trước ghép {...inputs, ...MAY_DIEN} nên trường nào máy không đọc được
+       thì âm thầm lấy giá trị của người — khớp_ngày bị thổi lên, sai_ngầm bị
+       nén xuống. Đo trên dữ liệu thật: ảnh 7d695052 máy đọc ra rỗng mà may_dien
+       vẫn đầy đủ. Giờ chỉ lấy MAY_DIEN, trường nào máy không đọc được thì để trống. */
+    const mayDien=nhanChuanHoa(segs, MAY_DIEN, '');
 
     fetch(TRAM_URL,{method:'POST',redirect:'follow',
       headers:{'Content-Type':'text/plain;charset=utf-8'},
@@ -1026,10 +1036,15 @@ function run(){
 }
 
 /* ---- sổ kiểm ---- */
+var PHAM_VI='MAY';      // MAY = sổ trên máy này · SITE = sổ chung cả site
+var SO_CHUNG=null;      // dữ liệu lấy từ trạm
+
 function paintLog(){
+  if(PHAM_VI==='SITE') return veSoChung();
   const l=readLog().slice().reverse();
   const n=readLog().length, f=readLog().filter(r=>r.ket_luan==='KHÔNG ĐẠT').length;
-  $('logsum').textContent = n? `${n} lượt kiểm · ${f} lượt KHÔNG ĐẠT` : 'Chưa có lượt kiểm nào trên máy này.';
+  $('logsum').textContent = n? `${n} lượt trên máy này · ${f} lượt KHÔNG ĐẠT`
+                             : 'Chưa có lượt kiểm nào trên máy này.';
   $('loglist').innerHTML = l.length? '<div class="log">'+l.map(r=>{
     const p=r.ket_luan==='ĐẠT'?'p-pass':r.ket_luan==='KHÔNG ĐẠT'?'p-fail':'p-warn';
     return `<div class="logrow"><span class="pill ${p}">${r.ket_luan}</span>
@@ -1039,7 +1054,47 @@ function paintLog(){
   }).join('')+'</div>' : '';
 }
 
+/* Sổ chung cả site: lấy từ trạm, không phải từ trình duyệt.
+   Sổ cũ chỉ nằm trong localStorage của từng máy nên mỗi QC chỉ thấy phần mình —
+   trưởng ca không nắm được ca vừa rồi line nào đã kiểm, line nào chưa. */
+function veSoChung(){
+  if(!TRAM_URL){
+    $('logsum').textContent='Chưa nối trạm nên không xem được sổ chung.';
+    $('loglist').innerHTML=''; return;
+  }
+  $('logsum').textContent='Đang tải sổ chung…';
+  fetch(TRAM_URL,{method:'POST',redirect:'follow',cache:'no-store',
+    headers:{'Content-Type':'text/plain;charset=utf-8'},
+    body:JSON.stringify({act:'so', site:SITE_APP, n:80})})
+   .then(x=>x.text()).then(t=>{
+      let j=null; try{ j=JSON.parse(t); }catch(_){
+        throw new Error('trạm trả HTML — deployment chưa cập nhật hoặc chưa mở quyền'); }
+      if(!j.ok) throw new Error(j.loi||'trạm báo lỗi');
+      SO_CHUNG=j.dong||[];
+      const f=SO_CHUNG.filter(r=>r.verdict==='KHÔNG ĐẠT').length;
+      const ng=[...new Set(SO_CHUNG.map(r=>r.nguoi_kiem).filter(Boolean))];
+      $('logsum').textContent=`${SO_CHUNG.length} lượt gần nhất của ${SITE_APP} · `+
+        `${f} lượt KHÔNG ĐẠT · ${ng.length} người kiểm`;
+      $('loglist').innerHTML = SO_CHUNG.length? '<div class="log">'+SO_CHUNG.map(r=>{
+        const v=r.verdict||'—';
+        const p=v==='ĐẠT'?'p-pass':v==='KHÔNG ĐẠT'?'p-fail':'p-warn';
+        return `<div class="logrow"><span class="pill ${p}">${v}</span>
+          <span class="b">${r.ma_item||''}
+          <span class="s">${r.thoi_gian||''} · ${r.nguoi_kiem||'(chưa điền tên)'}
+          ${r.ly_do?'<br>'+String(r.ly_do).slice(0,90):''}</span></span></div>`;
+      }).join('')+'</div>' : '<div class="hint">Chưa có lượt nào.</div>';
+   })
+   .catch(e=>{ $('logsum').textContent='Không lấy được sổ chung: '+e.message;
+               $('loglist').innerHTML=''; });
+}
+
 /* ---- events ---- */
+$('so_may').onclick=()=>{ PHAM_VI='MAY';
+  $('so_may').className='ghost on'; $('so_chung').className='ghost'; paintLog(); };
+$('so_chung').onclick=()=>{ PHAM_VI='SITE';
+  $('so_chung').className='ghost on'; $('so_may').className='ghost'; paintLog(); };
+$('refresh2').onclick=loadMaster;
+
 $('q').addEventListener('input',render);
 $('results').addEventListener('click',e=>{const h=e.target.closest('.hit');if(h)showItem(h.dataset.c);});
 $('results').addEventListener('keydown',e=>{if(e.key==='Enter'){const h=e.target.closest('.hit');if(h)showItem(h.dataset.c);}});
