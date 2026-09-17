@@ -251,7 +251,7 @@ const store={
    URL mặc định gắn sẵn — QC không phải dán gì. Ô nhập ở đầu màn hình chỉ để
    đổi sang deployment khác khi cần, và chỉ đổi trên máy đó.
    PHẢI khai báo trước mọi chỗ dùng, nếu không sẽ đứt phần khởi tạo. */
-var BAN_DUNG = 'b30 · sổ chung + may_dien';
+var BAN_DUNG = 'b31 · so từ, thêm biến thể';
 var SITE_KY_TU = { MBP:'I', MIP:'A', MHP:'B', MGP:'M' };
 var SITE_TEN   = { MBP:'MMB — Nghệ An', MIP:'MSI', MHP:'MHP', MGP:'MGP' };
 var SITE_APP   = store.get('dc_site') || 'MBP';
@@ -890,11 +890,18 @@ function run(){
       var toanBo = (LAST_OCR && (LAST_OCR.dong||[]).length)
                  ? chuanChu((LAST_OCR.dong||[]).join(' ')) : '';
       if(toanBo){
+        /* So theo TỶ LỆ TỪ xuất hiện, không theo chuỗi liên tục.
+           OCR hay xé một dòng in dài thành nhiều mảnh theo cột: dòng
+           "LTP Imp Exp B.V" bị trả về thành "LTP" ở mảnh này và "EXP B.V" ở
+           mảnh kia. Đòi 12 ký tự liên tục thì trượt, sinh báo động giả trên
+           lô hoàn toàn tốt (ca 3c6e1759 ngày 17/09).
+           Lấy các từ từ 3 ký tự trở lên, thấy quá nửa là coi như có in. */
         dsChu.forEach(function(c){
-          var m=chuanChu(c.chu);
-          /* Chuỗi dài dễ bị OCR đọc sót — chỉ đòi 12 ký tự đầu xuất hiện. */
-          var dau=m.slice(0, Math.min(12, m.length));
-          if(dau && toanBo.indexOf(dau)<0) chuNghi.push(c);
+          var tu=String(c.chu||'').split(/[^A-Za-zÀ-ỹ0-9]+/)
+                 .map(chuanChu).filter(function(x){ return x.length>=3; });
+          if(!tu.length) return;
+          var thay=tu.filter(function(x){ return toanBo.indexOf(x)>=0; }).length;
+          if(thay / tu.length < 0.5) chuNghi.push(c);
         });
       }
       if(chuNghi.length){
@@ -1431,11 +1438,11 @@ function camCat(){
    Đây KHÔNG phải so mờ — danh sách đóng, tra tường minh, và chỉ tra biến thể
    của ĐÚNG nhãn master khai cho mã đó, nên NSX không bao giờ lẫn sang HSD. */
 var BIEN_THE_NHAN = {
-  'NSX': ['NSX','N5X','NEX','NSK','MSX','N9X','NSY','H5X','NSXX'],
+  'NSX': ['NSX','N5X','NEX','NSK','MSX','N9X','NSY','H5X','NSXX','NSN','SX','HSX','N5N'],
   'MFG': ['MFG','MEG','MFC','MTG','MF6'],
-  'HSD': ['HSD','HED','HEB','RSD','H5D','HSO','H9D','HSB','H5O'],
+  'HSD': ['HSD','HED','HEB','RSD','H5D','HSO','H9D','HSB','H5O','50','HS0','H50','NSD'],
   'EXP': ['EXP','EPX','FXP','EXR'],
-  'BBF': ['BBF','B8F','BBE','8BF'],
+  'BBF': ['BBF','B8F','BBE','8BF','RBF','BRF','B8E'],
   'BBD': ['BBD','B8D','BBO'],
   'LOT': ['LOT','L0T','LDT'],
   'USE BY': ['USE BY','USEBY'],
