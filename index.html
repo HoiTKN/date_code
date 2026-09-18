@@ -251,7 +251,7 @@ const store={
    URL mặc định gắn sẵn — QC không phải dán gì. Ô nhập ở đầu màn hình chỉ để
    đổi sang deployment khác khi cần, và chỉ đổi trên máy đó.
    PHẢI khai báo trước mọi chỗ dùng, nếu không sẽ đứt phần khởi tạo. */
-var BAN_DUNG = 'b31 · so từ, thêm biến thể';
+var BAN_DUNG = 'b32 · trạm chậm vẫn chạy';
 var SITE_KY_TU = { MBP:'I', MIP:'A', MHP:'B', MGP:'M' };
 var SITE_TEN   = { MBP:'MMB — Nghệ An', MIP:'MSI', MHP:'MHP', MGP:'MGP' };
 var SITE_APP   = store.get('dc_site') || 'MBP';
@@ -317,18 +317,26 @@ async function loadMaster(){
   const nhan=t=>{ txt.textContent=t+'  ·  '+BAN_DUNG; };
   nhan('Đang gọi trạm…');
 
-  /* 1. Google Sheet qua trạm — nguồn thật. Có hạn giờ 20 giây: mạng xưởng
-        chập chờn thì phải rơi xuống bản dự phòng, không được treo màn hình. */
+  /* 1. Google Sheet qua trạm — nguồn thật.
+        Hạn chờ 45 giây, thử 2 lần. Master 507 dòng ra chuỗi ~158 KB, cộng một
+        lần chuyển hướng bắt buộc của Apps Script nên là hai vòng mạng; trên 4G
+        ở xưởng 20 giây không đủ. Lần gọi đầu còn phải chờ trạm khởi động nguội,
+        lần hai thì trạm đã có sẵn bản dựng trong bộ nhớ đệm nên rất nhanh. */
   if(TRAM_URL){
     try{
-      const bo=new AbortController();
-      const hen=setTimeout(()=>bo.abort(),20000);
-      let res;
-      try{
-        res=await fetch(TRAM_URL,{method:'POST',redirect:'follow',cache:'no-store',
-          signal:bo.signal, headers:{'Content-Type':'text/plain;charset=utf-8'},
-          body:JSON.stringify({act:'master'})});
-      } finally { clearTimeout(hen); }
+      let res=null, loiCuoi=null;
+      for(let lan=1; lan<=2 && !res; lan++){
+        const bo=new AbortController();
+        const hen=setTimeout(()=>bo.abort(), 45000);
+        try{
+          if(lan>1) nhan('Trạm chậm — đang thử lại lần 2…');
+          res=await fetch(TRAM_URL,{method:'POST',redirect:'follow',cache:'no-store',
+            signal:bo.signal, headers:{'Content-Type':'text/plain;charset=utf-8'},
+            body:JSON.stringify({act:'master'})});
+        }catch(e1){ loiCuoi=e1; }
+        finally { clearTimeout(hen); }
+      }
+      if(!res) throw loiCuoi||new Error('không gọi được trạm');
 
       const chu=await res.text();
       let j=null;
@@ -347,13 +355,33 @@ async function loadMaster(){
       if(!m.length||!m[0].item_code) throw new Error('bảng master sai cột');
       MASTER=m; dot.className='dot ok'; setTimeout(veTomTat,0);
       nhan(m.length+' item · Google Sheet'+(j.sua_luc?' · sửa '+j.sua_luc:''));
+      /* Giữ một bản trên máy để lần sau trạm hỏng vẫn kiểm được. */
+      try{ store.set('dc_master_csv', j.csv);
+           store.set('dc_master_luc', j.sua_luc||''); }catch(_){}
       buildDupIndex(); render(); return;
     }catch(e){
       loiTram=(e&&e.name==='AbortError')?'trạm không trả lời sau 20 giây':(e.message||'không gọi được trạm');
     }
   }
 
-  /* 2. file CSV đặt cạnh index.html */
+  /* 2. bản master đã lưu trên máy từ lần gọi trạm gần nhất.
+        Đây mới là bản dự phòng đúng: nó là master thật, chỉ cũ hơn. Bản nhúng
+        trong index.html chỉ có dòng tiêu đề nên rơi vào đó là 0 mã, app vô dụng. */
+  try{
+    const cu=store.get('dc_master_csv','');
+    if(cu){
+      const m=chuanHoaMaster(parseCSV(cu));
+      if(m.length && m[0].item_code){
+        MASTER=m; dot.className='dot warn'; setTimeout(veTomTat,0);
+        nhan(m.length+' item · BẢN LƯU TRÊN MÁY'+
+             (store.get('dc_master_luc','')?' · sửa '+store.get('dc_master_luc',''):'')+
+             ' · TRẠM LỖI: '+loiTram);
+        buildDupIndex(); render(); return;
+      }
+    }
+  }catch(_){}
+
+  /* 3. file CSV đặt cạnh index.html */
   try{
     const res=await fetch(MASTER_URL+'?t='+Date.now(),{cache:'no-store'});
     if(!res.ok) throw 0;
