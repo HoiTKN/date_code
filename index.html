@@ -122,12 +122,8 @@ button.ghost{width:100%;padding:11px;background:#fff;border:1px solid var(--hair
 #kh_doc{background:#123b2c;color:#fff}
 #kh_ca,#kh_lai{background:#e6eae8;color:#22312c}
 
-#xacnhan{display:none;margin-top:12px;border:2px solid #123b2c;border-radius:10px;padding:12px;background:#f2f7f4}
-#xacnhan .may{font:600 17px ui-monospace,monospace;color:#123b2c;line-height:1.7;word-break:break-all}
-#xacnhan .nhac{font-size:13px;color:#4a5a54;margin:8px 0 10px}
 .xnhang{display:flex;gap:8px}
 .xnhang button{flex:1;padding:15px;border:none;border-radius:8px;font:600 15px system-ui;cursor:pointer}
-#xn_dung{background:#123b2c;color:#fff}
 #xn_sai{background:#e6eae8;color:#22312c}
 #mucanh{display:none;margin-top:12px;padding:12px;border-radius:10px;
         background:#4a3a12;color:#FBEFCB;font-size:14px;line-height:1.5}
@@ -251,7 +247,7 @@ const store={
    URL mặc định gắn sẵn — QC không phải dán gì. Ô nhập ở đầu màn hình chỉ để
    đổi sang deployment khác khi cần, và chỉ đổi trên máy đó.
    PHẢI khai báo trước mọi chỗ dùng, nếu không sẽ đứt phần khởi tạo. */
-var BAN_DUNG = 'b34 · tự cập nhật bản và master';
+var BAN_DUNG = 'b36 · một chỗ mở lượt, dọn code chết';
 /* Địa chỉ file ghi số bản dựng mới nhất, đặt cạnh index.html trên GitHub.
    Nội dung file đúng bằng chuỗi BAN_DUNG của bản đang phát hành. */
 var URL_PHIEN_BAN = 'phien_ban.txt';
@@ -736,6 +732,36 @@ var AUTOFILL={}, DA_SUA={}, MAY_DIEN={}, SO_CAP=0, CAP_HIEN='', CHU_XN={};
 /* b33: số lần trạm đọc xong trong lượt này. Máy chưa xác nhận đủ ngày thì
    bắt đọc lại đúng MỘT lần; lần hai vẫn thiếu thì CẦN XÁC NHẬN, không ĐẠT. */
 var SO_LAN_DOC=0;
+
+/* ===== MỘT LƯỢT KIỂM = MỘT GÓI/THÙNG =====
+   Mọi biến sống trong một lượt phải được đặt lại ở ĐÚNG MỘT chỗ là hàm này.
+   Trước b36 việc đặt lại nằm rải rác nên mỗi lần thêm biến mới lại sót một chỗ:
+   b34 sót SO_LAN_DOC (sổ của Mai ghi 2, 3, 4 lần đọc cho ba lượt liền), và còn
+   sót tick dòng chữ, kiểu ảnh, ảnh gốc, khung khoanh — tức là lượt sau thừa
+   hưởng câu trả lời và cả ảnh của lượt trước.
+   Danh sách dưới đây cũng là danh sách mà bộ thử soi, nên thêm biến mới mà quên
+   đưa vào đây thì bộ thử báo trượt. */
+var BIEN_MOT_LUOT = ['AUTOFILL','DA_SUA','MAY_DIEN','SO_CAP','CHU_XN','SO_LAN_DOC',
+                     'LAST_OCR','KQ_TACH','TRAM_LOI','CHE_DO','ANH_GOC','KHUNG','LASTID'];
+function batDauLuot(){
+  AUTOFILL={}; DA_SUA={}; MAY_DIEN={}; SO_CAP=0; CHU_XN={}; SO_LAN_DOC=0;
+  LAST_OCR=null; KQ_TACH=null; TRAM_LOI=''; LASTID=null;
+  CHE_DO='THUONG';                       // chụp hay chọn ảnh, do thao tác quyết định
+  ANH_GOC=null; KHUNG={x:0.20,y:0.40,w:0.60,h:0.16};
+  /* Dọn luôn phần nhìn thấy: ô đã gõ, nút tick dòng chữ, ảnh đã chụp. */
+  try{
+    document.querySelectorAll('input[id^="in"]').forEach(function(o){ o.value=''; });
+    document.querySelectorAll('.chunut button').forEach(function(b){
+      b.className=b.className.split(' ')[0]; });
+    var hop=document.getElementById('cambao'); if(hop) hop.textContent='';
+    var mu=document.getElementById('mucanh'); if(mu){ mu.style.display='none'; mu.innerHTML=''; }
+  }catch(_){ }
+}
+/* Ảnh chụp thuộc về lượt nào thì chỉ dùng cho lượt đó. */
+function trangThaiLuot(){
+  var o={}; BIEN_MOT_LUOT.forEach(function(t){ try{ o[t]=JSON.stringify(eval(t)); }catch(e){ o[t]='?'; } });
+  return o;
+}
 /* Các trường ngày máy BẮT BUỘC phải xác nhận được: dòng PROD và EXPIRY có nhãn. */
 function truongCanMay(segs){
   return segs.filter(function(s){ return s.label && (s.kind==='PROD'||s.kind==='EXPIRY'); });
@@ -818,8 +844,8 @@ function showItem(code, capChon){
           ', '+SITE_APP+') với số tháng khác nhau: '+thang.join(' / ')+' tháng'});
     }
   })();
-  AUTOFILL={}; DA_SUA={}; MAY_DIEN={}; SO_CAP=0; CHU_XN={}; SO_LAN_DOC=0; LAST_OCR=null; TRAM_LOI='';
-  $('q').value=''; render(); $('verdict').innerHTML=''; LASTID=null;
+  batDauLuot();
+  $('q').value=''; render(); $('verdict').innerHTML='';
   const it=CUR, segs=segments(it), today=new Date().toISOString().slice(0,10);
 
   let h=`<div class="card chosen">
@@ -919,15 +945,6 @@ function showItem(code, capChon){
     </div>
     <div id="camdoc"></div>
     <div id="mucanh"></div>
-    <div id="xacnhan">
-      <div class="nhac">Nhìn lại BAO BÌ, không nhìn màn hình. Máy đọc ra:</div>
-      <div class="may" id="xn_may"></div>
-      <div class="nhac">Khớp với chữ đang in trên bao chứ?</div>
-      <div class="xnhang">
-        <button type="button" id="xn_dung">Đúng — xác nhận</button>
-        <button type="button" id="xn_sai">Sai — tôi sửa</button>
-      </div>
-    </div>
     <div class="camnho">Chụp xong, máy đọc rồi so với chuỗi anh chị vừa gõ ở trên. Chụp cả khối chữ in — cả ngày lẫn dòng khách yêu cầu.</div>`:'')+
   `<div class="suahop" id="suahop">
      <label>Vì sao phải sửa? (bắt buộc chọn — dùng để máy đọc tốt hơn)</label>
@@ -1157,7 +1174,7 @@ function run(){
         ly_do_chi_tiet:r.lines.filter(l=>l.m!=='ok').map(l=>l.t+': '+l.d).join(' || '),
         ngay_sx:v, line:(maMay.length>1?maMay.slice(0,-2)||maMay.slice(0,1):''),
         ly_do_sua:lyDo, o_da_sua:Object.keys(DA_SUA).join(';'),
-        che_do:CHE_DO, giay_xac_nhan:GIAY_XN.toFixed(1), ban_dung:BAN_DUNG,
+        che_do:CHE_DO, ban_dung:BAN_DUNG,
         so_cap_ngay:SO_CAP, nhieu_goi:(SO_CAP>2), so_sanh_may:soSanhMay,
         so_lan_doc:SO_LAN_DOC, site:SITE_APP, so_thang:(CUR.hsd_thang||''),
         nsx:(segs.filter(function(s){return s.kind==='PROD';}).map(function(s){return inputs[s.i];})[0]||''),
@@ -1171,7 +1188,6 @@ function run(){
         may_doc:(LAST_OCR.dong||[]).join(' | ')})}).catch(()=>{});
     LAST_OCR=null;
   }
-
   /* ghi sổ NGAY, trước khi hiện kết quả */
   LASTID='c'+Date.now();
   const rec={id:LASTID,thoi_gian:new Date().toLocaleString('vi-VN'),nguoi_kiem:who,
@@ -1181,6 +1197,8 @@ function run(){
     nguon_master:$('dot').className.includes('ok')?'file':'nhúng'};
   const log=readLog(); log.push(rec); writeLog(log);
   pushRecent(CUR.item_code);
+  /* Ghi sổ xong là đóng lượt. Giữ LASTID để còn lưu ghi chú cho chính lượt này. */
+  const idVuaGhi=LASTID; batDauLuot(); LASTID=idVuaGhi;
 
   $('verdict').innerHTML=`<div class="verdict ${cls}">
     <div class="head"><b>${head}</b><span>${sub}</span></div>
@@ -1401,9 +1419,7 @@ var LAST_OCR=null, KQ_TACH=null, TRAM_LOI='';
    chặn trên 95% của tỷ lệ sai ngầm ~4.6% nếu không thấy lỗi nào.
    Để 1/8 thì phải chạy 26 ngày mới đạt cùng độ mạnh. Sau pilot hạ về 8 hoặc 12. */
 var TAN_SUAT_MU = 4;
-var GIAY_XN=0;
 var CHE_DO='THUONG';         // THUONG | MU
-var T0_XACNHAN=0;            // mốc thời gian để đo giây xác nhận
 
 function laLuotMu(){
   var n=0; try{ n=parseInt(store.get('dc_dem_luot')||'0',10)||0; }catch(e){}
@@ -1426,18 +1442,6 @@ function camKhoiDong(segs){
 
   /* Đúng -> chạy thẳng kết luận. Sai -> mở ô sửa, ghi lý do.
      Cả hai nhánh đều đi qua đúng phép trừ số học, không có đường tắt. */
-  const nDung=document.getElementById('xn_dung'), nSai=document.getElementById('xn_sai');
-  if(nDung) nDung.onclick=()=>{
-    GIAY_XN=(Date.now()-T0_XACNHAN)/1000;
-    document.getElementById('xacnhan').style.display='none';
-    const r=document.getElementById('run'); if(r) r.click();
-  };
-  if(nSai) nSai.onclick=()=>{
-    GIAY_XN=(Date.now()-T0_XACNHAN)/1000;
-    document.getElementById('xacnhan').style.display='none';
-    const h=document.getElementById('suahop'); if(h) h.style.display='block';
-    const o=$('in'+(camSegs[0]||{i:1}).i); if(o){ o.focus(); o.select&&o.select(); }
-  };
   document.getElementById('camchon').onclick=()=>document.getElementById('camfile').click();
   document.getElementById('camfile').onchange=e=>{
     /* b33: giữ nút chọn ảnh có sẵn, nhưng ghi sổ khác lượt chụp trực tiếp.
@@ -1771,9 +1775,7 @@ function camGuiAnh(canvas, cao){
       var hopLD=document.getElementById('suahop');
       if(hopLD) hopLD.style.display='none';
 
-      T0_XACNHAN=Date.now();
-      var xn=document.getElementById('xacnhan'), mu=document.getElementById('mucanh');
-      if(xn) xn.style.display='none';
+      var mu=document.getElementById('mucanh');
       if(mu){
         mu.style.display='block';
         mu.innerHTML='<b>Máy đã đọc xong — nhưng chưa hiện.</b> Bây giờ nhìn CHAI và gõ '+
@@ -1958,19 +1960,6 @@ document.addEventListener('click', function(ev){
     else if(el.classList && el.classList.contains('capnut')){
       ev.preventDefault();
       showItem(el.getAttribute('data-code'), el.getAttribute('data-cap'));
-    }
-    else if(el.id==='xn_dung'){
-      ev.preventDefault();
-      GIAY_XN=(Date.now()-T0_XACNHAN)/1000;
-      document.getElementById('xacnhan').style.display='none';
-      var r=document.getElementById('run'); if(r) r.click();
-    }
-    else if(el.id==='xn_sai'){
-      ev.preventDefault();
-      GIAY_XN=(Date.now()-T0_XACNHAN)/1000;
-      document.getElementById('xacnhan').style.display='none';
-      var h=document.getElementById('suahop'); if(h) h.style.display='block';
-      var o=$('in'+((camSegs[0]||{i:1}).i)); if(o){ o.focus(); }
     }
   }catch(e){ baoLoi(el.id+': '+e.message); }
 });
