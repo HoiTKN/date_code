@@ -251,7 +251,7 @@ const store={
    URL mặc định gắn sẵn — QC không phải dán gì. Ô nhập ở đầu màn hình chỉ để
    đổi sang deployment khác khi cần, và chỉ đổi trên máy đó.
    PHẢI khai báo trước mọi chỗ dùng, nếu không sẽ đứt phần khởi tạo. */
-var BAN_DUNG = 'b32 · trạm chậm vẫn chạy';
+var BAN_DUNG = 'b33 · máy chưa xác nhận thì không đạt';
 var SITE_KY_TU = { MBP:'I', MIP:'A', MHP:'B', MGP:'M' };
 var SITE_TEN   = { MBP:'MMB — Nghệ An', MIP:'MSI', MHP:'MHP', MGP:'MGP' };
 var SITE_APP   = store.get('dc_site') || 'MBP';
@@ -660,6 +660,25 @@ function render(){
 /* Ô nào máy điền, ô nào người sửa — tách bạch để sau này dựng bảng nhầm lẫn.
    Không có cái này thì mọi ô đều là "người gõ", không học được gì. */
 var AUTOFILL={}, DA_SUA={}, MAY_DIEN={}, SO_CAP=0, CAP_HIEN='', CHU_XN={};
+/* b33: số lần trạm đọc xong trong lượt này. Máy chưa xác nhận đủ ngày thì
+   bắt đọc lại đúng MỘT lần; lần hai vẫn thiếu thì CẦN XÁC NHẬN, không ĐẠT. */
+var SO_LAN_DOC=0;
+/* Các trường ngày máy BẮT BUỘC phải xác nhận được: dòng PROD và EXPIRY có nhãn. */
+function truongCanMay(segs){
+  return segs.filter(function(s){ return s.label && (s.kind==='PROD'||s.kind==='EXPIRY'); });
+}
+function truongMayThieu(segs){
+  return truongCanMay(segs).filter(function(s){ return !MAY_DIEN[s.i]; });
+}
+/* Tách nhãn và phần số theo nhãn master khai, để so hai phía cho công bằng:
+   người gõ "190627", máy đọc "HSD 190627" là CÙNG một giá trị (ca b7bfccd1).
+   Nhãn chỉ bị so khi CẢ HAI phía đều có nhãn. Không nới gì ngoài chuyện đó. */
+function tachNhanSo(raw, label){
+  var b=bocNhan(String(raw||''), label);
+  return {nhan:String(b.found||'').toUpperCase().replace(/[^A-Z0-9]/g,''),
+          so:String(b.rest||'').toUpperCase().replace(/[^A-Z0-9]/g,'')};
+}
+/* Nhấn mạnh: đọc thiếu dù chỉ một trường vẫn là CHƯA xác nhận. */
 /* Nhãn dùng để train phải có ĐÚNG MỘT cách viết. Trước đây người gõ tự do nên
    cùng một nội dung ra ba kiểu: "NSX 040926 | HSD 040327", "040926 | 040227",
    "HSD 040227". Máy không học được từ ba mã hoá cho một thứ.
@@ -712,7 +731,21 @@ function showItem(code, capChon){
       : ds[0];
   CAP_HIEN = capChon || (ds.length>1 ? capCuaDong(CUR)[0] : '');
   if(!CUR)return;
-  AUTOFILL={}; DA_SUA={}; MAY_DIEN={}; SO_CAP=0; CHU_XN={};
+  /* D1 (b33): cùng mã, cùng cấp, cùng site mà master có nhiều dòng với số tháng
+     khác nhau thì KHÔNG được lấy dòng đầu tiên. Ca cf45c1d7: 02OM00381 gói lấy
+     dòng 5 tháng, thùng lấy dòng 6 tháng, cùng một bản in cho hai kết luận. */
+  (function(){
+    var cap=CAP_HIEN||capCuaDong(CUR)[0]||'';
+    var cung=ds.filter(function(r){ var cs=capCuaDong(r); return !cap||!cs.length||cs.indexOf(cap)>=0; });
+    var thang=[]; cung.forEach(function(r){ var t=String(r.hsd_thang||'').trim();
+      if(thang.indexOf(t)<0) thang.push(t); });
+    if(thang.length>1){
+      CUR=Object.assign({},CUR,{trang_thai:'MAU_THUAN',
+        canh_bao:'Master có '+cung.length+' dòng cho '+CUR.item_code+' ('+(cap||'mọi cấp')+
+          ', '+SITE_APP+') với số tháng khác nhau: '+thang.join(' / ')+' tháng'});
+    }
+  })();
+  AUTOFILL={}; DA_SUA={}; MAY_DIEN={}; SO_CAP=0; CHU_XN={}; SO_LAN_DOC=0; LAST_OCR=null; TRAM_LOI='';
   $('q').value=''; render(); $('verdict').innerHTML=''; LASTID=null;
   const it=CUR, segs=segments(it), today=new Date().toISOString().slice(0,10);
 
@@ -889,13 +922,28 @@ function run(){
           'Nhìn bao bì rồi bấm Có hoặc Thiếu/sai cho từng dòng.');
     return;
   }
+  /* b33: máy đã đọc nhưng chưa xác nhận đủ ngày, và mới đọc một lần -> bắt
+     đọc lại một lần trước khi cho kết luận. Không hiện máy đọc ra gì (giữ đọc mù). */
+  if(LAST_OCR && !TRAM_LOI && SO_LAN_DOC<2 && CUR.trang_thai==='SAN_SANG'){
+    var thieuMay=truongMayThieu(segs);
+    if(thieuMay.length){
+      alert('Máy chưa đọc được: '+thieuMay.map(function(s){return s.label;}).join(', ')+
+        '.\nChụp lại MỘT lần ở Bước 4, khoanh sát khung in ngày, rồi bấm Kiểm tra.\n'+
+        'Lần hai vẫn không đọc được thì app sẽ ra CẦN XÁC NHẬN.');
+      var cb=$('camboc'); if(cb && cb.scrollIntoView) cb.scrollIntoView({behavior:'smooth'});
+      return;
+    }
+  }
   /* Mã máy không còn là ô nhập — chỉ lấy cái OCR đọc được để ghi sổ truy vết. */
   const maMay=String(MAY_DIEN['may']||'');
 
   const r=check(CUR,nsx,inputs);
   const noData=CUR.trang_thai!=='SAN_SANG';
   let cls,head,sub;
-  if(noData){cls='v-warn';head='KHÔNG KẾT LUẬN ĐƯỢC';sub='Master thiếu dữ liệu — không được coi là đạt.';}
+  if(noData){cls='v-warn';head='KHÔNG KẾT LUẬN ĐƯỢC';
+    sub=(CUR.trang_thai==='MAU_THUAN')
+      ? 'Master mâu thuẫn: '+CUR.canh_bao+'. Báo QA sửa master, không được coi là đạt.'
+      : 'Master thiếu dữ liệu — không được coi là đạt.';}
   else if(r.fail){cls='v-fail';head='KHÔNG ĐẠT';sub='Dừng, không chạy đơn. Báo QA.';}
   else if(r.warn){cls='v-warn';head='CẦN XÁC NHẬN';sub='Có điểm chưa chắc chắn — ghi rõ ai xác nhận và căn cứ gì.';}
   else{cls='v-pass';head='ĐẠT';sub='Khớp tiêu chuẩn in và đúng hạn theo TCTP.';}
@@ -933,10 +981,19 @@ function run(){
         });
       }
       if(chuNghi.length){
+        /* Mã item hay bị OCR đọc O thành 0 (020M00950). KHÔNG nới kết luận —
+           máy in có thể in nhầm thật — chỉ nói rõ khác ở ký tự nào. */
+        var goiY='';
+        chuNghi.forEach(function(c){
+          if(c.i!=='item') return;
+          var ma=chuanChu(CUR.item_code), doi=function(s){return s.replace(/O/g,'0').replace(/I/g,'1');};
+          if(doi(toanBo).indexOf(doi(ma))>=0)
+            goiY=' Mã item: máy đọc được mã gần giống, chỉ khác O/0 hoặc I/1 — nhìn đúng ký tự đó trên bao.';
+        });
         r.lines.push({m:'wa',t:'Dòng chữ: người và máy khác nhau',
           d:'QC xác nhận CÓ in, nhưng máy đọc cả ảnh không thấy: '+
             chuNghi.map(function(c){return '"'+c.chu.slice(0,45)+'"';}).join(' · ')+
-            '. Nhìn lại bao bì trước khi cho chạy.'});
+            '. Nhìn lại bao bì trước khi cho chạy.'+goiY});
         r.warn=true;
         if(head==='ĐẠT'){ head='CẦN XÁC NHẬN';
           sub='Người xác nhận có in nhưng máy đọc không thấy.'; }
@@ -950,19 +1007,23 @@ function run(){
   /* ===== SO BA CHIỀU =====
      1. người đọc  vs  master  -> quyết định ĐẠT / KHÔNG ĐẠT (đã chạy ở check())
      2. người đọc  vs  máy đọc -> lệch thì hạ xuống CẦN XÁC NHẬN
-     Máy KHÔNG quyết định gì. Nó chỉ là nhân chứng thứ hai: khớp thì yên tâm,
-     lệch thì một trong hai bên sai và phải xem lại, đọc không được thì thôi.
-     Bắt máy phải khớp mới cho ĐẠT sẽ khiến mọi chai in laser không bao giờ đạt. */
+     Máy không tự quyết ĐẠT. Nó là nhân chứng thứ hai và từ b33 là nhân chứng
+     BẮT BUỘC: khớp đủ các trường ngày mới được ĐẠT; lệch, thiếu hoặc không đọc
+     được (sau một lần đọc lại) đều là CẦN XÁC NHẬN. Luật do Hội chốt 22/09. */
   var soSanhMay = 'MAY_KHONG_DOC_DUOC';
-  if(LAST_OCR && Object.keys(MAY_DIEN).length){
+  /* b33: máy không xác nhận đủ các trường ngày thì KHÔNG ĐẠT được.
+     Trước b33, máy đọc rỗng vẫn ĐẠT, và máy đọc được một trường vẫn ghi KHOP
+     (21 lượt chỉ đọc NSX, 5 lượt không đọc gì vẫn ghi KHOP, ra ĐẠT). */
+  if(LAST_OCR){
     var lech=[];
     segs.forEach(function(sg){
       if(!sg.label) return;
       var m=MAY_DIEN[sg.i]; if(!m) return;
-      var a=String(inputs[sg.i]).toUpperCase().replace(/[^A-Z0-9]/g,'');
-      var b=String(m).toUpperCase().replace(/[^A-Z0-9]/g,'');
-      if(a!==b) lech.push(sg.label+': người đọc "'+inputs[sg.i]+'", máy đọc "'+m+'"');
+      var a=tachNhanSo(inputs[sg.i], sg.label), b=tachNhanSo(m, sg.label);
+      if(a.so!==b.so || (a.nhan && b.nhan && a.nhan!==b.nhan))
+        lech.push(sg.label+': người đọc "'+inputs[sg.i]+'", máy đọc "'+m+'"');
     });
+    var canMay=truongCanMay(segs), thieuM=truongMayThieu(segs);
     if(lech.length){
       soSanhMay='LECH';
       r.lines.push({m:'wa',t:'Người đọc và máy đọc KHÁC nhau',
@@ -970,10 +1031,20 @@ function run(){
       r.warn=true;
       if(head==='ĐẠT'){ head='CẦN XÁC NHẬN';
         sub='Người và máy đọc khác nhau — xác nhận lại trên chai.'; }
+    } else if(canMay.length && thieuM.length){
+      soSanhMay = (thieuM.length===canMay.length) ? 'MAY_KHONG_DOC_DUOC' : 'THIEU_TRUONG';
+      r.lines.push({m:'wa',t:(soSanhMay==='THIEU_TRUONG'?'Máy chỉ đọc được một phần':'Máy không đọc được ngày'),
+        d:'Sau '+SO_LAN_DOC+' lần đọc, máy chưa xác nhận được: '+
+          thieuM.map(function(s){return s.label;}).join(', ')+
+          '. Chưa có nhân chứng thứ hai cho trường này.'});
+      r.warn=true;
+      if(head==='ĐẠT'){ head='CẦN XÁC NHẬN';
+        sub='Máy chưa xác nhận được '+thieuM.map(function(s){return s.label;}).join(', ')+
+            ' — người xác nhận ghi rõ căn cứ.'; }
     } else {
       soSanhMay='KHOP';
       r.lines.push({m:'ok',t:'Máy đọc khớp với người đọc',
-        d:'Hai nguồn độc lập cho cùng kết quả.'});
+        d:'Máy xác nhận đủ '+canMay.length+' trường ngày, hai nguồn độc lập cho cùng kết quả.'});
     }
   } else if(TRAM_LOI){
     soSanhMay='TRAM_LOI';
@@ -982,9 +1053,6 @@ function run(){
         'chuỗi người đọc và master. Báo lại để sửa trạm.'});
     r.warn=true;
     if(head==='ĐẠT'){ head='CẦN XÁC NHẬN'; sub='Trạm đọc ảnh lỗi — thiếu lớp kiểm chéo.'; }
-  } else if(LAST_OCR){
-    r.lines.push({m:'ok',t:'Máy đọc không ra chữ nào',
-      d:'Thường gặp với chai in laser. Kết luận dựa trên chuỗi người đọc và master.'});
   } else {
     r.lines.push({m:'wa',t:'Chưa chụp ảnh',
       d:'Lượt này không có ảnh và không có lớp kiểm chéo bằng máy.'});
@@ -1018,6 +1086,11 @@ function run(){
         ly_do_sua:lyDo, o_da_sua:Object.keys(DA_SUA).join(';'),
         che_do:CHE_DO, giay_xac_nhan:GIAY_XN.toFixed(1), ban_dung:BAN_DUNG,
         so_cap_ngay:SO_CAP, nhieu_goi:(SO_CAP>2), so_sanh_may:soSanhMay,
+        so_lan_doc:SO_LAN_DOC, site:SITE_APP, so_thang:(CUR.hsd_thang||''),
+        nsx:(segs.filter(function(s){return s.kind==='PROD';}).map(function(s){return inputs[s.i];})[0]||''),
+        hsd:(segs.filter(function(s){return s.kind==='EXPIRY';}).map(function(s){return inputs[s.i];})[0]||''),
+        hsd_ky_vong:(function(){ try{ var mg=mocGoc(CUR,nsx,inputs), t=parseInt(CUR.hsd_thang,10);
+          return isNaN(t)?'':fmtVN(addMonths(mg.moc,t)); }catch(e){ return ''; } })(),
         dong_chu:dsChu.map(function(c){
           return (CHU_XN[String(c.i)]==='CO'?'[v] ':'[x] ')+c.chu; }).join(' || '),
         chu_nghi:chuNghi.length,
@@ -1291,6 +1364,9 @@ function camKhoiDong(segs){
   };
   document.getElementById('camchon').onclick=()=>document.getElementById('camfile').click();
   document.getElementById('camfile').onchange=e=>{
+    /* b33: giữ nút chọn ảnh có sẵn, nhưng ghi sổ khác lượt chụp trực tiếp.
+       Ảnh trong thư viện không tự chứng minh là ảnh của lô đang chạy. */
+    CHE_DO='THU_VIEN';
     if(e.target.files&&e.target.files[0]) camChonAnh(e.target.files[0]);
     e.target.value='';
   };
@@ -1592,16 +1668,27 @@ function camDienVaoO(dong){
 function camGuiAnh(canvas, cao){
   var hop=document.getElementById('camdoc'), tt=document.getElementById('camtt');
   hop.style.display='block'; hop.textContent='Đang gửi ảnh…';
-  return fetch(TRAM_URL,{method:'POST',redirect:'follow',
+  /* b33: trạm Apps Script đôi khi trả trang lỗi HTML thay vì JSON (ca a803b730,
+     27e297fd). Nhận ra và gửi lại đúng một lần trước khi báo trạm lỗi. */
+  var goi=function(lanThu){ return fetch(TRAM_URL,{method:'POST',redirect:'follow',
       headers:{'Content-Type':'text/plain;charset=utf-8'},
       body:JSON.stringify({act:'doc',
         anh_b64:canvas.toDataURL('image/jpeg',.92).split(',')[1],
-        ma_item:(CUR&&CUR.item_code)||'', cao_vung_px:cao,
+        ma_item:(CUR&&CUR.item_code)||'', cao_vung_px:cao, site:SITE_APP,
         nguoi_kiem:(($('who')&&$('who').value)||'').trim()})})
-   .then(function(x){return x.json();})
+   .then(function(x){return x.text();})
+   .then(function(t){
+      var s=String(t||'').trim();
+      if(s.charAt(0)==='<'){
+        if(!lanThu) return goi(1);
+        throw new Error('trạm trả trang lỗi HTML, đã gửi lại 1 lần');
+      }
+      return JSON.parse(s);
+   }); };
+  return goi(0)
    .then(function(r){
       if(!r||!r.ok) throw new Error((r&&r.loi)||'trạm không trả lời');
-      TRAM_LOI=''; LAST_OCR={id:r.id, dong:r.dong||[]};
+      TRAM_LOI=''; LAST_OCR={id:r.id, dong:r.dong||[]}; SO_LAN_DOC++;
       var kq=camDienVaoO(r.dong||[]);
       KQ_TACH=kq; SO_CAP=kq.soCap||0;
 
@@ -1617,9 +1704,13 @@ function camGuiAnh(canvas, cao){
           'ngày thật vào ô bên dưới. Bấm Kiểm tra rồi máy mới cho biết nó đọc ra gì. '+
           'Gõ theo chai, đừng đoán.';
       }
-      hop.textContent = kq.daDien>0
-        ? 'Máy đọc được ' + kq.daDien + '/' + kq.soNhan + ' trường (chưa hiện).'
-        : 'Máy KHÔNG đọc được trường nào — bình thường với chai in laser. Gõ tay như thường.';
+      var thieuNgay=truongMayThieu(camSegs);
+      hop.textContent = !thieuNgay.length
+        ? 'Máy đọc được đủ ' + kq.daDien + '/' + kq.soNhan + ' trường (chưa hiện).'
+        : (SO_LAN_DOC<2
+          ? 'Máy chưa đọc được: '+thieuNgay.map(function(s){return s.label;}).join(', ')+
+            '. Chụp lại MỘT lần, khoanh sát khung in ngày.'
+          : 'Lần đọc thứ '+SO_LAN_DOC+' vẫn chưa đủ. Kết luận sẽ là CẦN XÁC NHẬN.');
       if(tt) tt.textContent='đọc xong — đối chiếu bao bì rồi xác nhận';
       return kq;
    })
