@@ -251,7 +251,10 @@ const store={
    URL mặc định gắn sẵn — QC không phải dán gì. Ô nhập ở đầu màn hình chỉ để
    đổi sang deployment khác khi cần, và chỉ đổi trên máy đó.
    PHẢI khai báo trước mọi chỗ dùng, nếu không sẽ đứt phần khởi tạo. */
-var BAN_DUNG = 'b33 · máy chưa xác nhận thì không đạt';
+var BAN_DUNG = 'b34 · tự cập nhật bản và master';
+/* Địa chỉ file ghi số bản dựng mới nhất, đặt cạnh index.html trên GitHub.
+   Nội dung file đúng bằng chuỗi BAN_DUNG của bản đang phát hành. */
+var URL_PHIEN_BAN = 'phien_ban.txt';
 var SITE_KY_TU = { MBP:'I', MIP:'A', MHP:'B', MGP:'M' };
 var SITE_TEN   = { MBP:'MMB — Nghệ An', MIP:'MSI', MHP:'MHP', MGP:'MGP' };
 var SITE_APP   = store.get('dc_site') || 'MBP';
@@ -311,11 +314,54 @@ function toCSV(rows,cols){
   const q=v=>{v=(v??'')+''; return /[",\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v;};
   return '\uFEFF'+cols.join(',')+'\n'+rows.map(r=>cols.map(c=>q(r[c])).join(',')).join('\n');
 }
-async function loadMaster(){
+/* Bản master lưu trên máy dựng xong trong vài chục mili giây; gọi trạm mất
+   vài giây tới vài chục giây trên 4G ở xưởng. Nên dựng trước bằng bản lưu để
+   QC dùng được ngay, rồi hỏi trạm ở NỀN xem master có mới hơn không. */
+function dungTuBanLuu(){
+  try{
+    const cu=store.get('dc_master_csv','');
+    if(!cu) return false;
+    const m=chuanHoaMaster(parseCSV(cu));
+    if(!m.length || !m[0].item_code) return false;
+    MASTER=m; buildDupIndex(); render(); setTimeout(veTomTat,0);
+    $('dot').className='dot ok';
+    $('srctxt').textContent=m.length+' item · bản lưu trên máy'+
+      (store.get('dc_master_luc','')?' · sửa '+store.get('dc_master_luc',''):'')+
+      ' · đang kiểm bản mới  ·  '+BAN_DUNG;
+    return true;
+  }catch(_){ return false; }
+}
+
+/* Hỏi trạm ĐÚNG MỘT chuỗi giờ sửa (vài chục byte) thay vì tải cả bảng 158 KB.
+   Chỉ khi giờ sửa khác bản đang giữ mới tải bảng mới. */
+async function capNhatMasterNen(){
+  if(!TRAM_URL) return;
+  try{
+    const res=await fetch(TRAM_URL,{method:'POST',redirect:'follow',cache:'no-store',
+      headers:{'Content-Type':'text/plain;charset=utf-8'},
+      body:JSON.stringify({act:'master_ver'})});
+    const j=JSON.parse(await res.text());
+    if(!j || !j.ok) return;
+    const dangGiu=store.get('dc_master_luc','');
+    if(j.sua_luc && j.sua_luc===dangGiu){
+      $('srctxt').textContent=MASTER.length+' item · bản lưu trên máy · sửa '+dangGiu+
+        ' · mới nhất  ·  '+BAN_DUNG;
+      return;
+    }
+    /* Có master mới. Đang kiểm dở thì KHÔNG đổi dữ liệu dưới chân người dùng. */
+    if(CUR){
+      $('srctxt').textContent='Có master mới — bấm Cập nhật master sau khi ghi sổ xong  ·  '+BAN_DUNG;
+      return;
+    }
+    await loadMaster(true);
+  }catch(_){ /* trạm lỗi thì cứ dùng bản lưu, không làm phiền */ }
+}
+
+async function loadMaster(nen){
   const dot=$('dot'), txt=$('srctxt');
   let loiTram='';
   const nhan=t=>{ txt.textContent=t+'  ·  '+BAN_DUNG; };
-  nhan('Đang gọi trạm…');
+  if(!nen) nhan('Đang gọi trạm…');
 
   /* 1. Google Sheet qua trạm — nguồn thật.
         Hạn chờ 45 giây, thử 2 lần. Master 507 dòng ra chuỗi ~158 KB, cộng một
@@ -394,6 +440,33 @@ async function loadMaster(){
     nhan(MASTER.length+' item · bản nhúng'+(loiTram?' · TRẠM LỖI: '+loiTram:''));
   }
   buildDupIndex(); render(); veTomTat();
+}
+
+/* ===== TỰ CẬP NHẬT BẢN APP =====
+   Điện thoại giữ index.html trong bộ nhớ đệm nên nhiều máy còn chạy bản cũ
+   (sáng 23/09: MGP chạy b33, MBP còn b32 và b29). Mỗi lần mở app, hỏi một file
+   text vài chục byte xem bản mới nhất là gì. Khác thì nạp lại trang kèm tham số
+   phiên bản để trình duyệt buộc phải tải bản mới.
+   Không nạp lại khi QC đang kiểm dở, và mỗi phiên bản chỉ tự nạp lại MỘT lần
+   để không rơi vào vòng nạp lại vô tận khi quên cập nhật phien_ban.txt. */
+function taiLaiApp(ver){
+  store.set('dc_da_tai_lai', ver);
+  location.replace(location.pathname+'?v='+encodeURIComponent(ver));
+}
+function bangBanMoi(ver){
+  const t=$('srctxt');
+  if(t) t.textContent='Có bản mới ('+ver+') — ghi sổ xong rồi tải lại trang  ·  '+BAN_DUNG;
+}
+async function kiemBanMoi(){
+  try{
+    const res=await fetch(URL_PHIEN_BAN+'?t='+Date.now(),{cache:'no-store'});
+    if(!res.ok) return;
+    const ver=(await res.text()).trim();
+    if(!ver || ver===BAN_DUNG) return;
+    if(store.get('dc_da_tai_lai','')===ver) return bangBanMoi(ver);  // đã thử một lần
+    if(CUR) return bangBanMoi(ver);                                   // đang kiểm dở
+    taiLaiApp(ver);
+  }catch(_){ }
 }
 
 /* item trùng tên gần giống → cảnh báo chọn nhầm quy cách */
@@ -1282,7 +1355,10 @@ $('cp').onclick=()=>{const l=readLog();if(!l.length){alert('Sổ đang trống.'
 $('clr').onclick=()=>{if(confirm('Xóa toàn bộ sổ trên máy này? Tải file .csv về trước khi xóa.')){
   writeLog([]);paintLog();}};
 
-tuKiemApp(); paintBadge(); loadMaster();
+tuKiemApp(); paintBadge();
+/* Có bản lưu thì dựng ngay rồi kiểm ở nền; chưa có bản nào thì buộc phải chờ trạm. */
+if(dungTuBanLuu()) setTimeout(capNhatMasterNen, 50); else loadMaster();
+setTimeout(kiemBanMoi, 1200);
 /* Lần đầu trên máy mới: chưa có tên người kiểm thì mở sẵn cài đặt,
    những lần sau thu gọn lại. */
 if(!(($('who')||{}).value||'').trim()) $('caidat').style.display='block';
