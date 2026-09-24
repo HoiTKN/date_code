@@ -247,7 +247,7 @@ const store={
    URL mặc định gắn sẵn — QC không phải dán gì. Ô nhập ở đầu màn hình chỉ để
    đổi sang deployment khác khi cần, và chỉ đổi trên máy đó.
    PHẢI khai báo trước mọi chỗ dùng, nếu không sẽ đứt phần khởi tạo. */
-var BAN_DUNG = 'b36 · một chỗ mở lượt, dọn code chết';
+var BAN_DUNG = 'b39 · dòng lot kiểm theo khuôn, bỏ giờ và mã máy';
 /* Địa chỉ file ghi số bản dựng mới nhất, đặt cạnh index.html trên GitHub.
    Nội dung file đúng bằng chuỗi BAN_DUNG của bản đang phát hành. */
 var URL_PHIEN_BAN = 'phien_ban.txt';
@@ -560,6 +560,47 @@ function chuanChu(t){
     .replace(/[đĐ]/g,'D').toUpperCase().replace(/[^A-Z0-9]/g,'');
 }
 
+/* Ô thành phần trong master vừa dùng để khai CHỮ CỐ ĐỊNH khách yêu cầu, vừa
+   dùng để mô tả KHUÔN in như "hh:mm line", "Lddmmyy hh:mm 2M1", "hh:mm #*S".
+   Khuôn thì không có chữ nào in nguyên văn trên bao, nên đối chiếu theo từ luôn
+   trượt: ca 03NM00795 sáng 24/09 ra KHÔNG ĐẠT rồi CẦN XÁC NHẬN dù máy đọc khớp
+   ngày. Hàm này giữ lại đúng phần chữ thật; không còn chữ nào thì bỏ dòng đó. */
+/* Một ô thành phần trong master trộn ba thứ khác hẳn nhau:
+     1. Khuôn mã lô: Lddmmyy, LOTddmmyy, LxxxxxA. Bao PHẢI in một cụm đúng khuôn
+        đó, nhưng nội dung mỗi lô một khác nên không so theo chữ được, phải so
+        theo KHUÔN.
+     2. Khuôn giờ và mã máy, số line, ký tự site: hh:mm, 2M1, #*S, line. Hội chốt
+        không kiểm đúng sai ở đây, vì mỗi máy mỗi line in khác nhau.
+     3. Chữ cố định thật: tên nhà nhập khẩu, dòng Best before. So theo chữ.
+   Hàm này tách một ô thành các phần đó. */
+function tachChu(s){
+  var goc=String(s||'').trim(); if(!goc) return [];
+  var ra=[], t=' '+goc+' ';
+  var khuonLot=[
+    {re:/\bLOT\s*(?:dd\s*mm\s*yy\s*yy|yyyy\s*mm\s*dd)\b/i, kiem:/\bLOT\s*\d{8}\b/i,  mo:'LOT + 8 chữ số'},
+    {re:/\bLOT\s*dd\s*mm\s*yy\b/i,   kiem:/\bLOT\s*\d{6}\b/i,            mo:'LOT + 6 chữ số'},
+    {re:/\bL\s*(?:dd\s*mm\s*yy\s*yy|yyyy\s*mm\s*dd)\b/i, kiem:/\bL\s*\d{8}\b/i, mo:'L + 8 chữ số'},
+    {re:/\bL\s*dd\s*mm\s*yy\b/i,     kiem:/\bL\s*\d{6}\b/i,              mo:'L + 6 chữ số'},
+    {re:/\bL\s*x{3,}\s*A\b/i,         kiem:/\bL\s*[A-Z0-9]{3,}A\b/i,       mo:'L + mã lô + chữ A'},
+    {re:/\bL\s*x{3,}\b/i,              kiem:/\bL\s*[A-Z0-9]{3,}\b/i,        mo:'L + mã lô'}
+  ];
+  khuonLot.forEach(function(k){
+    if(k.re.test(t)){ ra.push({loai:'KHUON', kiem:k.kiem, chu:'Mã lô theo khuôn '+k.mo});
+      t=t.replace(k.re,' '); }
+  });
+  /* Phần Hội chốt không kiểm: giờ, mã máy khuôn, số line, ký tự site. */
+  t=t.replace(/hh\s*:?\s*mm(\s*:?\s*ss)?/ig,' ');
+  t=t.replace(/#\*S/g,' ');
+  t=t.replace(/\b(?:line|item|code)\b/ig,' ');
+  t=t.replace(/\bthành phẩm\b/ig,' ');            // đã có cờ co_in_ma_item lo phần này
+  t=t.replace(/\b\d{1,2}[A-Z]\d?\b/g,' ');        // mã máy, khuôn 2M1
+  t=t.replace(/\b(?:dd|mm|yy|yyyy)\b/ig,' ');
+  var con=t.replace(/[^0-9A-Za-zÀ-ỹ]+/g,' ').trim();
+  var tu=con.split(/\s+/).filter(function(x){ return x.length>=3; });
+  if(tu.length) ra.push({loai:'CHU', chu:goc});
+  return ra;
+}
+
 function dongChu(it){
   var o=[];
   /* Master khai bao có in mã item (Item/Code thành phẩm) -> đưa vào khối
@@ -569,7 +610,9 @@ function dongChu(it){
   }
   for(var i=1;i<=4;i++){
     if(it['seg'+i+'_loai']==='CHU' && it['seg'+i+'_them']){
-      o.push({i:i, chu:String(it['seg'+i+'_them']).trim()});
+      tachChu(it['seg'+i+'_them']).forEach(function(p,n){
+        o.push({i:(n?i+'.'+n:i), chu:p.chu, kiem:p.kiem||null});
+      });
     }
   }
   return o;
@@ -603,10 +646,23 @@ function check(it,nsx,inputs){
   const MG=mocGoc(it,nsx,inputs);
   const goc=MG.moc;
   if(MG.tu==='lot'){
-    lines.push({m:'wa',t:'Mốc tính hạn',
-      d:'Bao bì không đọc được ngày sản xuất — tạm lấy ngày lot '+fmtVN(nsx)+
-        ' làm mốc. Kết luận hạn sử dụng dựa trên số QC nhập, không dựa trên bao bì.'});
-    warn=true;
+    /* Có hai trường hợp khác hẳn nhau, b38 tách ra:
+       1. Master KHÔNG khai dòng ngày sản xuất, tức bao bì vốn chỉ in hạn dùng
+          (hàng đi Nhật của 03NM00795 là vậy). Lấy ngày lệnh sản xuất làm mốc là
+          đúng thiết kế, không phải điểm chưa chắc chắn. Chỉ ghi chú.
+       2. Master CÓ khai dòng ngày sản xuất mà không lấy được. Đó mới là chưa
+          chắc chắn, giữ nguyên CẦN XÁC NHẬN như trước. */
+    var coKhaiPROD=segments(it).some(function(s){ return s.kind==='PROD'; });
+    if(coKhaiPROD){
+      lines.push({m:'wa',t:'Mốc tính hạn',
+        d:'Bao bì có khai dòng ngày sản xuất nhưng không đọc được — tạm lấy ngày lot '+
+          fmtVN(nsx)+' làm mốc. Kết luận hạn sử dụng dựa trên số QC nhập.'});
+      warn=true;
+    } else {
+      lines.push({m:'ok',t:'Mốc tính hạn',
+        d:'Bao bì này không in ngày sản xuất theo master, nên mốc lấy từ ngày lệnh sản xuất '+
+          fmtVN(nsx)+'.'});
+    }
   }
   for(const s of segments(it)){
     const raw=(inputs[s.i]||'').trim();
@@ -755,6 +811,11 @@ function batDauLuot(){
       b.className=b.className.split(' ')[0]; });
     var hop=document.getElementById('cambao'); if(hop) hop.textContent='';
     var mu=document.getElementById('mucanh'); if(mu){ mu.style.display='none'; mu.innerHTML=''; }
+    /* b37: b36 dọn biến nhưng bỏ quên phần nhìn thấy của camera. Ghi sổ xong,
+       khung khoanh vẫn mở với ảnh của gói trước, ba nút Đọc vùng này / Đọc cả
+       ảnh / Chụp lại che mất nút chọn ảnh, nên QC báo là không chọn được ảnh
+       từ máy. dongKhoanh() đóng khung, bỏ ảnh cũ và cho camera chạy lại. */
+    if(typeof dongKhoanh==='function') dongKhoanh();
   }catch(_){ }
 }
 /* Ảnh chụp thuộc về lượt nào thì chỉ dùng cho lượt đó. */
@@ -1062,7 +1123,13 @@ function run(){
            mảnh kia. Đòi 12 ký tự liên tục thì trượt, sinh báo động giả trên
            lô hoàn toàn tốt (ca 3c6e1759 ngày 17/09).
            Lấy các từ từ 3 ký tự trở lên, thấy quá nửa là coi như có in. */
+        var thoOCR=(LAST_OCR&&(LAST_OCR.dong||[]).join(' '))||'';
         dsChu.forEach(function(c){
+          if(c.kiem){
+            /* Dòng mã lô: không so chữ, chỉ hỏi bao có in một cụm đúng khuôn không. */
+            if(!c.kiem.test(thoOCR)) chuNghi.push(c);
+            return;
+          }
           var tu=String(c.chu||'').split(/[^A-Za-zÀ-ỹ0-9]+/)
                  .map(chuanChu).filter(function(x){ return x.length>=3; });
           if(!tu.length) return;
@@ -1205,13 +1272,15 @@ function run(){
     <div class="body">${r.lines.map(l=>`<div class="line"><span class="m ${l.m}">${l.m==='ok'?'✓':l.m==='no'?'✕':'!'}</span>
       <span class="t"><b>${l.t}</b><span class="d">${l.d}</span></span></div>`).join('')}</div>
     <div class="saved">
-      <div class="s">Đã ghi sổ lúc ${rec.thoi_gian} · ${who}</div>
+      <div class="s">Đã ghi sổ lúc ${rec.thoi_gian} · ${who}. Lượt này đã đóng:
+        các ô ngày và ảnh đã được xoá để gói tiếp theo không dùng nhầm số của gói vừa rồi.</div>
       ${head!=='ĐẠT'?`<div class="field" style="margin-top:9px">
         <label>Ghi chú / người xác nhận</label>
         <input id="note" placeholder="VD: đã chỉnh máy in, chạy lại lô — anh X duyệt"></div>`:''}
       <div class="row2">
         ${head!=='ĐẠT'?`<button class="ghost" type="button" id="savenote">Lưu ghi chú</button>`:''}
         <button class="ghost" type="button" id="copy">Sao chép kết quả</button>
+        <button class="ghost" type="button" id="tiep">Kiểm gói tiếp theo</button>
         <button class="ghost" type="button" id="again">Kiểm mã khác</button>
       </div>
     </div></div>`;
@@ -1227,6 +1296,13 @@ function run(){
       'Người kiểm: '+who+' · '+rec.thoi_gian].join('\n');
     navigator.clipboard?.writeText(t).then(()=>$('copy').textContent='Đã sao chép',
       ()=>alert(t));
+  };
+  /* Kiểm gói tiếp theo của cùng một mã: mở lại đúng mã đó, ô nhập sạch. */
+  const nutTiep=$('tiep');
+  if(nutTiep) nutTiep.onclick=()=>{
+    const ma=CUR&&CUR.item_code, cap=CAP_HIEN||null;
+    if(ma) showItem(ma, cap);
+    const o=document.querySelector('input[id^="in"]'); if(o){ o.focus(); o.scrollIntoView({block:'center'}); }
   };
   $('again').onclick=()=>{CUR=null;$('item').innerHTML='';$('verdict').innerHTML='';
     $('q').focus();window.scrollTo({top:0,behavior:'smooth'});render();};
@@ -1443,6 +1519,11 @@ function camKhoiDong(segs){
   /* Đúng -> chạy thẳng kết luận. Sai -> mở ô sửa, ghi lý do.
      Cả hai nhánh đều đi qua đúng phép trừ số học, không có đường tắt. */
   document.getElementById('camchon').onclick=()=>document.getElementById('camfile').click();
+  if(LOI_NGOAI.test(navigator.userAgent||'')){
+    var tt0=document.getElementById('camtt');
+    if(tt0) tt0.textContent='Đang mở trong trình duyệt của Zalo hoặc Facebook. '+
+      'Nút chọn ảnh có thể không mở được thư viện — mở app bằng Chrome thì chắc hơn.';
+  }
   document.getElementById('camfile').onchange=e=>{
     /* b33: giữ nút chọn ảnh có sẵn, nhưng ghi sổ khác lượt chụp trực tiếp.
        Ảnh trong thư viện không tự chứng minh là ảnh của lô đang chạy. */
@@ -1778,9 +1859,9 @@ function camGuiAnh(canvas, cao){
       var mu=document.getElementById('mucanh');
       if(mu){
         mu.style.display='block';
-        mu.innerHTML='<b>Máy đã đọc xong — nhưng chưa hiện.</b> Bây giờ nhìn CHAI và gõ '+
-          'ngày thật vào ô bên dưới. Bấm Kiểm tra rồi máy mới cho biết nó đọc ra gì. '+
-          'Gõ theo chai, đừng đoán.';
+        mu.innerHTML='<b>Máy đã đọc xong, kết quả chưa hiện.</b> Nếu ở trên đã gõ đủ '+
+          'ngày theo bao bì thì bấm Kiểm tra và ghi sổ. Ô nào còn trống thì gõ nốt, '+
+          'gõ theo bao bì chứ đừng đoán.';
       }
       var thieuNgay=truongMayThieu(camSegs);
       hop.textContent = !thieuNgay.length
@@ -1949,6 +2030,12 @@ document.addEventListener('click', function(ev){
       camGuiAnh(ANH_GOC, null).then(function(){ el.disabled=false; dongKhoanh(); });
     }
     else if(el.id==='kh_lai'){ ev.preventDefault(); dongKhoanh(); }
+    else if(el.id==='camchon'){
+      /* Đường dự phòng: nếu lần gắn sự kiện lúc mở camera không chạy (camera bị
+         từ chối quyền, hoặc trình duyệt trong Zalo), nút vẫn mở được thư viện. */
+      ev.preventDefault();
+      var f=document.getElementById('camfile'); if(f) f.click();
+    }
     else if(el.classList && (el.classList.contains('chunut-co')||el.classList.contains('chunut-khong'))){
       ev.preventDefault();
       var idx=el.getAttribute('data-chu');
