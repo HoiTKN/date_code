@@ -247,7 +247,7 @@ const store={
    URL mặc định gắn sẵn — QC không phải dán gì. Ô nhập ở đầu màn hình chỉ để
    đổi sang deployment khác khi cần, và chỉ đổi trên máy đó.
    PHẢI khai báo trước mọi chỗ dùng, nếu không sẽ đứt phần khởi tạo. */
-var BAN_DUNG = 'b39 · dòng lot kiểm theo khuôn, bỏ giờ và mã máy';
+var BAN_DUNG = 'b40 · đọc lần hai trên ảnh nối chấm';
 /* Địa chỉ file ghi số bản dựng mới nhất, đặt cạnh index.html trên GitHub.
    Nội dung file đúng bằng chuỗi BAN_DUNG của bản đang phát hành. */
 var URL_PHIEN_BAN = 'phien_ban.txt';
@@ -437,6 +437,78 @@ async function loadMaster(nen){
   }
   buildDupIndex(); render(); veTomTat();
 }
+
+/* ===== NỐI CHẤM =====
+   Chữ in phun là các chấm rời. Phóng to, lấy ngưỡng thích nghi rồi làm dày nét
+   cho các chấm dính lại thành nét liền. Đo trên 421 ảnh thật: đưa thêm bản này
+   vào Drive OCR nâng nhóm khó từ 21,7% lên 46,3% số trường, riêng hàng gói khó
+   cứu được 60%. Bản gốc vẫn phải đọc trước, vì riêng ảnh nối chấm thì trượt 66
+   trong 237 trường mà ảnh gốc đang đọc đúng. */
+function noiChamDiem(rgba, w, h){
+  var i, p, x, y;
+  var g0=new Float32Array(w*h);
+  for(i=0,p=0;i<g0.length;i++,p+=4) g0[i]=0.114*rgba[p]+0.587*rgba[p+1]+0.299*rgba[p+2];
+  var w2=Math.round(w*1.5), h2=Math.round(h*1.5);
+  var g=new Float32Array(w2*h2);
+  for(y=0;y<h2;y++){
+    var sy=Math.min(h-1,Math.max(0,(y+0.5)/1.5-0.5));
+    var y0=Math.floor(sy), y1=Math.min(h-1,y0+1), fy=sy-y0;
+    for(x=0;x<w2;x++){
+      var sx=Math.min(w-1,Math.max(0,(x+0.5)/1.5-0.5));
+      var x0=Math.floor(sx), x1=Math.min(w-1,x0+1), fx=sx-x0;
+      var a=g0[y0*w+x0]*(1-fx)+g0[y0*w+x1]*fx;
+      var b=g0[y1*w+x0]*(1-fx)+g0[y1*w+x1]*fx;
+      g[y*w2+x]=a*(1-fy)+b*fy;
+    }
+  }
+  var R=15, C=15, it=new Float64Array((w2+1)*(h2+1));
+  for(y=0;y<h2;y++){
+    var hang=0;
+    for(x=0;x<w2;x++){ hang+=g[y*w2+x]; it[(y+1)*(w2+1)+x+1]=it[y*(w2+1)+x+1]+hang; }
+  }
+  var nhi=new Uint8Array(w2*h2);
+  for(y=0;y<h2;y++){
+    var ya=Math.max(0,y-R), yb=Math.min(h2-1,y+R);
+    for(x=0;x<w2;x++){
+      var xa=Math.max(0,x-R), xb=Math.min(w2-1,x+R);
+      var s=it[(yb+1)*(w2+1)+xb+1]-it[ya*(w2+1)+xb+1]-it[(yb+1)*(w2+1)+xa]+it[ya*(w2+1)+xa];
+      var tb=s/((yb-ya+1)*(xb-xa+1));
+      nhi[y*w2+x]= g[y*w2+x] > tb-C ? 255 : 0;
+    }
+  }
+  var tam=new Uint8Array(w2*h2), ra=new Uint8Array(w2*h2), m, d, v;
+  for(y=0;y<h2;y++) for(x=0;x<w2;x++){
+    m=255;
+    for(d=-2;d<=2;d++){ var xx=x+d; if(xx<0||xx>=w2) continue; v=nhi[y*w2+xx]; if(v<m) m=v; }
+    tam[y*w2+x]=m;
+  }
+  for(y=0;y<h2;y++) for(x=0;x<w2;x++){
+    m=255;
+    for(d=-2;d<=2;d++){ var yy=y+d; if(yy<0||yy>=h2) continue; v=tam[yy*w2+x]; if(v<m) m=v; }
+    ra[y*w2+x]=m;
+  }
+  return {diem:ra, w:w2, h:h2};
+}
+
+/* Trả về canvas mới đã nối chấm, hoặc null nếu trình duyệt không cho đọc điểm ảnh. */
+function noiChamCanvas(canvas){
+  try{
+    var ctx=canvas.getContext('2d'); if(!ctx) return null;
+    var d=ctx.getImageData(0,0,canvas.width,canvas.height);
+    var t0=Date.now();
+    var kq=noiChamDiem(d.data, canvas.width, canvas.height);
+    var c2=document.createElement('canvas'); c2.width=kq.w; c2.height=kq.h;
+    var x2=c2.getContext('2d'); if(!x2) return null;
+    var im=x2.createImageData(kq.w,kq.h);
+    for(var i=0,p=0;i<kq.diem.length;i++,p+=4){
+      im.data[p]=im.data[p+1]=im.data[p+2]=kq.diem[i]; im.data[p+3]=255;
+    }
+    x2.putImageData(im,0,0);
+    GIAY_NOI_CHAM=(Date.now()-t0)/1000;
+    return c2;
+  }catch(e){ return null; }
+}
+var GIAY_NOI_CHAM=0;
 
 /* ===== TỰ CẬP NHẬT BẢN APP =====
    Điện thoại giữ index.html trong bộ nhớ đệm nên nhiều máy còn chạy bản cũ
@@ -788,6 +860,7 @@ var AUTOFILL={}, DA_SUA={}, MAY_DIEN={}, SO_CAP=0, CAP_HIEN='', CHU_XN={};
 /* b33: số lần trạm đọc xong trong lượt này. Máy chưa xác nhận đủ ngày thì
    bắt đọc lại đúng MỘT lần; lần hai vẫn thiếu thì CẦN XÁC NHẬN, không ĐẠT. */
 var SO_LAN_DOC=0;
+var DA_NOI_CHAM=false;   // lượt này có phải đọc lại trên ảnh nối chấm không
 
 /* ===== MỘT LƯỢT KIỂM = MỘT GÓI/THÙNG =====
    Mọi biến sống trong một lượt phải được đặt lại ở ĐÚNG MỘT chỗ là hàm này.
@@ -798,10 +871,11 @@ var SO_LAN_DOC=0;
    Danh sách dưới đây cũng là danh sách mà bộ thử soi, nên thêm biến mới mà quên
    đưa vào đây thì bộ thử báo trượt. */
 var BIEN_MOT_LUOT = ['AUTOFILL','DA_SUA','MAY_DIEN','SO_CAP','CHU_XN','SO_LAN_DOC',
-                     'LAST_OCR','KQ_TACH','TRAM_LOI','CHE_DO','ANH_GOC','KHUNG','LASTID'];
+                     'LAST_OCR','KQ_TACH','TRAM_LOI','CHE_DO','ANH_GOC','KHUNG','LASTID',
+                     'DA_NOI_CHAM'];
 function batDauLuot(){
   AUTOFILL={}; DA_SUA={}; MAY_DIEN={}; SO_CAP=0; CHU_XN={}; SO_LAN_DOC=0;
-  LAST_OCR=null; KQ_TACH=null; TRAM_LOI=''; LASTID=null;
+  LAST_OCR=null; KQ_TACH=null; TRAM_LOI=''; LASTID=null; DA_NOI_CHAM=false;
   CHE_DO='THUONG';                       // chụp hay chọn ảnh, do thao tác quyết định
   ANH_GOC=null; KHUNG={x:0.20,y:0.40,w:0.60,h:0.16};
   /* Dọn luôn phần nhìn thấy: ô đã gõ, nút tick dòng chữ, ảnh đã chụp. */
@@ -1243,7 +1317,7 @@ function run(){
         ly_do_sua:lyDo, o_da_sua:Object.keys(DA_SUA).join(';'),
         che_do:CHE_DO, ban_dung:BAN_DUNG,
         so_cap_ngay:SO_CAP, nhieu_goi:(SO_CAP>2), so_sanh_may:soSanhMay,
-        so_lan_doc:SO_LAN_DOC, site:SITE_APP, so_thang:(CUR.hsd_thang||''),
+        so_lan_doc:SO_LAN_DOC, noi_cham:DA_NOI_CHAM, site:SITE_APP, so_thang:(CUR.hsd_thang||''),
         nsx:(segs.filter(function(s){return s.kind==='PROD';}).map(function(s){return inputs[s.i];})[0]||''),
         hsd:(segs.filter(function(s){return s.kind==='EXPIRY';}).map(function(s){return inputs[s.i];})[0]||''),
         hsd_ky_vong:(function(){ try{ var mg=mocGoc(CUR,nsx,inputs), t=parseInt(CUR.hsd_thang,10);
@@ -1826,15 +1900,17 @@ function camDienVaoO(dong){
 
 /* Gửi ảnh lên trạm, nhận chuỗi đọc, điền vào ô. Trả về kết quả tách để
    camChup biết có cần thử lại bằng ảnh nguyên tấm không. */
-function camGuiAnh(canvas, cao){
+function camGuiAnh(canvas, cao, luotHai){
   var hop=document.getElementById('camdoc'), tt=document.getElementById('camtt');
-  hop.style.display='block'; hop.textContent='Đang gửi ảnh…';
+  hop.style.display='block';
+  hop.textContent = luotHai ? 'Máy đọc chưa đủ, đang đọc lại trên ảnh đã xử lý…' : 'Đang gửi ảnh…';
   /* b33: trạm Apps Script đôi khi trả trang lỗi HTML thay vì JSON (ca a803b730,
      27e297fd). Nhận ra và gửi lại đúng một lần trước khi báo trạm lỗi. */
   var goi=function(lanThu){ return fetch(TRAM_URL,{method:'POST',redirect:'follow',
       headers:{'Content-Type':'text/plain;charset=utf-8'},
       body:JSON.stringify({act:'doc',
-        anh_b64:canvas.toDataURL('image/jpeg',.92).split(',')[1],
+        anh_b64:(luotHai?luotHai.canvas:canvas).toDataURL('image/jpeg',.92).split(',')[1],
+        noi_cham:!!luotHai,
         ma_item:(CUR&&CUR.item_code)||'', cao_vung_px:cao, site:SITE_APP,
         nguoi_kiem:(($('who')&&$('who').value)||'').trim()})})
    .then(function(x){return x.text();})
@@ -1849,8 +1925,14 @@ function camGuiAnh(canvas, cao){
   return goi(0)
    .then(function(r){
       if(!r||!r.ok) throw new Error((r&&r.loi)||'trạm không trả lời');
-      TRAM_LOI=''; LAST_OCR={id:r.id, dong:r.dong||[]}; SO_LAN_DOC++;
-      var kq=camDienVaoO(r.dong||[]);
+      TRAM_LOI='';
+      /* Lượt hai đọc CÙNG tấm ảnh, chỉ khác cách xử lý, nên gộp chữ của hai lượt
+         rồi bóc một lần. Không tính là một lần chụp lại của QC. */
+      var dongGop=(luotHai?(luotHai.dongCu||[]):[]).concat(r.dong||[]);
+      LAST_OCR={id:r.id, dong:dongGop};
+      if(!luotHai) SO_LAN_DOC++;
+      DA_NOI_CHAM=!!luotHai;
+      var kq=camDienVaoO(dongGop);
       KQ_TACH=kq; SO_CAP=kq.soCap||0;
 
       var hopLD=document.getElementById('suahop');
@@ -1864,8 +1946,15 @@ function camGuiAnh(canvas, cao){
           'gõ theo bao bì chứ đừng đoán.';
       }
       var thieuNgay=truongMayThieu(camSegs);
+      /* Còn thiếu và chưa chạy lượt nối chấm thì tự đọc lại ngay, QC không phải
+         làm gì thêm. Chỉ khi cả hai lượt vẫn thiếu mới bắt chụp lại. */
+      if(thieuNgay.length && !luotHai){
+        var c2=noiChamCanvas(canvas);
+        if(c2) return camGuiAnh(canvas, cao, {canvas:c2, dongCu:dongGop});
+      }
       hop.textContent = !thieuNgay.length
-        ? 'Máy đọc được đủ ' + kq.daDien + '/' + kq.soNhan + ' trường (chưa hiện).'
+        ? ('Máy đọc được đủ ' + kq.daDien + '/' + kq.soNhan + ' trường (chưa hiện).' +
+           (DA_NOI_CHAM?' Đã phải đọc lần hai trên ảnh xử lý.':''))
         : (SO_LAN_DOC<2
           ? 'Máy chưa đọc được: '+thieuNgay.map(function(s){return s.label;}).join(', ')+
             '. Chụp lại MỘT lần, khoanh sát khung in ngày.'
