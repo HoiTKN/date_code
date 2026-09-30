@@ -1,0 +1,547 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#13233A">
+<title>Kiểm QR nhãn</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --paper:#EEF2F1; --card:#FFFFFF; --ink:#13233A; --ink2:#51606E; --rule:#CDD5D7;
+  --pass:#0E7A43; --fail:#C0182A; --warn:#9A5F00; --none:#56626B; --focus:#2F6FEB;
+  --r:10px; --pad:16px;
+  --sans:"Be Vietnam Pro", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --mono:"IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+  color-scheme: light;
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--paper);color:var(--ink);font-family:var(--sans);font-size:16px;line-height:1.45}
+body{padding-bottom:env(safe-area-inset-bottom,0px)}
+button,input,select{font:inherit;color:inherit}
+:focus-visible{outline:3px solid var(--focus);outline-offset:2px}
+.wrap{max-width:540px;margin:0 auto;padding:0 12px 40px}
+
+/* top bar: who and where */
+.top{position:sticky;top:0;z-index:5;background:var(--ink);color:#fff;
+  padding:calc(env(safe-area-inset-top,0px) + 10px) 12px 10px}
+.top .row{max-width:540px;margin:0 auto;display:flex;gap:8px;align-items:center}
+.top h1{font-size:17px;font-weight:700;margin:0 auto 0 0;letter-spacing:.01em}
+.top select,.top input{background:#22354F;border:1px solid #3A4E69;color:#fff;border-radius:8px;padding:6px 8px;min-height:36px}
+.top input{width:118px}
+.top select{width:84px}
+
+.banner{margin:12px 0 0;padding:10px 12px;border-radius:var(--r);font-size:14px}
+.banner.err{background:#FBE7E9;color:#7D0F1B}
+.banner.info{background:#E3ECF7;color:#1C3A63}
+
+/* steps: a real sequence, so numbered */
+.step{background:var(--card);border-radius:var(--r);margin-top:12px;padding:var(--pad);border:1px solid var(--rule)}
+.step[aria-disabled="true"]{opacity:.45;pointer-events:none}
+.step h2{display:flex;gap:10px;align-items:baseline;font-size:16px;font-weight:600;margin:0 0 10px}
+.step h2 .n{flex:none;width:26px;height:26px;border-radius:50%;border:2px solid var(--ink);display:grid;place-items:center;
+  font-size:13px;font-weight:700;transform:translateY(3px)}
+.step.done h2 .n{background:var(--ink);color:#fff}
+.hint{color:var(--ink2);font-size:14px;margin:4px 0 0}
+.field{display:flex;gap:8px}
+.field input{flex:1;min-width:0;border:1.5px solid var(--rule);border-radius:8px;padding:10px 12px;font-size:18px;
+  font-family:var(--mono);letter-spacing:.04em;text-transform:uppercase;background:#fff}
+.btn{border:0;border-radius:8px;padding:12px 16px;font-weight:600;min-height:48px;cursor:pointer}
+.btn.pri{background:var(--ink);color:#fff}
+.btn.sec{background:#fff;color:var(--ink);border:1.5px solid var(--ink)}
+.btn.wide{width:100%}
+.link{background:none;border:0;padding:6px 0;color:var(--ink2);text-decoration:underline;cursor:pointer;font-size:14px}
+.prod{margin-top:10px;font-size:15px}
+.prod b{font-weight:600}
+.prod .meta{color:var(--ink2);font-size:13px;margin-top:2px}
+.msg{margin-top:10px;font-size:14px;padding:8px 10px;border-left:4px solid var(--none);background:#F2F4F5}
+.msg.bad{border-color:var(--fail);background:#FBEDEE}
+.msg.warn{border-color:var(--warn);background:#FBF3E4}
+.read{margin-top:10px;font-family:var(--mono);font-size:13px;word-break:break-all;color:var(--ink2)}
+.read b{color:var(--ink);font-weight:600}
+
+/* verdict: the one loud element */
+.verdict{margin-top:12px;border-radius:var(--r);color:#fff;padding:18px var(--pad) 16px;background:var(--none)}
+.verdict.pass{background:var(--pass)} .verdict.fail{background:var(--fail)} .verdict.warn{background:var(--warn)}
+.verdict .kl{font-size:34px;font-weight:700;line-height:1.1;letter-spacing:.01em}
+.verdict .why{margin-top:6px;font-size:15px}
+.digits{margin-top:14px;background:rgba(255,255,255,.96);color:var(--ink);border-radius:8px;padding:10px 10px 8px;overflow-x:auto}
+.drow{display:grid;grid-template-columns:54px 1fr;align-items:center;gap:6px;margin:3px 0}
+.drow .lab{font-size:12px;color:var(--ink2)}
+.cells{display:flex;gap:1px}
+.cells span{font-family:var(--mono);font-weight:600;font-size:15px;width:1.08em;text-align:center;border-bottom:2px solid var(--rule);padding:1px 0}
+.cells span.x{background:var(--fail);color:#fff;border-color:var(--fail)}
+.cells.empty{font-size:13px;color:var(--ink2)}
+.logst{margin-top:10px;font-size:13px;opacity:.95}
+.after{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px}
+
+/* ledger */
+.ledger{margin-top:18px}
+.ledger h2{font-size:15px;font-weight:600;margin:0 0 8px;display:flex;align-items:center;gap:8px}
+.seg{margin-left:auto;display:flex;border:1.5px solid var(--ink);border-radius:8px;overflow:hidden}
+.seg button{border:0;background:#fff;padding:6px 10px;font-size:13px;cursor:pointer}
+.seg button[aria-pressed="true"]{background:var(--ink);color:#fff}
+.lrow{display:grid;grid-template-columns:auto 1fr auto;gap:10px;align-items:center;background:var(--card);border:1px solid var(--rule);
+  border-radius:8px;padding:8px 10px;margin-bottom:6px;font-size:14px}
+.dot{width:10px;height:10px;border-radius:50%;background:var(--none)}
+.dot.pass{background:var(--pass)} .dot.fail{background:var(--fail)} .dot.warn{background:var(--warn)}
+.lrow .t{color:var(--ink2);font-size:12px}
+.lrow .who{font-size:12px;color:var(--ink2);text-align:right}
+.foot{margin-top:18px;font-size:12px;color:var(--ink2);display:flex;justify-content:space-between;gap:8px;align-items:center}
+
+/* camera sheet */
+.cam{position:fixed;inset:0;z-index:20;background:#0A1420;color:#fff;display:none;flex-direction:column;
+  padding:calc(env(safe-area-inset-top,0px) + 12px) 12px calc(env(safe-area-inset-bottom,0px) + 12px)}
+.cam.open{display:flex}
+.cam .ttl{font-size:17px;font-weight:600}
+.cam .sub{font-size:14px;opacity:.8;margin-top:2px}
+#reader{flex:1;margin:12px 0;border-radius:10px;overflow:hidden;background:#000;min-height:260px}
+#reader video{object-fit:cover}
+.cam .btn{background:#fff;color:var(--ink)}
+.hidden{display:none !important}
+@media (prefers-reduced-motion: no-preference){ .verdict{animation:pop .18s ease-out} @keyframes pop{from{transform:scale(.98);opacity:.6}to{transform:none;opacity:1}} }
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="row">
+    <h1>Kiểm QR nhãn</h1>
+    <select id="site" aria-label="Site">
+      <option value="">Site</option><option>MBP</option><option>MGP</option><option>MIP</option><option>MHP</option>
+    </select>
+    <input id="nguoi" placeholder="Tên người kiểm" aria-label="Tên người kiểm" autocomplete="name">
+  </div>
+</header>
+
+<main class="wrap">
+  <div id="banner" class="banner hidden" role="status"></div>
+
+  <section class="step" id="s1">
+    <h2><span class="n">1</span>Mã PKG theo phiếu nhập</h2>
+    <div class="field">
+      <input id="pkg" list="pkgList" inputmode="text" autocapitalize="characters" autocomplete="off" spellcheck="false" placeholder="VD: BGNA01825" aria-label="Mã PKG">
+      <button class="btn pri" id="pkgOk" type="button">Chọn</button>
+    </div>
+    <datalist id="pkgList"></datalist>
+    <div id="pkgInfo"></div>
+  </section>
+
+  <section class="step" id="s2" aria-disabled="true">
+    <h2><span class="n">2</span>Quét QR trên nhãn</h2>
+    <button class="btn pri wide" id="scanQr" type="button">Mở camera quét QR</button>
+    <div id="qrInfo"></div>
+  </section>
+
+  <section class="step" id="s3" aria-disabled="true">
+    <h2><span class="n" id="n3">3</span>Quét barcode trên nhãn</h2>
+    <button class="btn pri wide" id="scanBar" type="button">Mở camera quét barcode</button>
+    <button class="link" id="typeBarBtn" type="button">Không quét được? Gõ số barcode</button>
+    <div class="field hidden" id="typeBar">
+      <input id="barInput" inputmode="numeric" pattern="[0-9]*" maxlength="14" placeholder="13 hoặc 14 số" aria-label="Số barcode">
+      <button class="btn sec" id="barOk" type="button">Dùng số này</button>
+    </div>
+    <div id="barInfo"></div>
+  </section>
+
+  <section id="result" class="hidden" aria-live="polite"></section>
+
+  <section class="ledger">
+    <h2>Sổ kiểm
+      <span class="seg" role="group" aria-label="Phạm vi sổ">
+        <button type="button" id="soMay" aria-pressed="true">Máy này</button>
+        <button type="button" id="soSite" aria-pressed="false">Cả site</button>
+      </span>
+    </h2>
+    <div id="soList"></div>
+  </section>
+
+  <div class="foot">
+    <span id="masterSt">Chưa có master</span>
+    <button class="link" id="reloadMaster" type="button">Cập nhật master</button>
+  </div>
+  <div class="foot"><span id="ver"></span><span id="queueSt"></span></div>
+</main>
+
+<div class="cam" id="cam" role="dialog" aria-modal="true" aria-labelledby="camTtl">
+  <div class="ttl" id="camTtl">Quét</div>
+  <div class="sub" id="camSub"></div>
+  <div id="reader"></div>
+  <button class="btn wide" id="camClose" type="button">Huỷ</button>
+</div>
+
+<script src="html5-qrcode.min.js" onerror="(function(){var s=document.createElement('script');s.src='https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.8/html5-qrcode.min.js';document.head.appendChild(s);})()"></script>
+<script>
+'use strict';
+/* ====== config ====== */
+const BAN_DUNG = 'q1';
+// Same deployment URL as index.html (date code app). Copy it here.
+const TRAM_URL = 'DAN_DIA_CHI_TRAM_VAO_DAY';
+const tramUrl = () => window.__TRAM_URL__ || TRAM_URL;
+const QR_RE = /^https:\/\/i\.tcx\.com\.vn\/(\d{13})([0-9a-f]{11})$/i;
+const NEED_SAME_READS = 2;
+const K = { site:'qr_site', nguoi:'qr_nguoi', master:'qr_master_cache', queue:'qr_queue', hist:'qr_history' };
+
+/* ====== pure logic (tested) ====== */
+function gtinValid(s){
+  if(!/^(\d{8}|\d{12,14})$/.test(s || '')) return false;
+  const d=[...s].map(Number), c=d.pop();
+  const t=d.reverse().reduce((a,x,i)=>a + x*(i%2 ? 1 : 3), 0);
+  return (10 - t%10)%10 === c;
+}
+const pad14 = s => String(s||'').padStart(14,'0');
+
+function parseQR(raw){
+  const t = String(raw||'').trim();
+  const g = (t.match(/i\.tcx\.com\.vn\/(\d{13})/i) || [])[1] || '';
+  const m = t.match(QR_RE);
+  if(!m){
+    if(!/^https:\/\/i\.tcx\.com\.vn\//i.test(t)) return {ok:false, raw:t, gtin:g, why:'QR không trỏ về https://i.tcx.com.vn/'};
+    return {ok:false, raw:t, gtin:g, why:'QR sai định dạng (cần 13 số barcode và 11 ký tự sê-ri)'};
+  }
+  if(!gtinValid(m[1])) return {ok:false, raw:t, gtin:m[1], why:'13 số trong QR sai số kiểm tra'};
+  return {ok:true, raw:t, gtin:m[1], serial:m[2].toLowerCase()};
+}
+
+// rows: [{ma_pkg,cap,gtin,site,trang_thai,ly_do,nguon,...}] ; BO_SUNG rows override XUAT rows for the same (pkg, site)
+function resolveMaster(rows, pkg, site){
+  const all = rows.filter(r => r.ma_pkg === pkg);
+  if(!all.length) return {st:'KHONG_CO', msg:'Mã PKG này chưa có trong master.'};
+  let here = all.filter(r => r.site === site);
+  if(!here.length){
+    const other = [...new Set(all.map(r => r.site || 'không rõ site'))].join(', ');
+    return {st:'KHAC_SITE', msg:`Mã này chỉ có master ở ${other}, chưa có cho ${site}.`, row:all[0]};
+  }
+  if(here.some(r => r.nguon === 'BO_SUNG')) here = here.filter(r => r.nguon === 'BO_SUNG');
+  const ok = here.filter(r => r.trang_thai === 'DA_DUYET' && gtinValid(r.gtin));
+  const keys = [...new Set(ok.map(r => r.cap + '|' + pad14(r.gtin)))];
+  if(!keys.length) return {st:'CHO_DUYET', msg:'Master của mã này đang chờ duyệt' + (here[0].ly_do ? ': ' + here[0].ly_do : '.'), row:here[0]};
+  if(keys.length > 1) return {st:'XUNG_DOT', msg:'Master có hơn một barcode cho mã này tại ' + site + '.', row:ok[0]};
+  return {st:'OK', row:ok[0]};
+}
+
+// ctx: {m, qr, bar:{val}, seen:Map(serial -> {at, pkg})}
+function verdict(ctx){
+  const {m, qr, bar, seen} = ctx;
+  if(!m || m.st !== 'OK') return {kl:'KHÔNG KẾT LUẬN ĐƯỢC', why: m ? m.msg : 'Chưa chọn mã PKG.'};
+  const cap = m.row.cap, gm = pad14(m.row.gtin);
+  if(!bar || !gtinValid(bar.val)) return {kl:'CẦN XÁC NHẬN', why:'Số barcode không hợp lệ. Quét lại.'};
+  if(cap === 'DON_VI'){
+    if(!qr) return {kl:'CẦN XÁC NHẬN', why:'Chưa quét QR.'};
+    if(!qr.ok) return {kl:'KHÔNG ĐẠT', why:qr.why + '.'};
+    if(pad14(qr.gtin) !== pad14(bar.val)) return {kl:'KHÔNG ĐẠT', why:'Mã trong QR khác barcode in trên nhãn.'};
+  }
+  if(pad14(bar.val) !== gm) return {kl:'KHÔNG ĐẠT', why: cap === 'DON_VI'
+      ? 'QR và barcode khớp nhau nhưng khác master của mã PKG này. Có thể sai cuộn hoặc sai file thiết kế.'
+      : 'Barcode thùng khác master của mã PKG này.'};
+  if(cap === 'DON_VI' && seen && seen.has(qr.serial)){
+    const s = seen.get(qr.serial);
+    return {kl:'CẦN XÁC NHẬN', why:`Sê-ri ${qr.serial} đã có trong sổ (${s.at}, mã ${s.pkg}). Nếu đây là nhãn khác thì nhà in đã in trùng mã.`};
+  }
+  return {kl:'ĐẠT', why:''};
+}
+const tone = kl => kl === 'ĐẠT' ? 'pass' : kl === 'KHÔNG ĐẠT' ? 'fail' : kl === 'CẦN XÁC NHẬN' ? 'warn' : 'none';
+
+/* ====== storage ====== */
+const store = {
+  get(k, d){ try{ const v = localStorage.getItem(k); return v == null ? d : JSON.parse(v); }catch(e){ return d; } },
+  set(k, v){ try{ localStorage.setItem(k, JSON.stringify(v)); }catch(e){} }
+};
+
+/* ====== state ====== */
+const S = { rows:[], napLuc:'', pkg:'', m:null, qr:null, bar:null, res:null, soMode:'may', soSite:[], sessionSeen:new Map() };
+const $ = id => document.getElementById(id);
+const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const localIso = () => { const d = new Date(), p = n => String(n).padStart(2,'0'); return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`; };
+const nowStr = () => { const d = new Date(), p = n => String(n).padStart(2,'0'); return `${p(d.getHours())}:${p(d.getMinutes())} ${p(d.getDate())}/${p(d.getMonth()+1)}`; };
+const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+
+function banner(text, kind){
+  const b = $('banner');
+  if(!text){ b.classList.add('hidden'); return; }
+  b.className = 'banner ' + (kind || 'info'); b.textContent = text;
+}
+
+/* ====== station ====== */
+async function callTram(body, {tries = 2, ms = 45000} = {}){
+  if(/^DAN_/.test(tramUrl())) throw new Error('Chưa khai địa chỉ trạm trong qr.html');
+  let err;
+  for(let i = 0; i < tries; i++){
+    const ctl = new AbortController(); const t = setTimeout(() => ctl.abort(), ms);
+    try{
+      const r = await fetch(tramUrl(), {method:'POST', headers:{'Content-Type':'text/plain;charset=utf-8'}, body:JSON.stringify(body), signal:ctl.signal});
+      clearTimeout(t);
+      const j = await r.json();
+      if(!j.ok) throw new Error(j.error || 'Trạm báo lỗi');
+      return j;
+    }catch(e){ clearTimeout(t); err = e; }
+  }
+  throw err;
+}
+
+async function loadMaster(force){
+  const c = store.get(K.master, null);
+  if(c && !force){ S.rows = c.rows; S.napLuc = c.napLuc; renderMasterSt('bản lưu trên máy ' + c.at); fillList(); }
+  try{
+    $('masterSt').textContent = 'Đang tải master...';
+    const j = await callTram({act:'qr_master'});
+    S.rows = j.rows || []; S.napLuc = j.nap_luc || '';
+    store.set(K.master, {rows:S.rows, napLuc:S.napLuc, at:nowStr()});
+    renderMasterSt('tải lúc ' + nowStr()); fillList();
+    if(S.pkg) choosePkg(S.pkg, true);
+  }catch(e){
+    if(S.rows.length) renderMasterSt('bản lưu trên máy ' + ((c && c.at) || '') + ', trạm lỗi');
+    else { renderMasterSt('không có master'); banner('Không tải được master: ' + e.message + '. Không có master thì app không kết luận.', 'err'); }
+  }
+}
+function renderMasterSt(t){ $('masterSt').textContent = `Master ${S.rows.length} dòng, ${t}` + (S.napLuc ? `, nạp ${S.napLuc}` : ''); }
+function fillList(){
+  const site = $('site').value;
+  const pk = [...new Set(S.rows.filter(r => !site || r.site === site).map(r => r.ma_pkg))].sort();
+  $('pkgList').innerHTML = pk.map(p => `<option value="${esc(p)}">`).join('');
+}
+
+/* ====== ledger / queue ====== */
+function queue(){ return store.get(K.queue, []); }
+function renderQueue(){ const n = queue().length; $('queueSt').textContent = n ? `${n} lượt chưa gửi được` : ''; }
+async function flush(){
+  const q = queue();
+  if(!q.length){ renderQueue(); return true; }
+  try{
+    await callTram({act:'qr_ghi', rows:q}, {tries:1, ms:30000});
+    const sent = new Set(q.map(r => r.id_luot));
+    store.set(K.queue, queue().filter(r => !sent.has(r.id_luot)));
+    renderQueue(); return true;
+  }catch(e){ renderQueue(); return false; }
+}
+function seenMap(){
+  const m = new Map();
+  const add = r => { if(r.seri && !m.has(r.seri)) m.set(r.seri, {at:(r.thoi_gian_tram || r.thoi_gian_may || '').slice(0,16), pkg:r.ma_pkg}); };
+  S.soSite.forEach(add); store.get(K.hist, []).forEach(add); queue().forEach(add);
+  return m;
+}
+async function loadSo(){
+  const site = $('site').value; if(!site) return;
+  try{ const j = await callTram({act:'qr_so', site, n:300}, {tries:1, ms:30000}); S.soSite = j.rows || []; }catch(e){}
+  renderSo();
+}
+function renderSo(){
+  const site = $('site').value;
+  const list = S.soMode === 'may' ? store.get(K.hist, []).filter(r => !site || r.site === site) : S.soSite;
+  $('soList').innerHTML = list.length ? list.slice(0, 40).map(r => `
+    <div class="lrow"><span class="dot ${tone(r.ket_luan)}"></span>
+      <div><b>${esc(r.ma_pkg)}</b> ${esc(r.ket_luan)}<div class="t">${esc(r.ly_do || r.ten_sp || '')}</div></div>
+      <div class="who">${esc((r.thoi_gian_may || r.thoi_gian_tram || '').slice(5,16))}<br>${esc(r.nguoi_kiem)}</div></div>`).join('')
+    : `<p class="hint">${S.soMode === 'may' ? 'Máy này chưa có lượt kiểm nào.' : 'Chưa tải được sổ của site.'}</p>`;
+}
+
+/* ====== scanner ====== */
+const Scan = {
+  inst:null, cancel:null,
+  lib(){ const L = window.__Html5QrcodeLibrary__ || window; return L && L.Html5Qrcode ? L : null; },
+  async open(kind){
+    if(this.cancel) this.cancel();
+    const L = this.lib();
+    if(!L) throw new Error('Không tải được bộ quét. Kiểm tra mạng rồi tải lại trang.');
+    const F = L.Html5QrcodeSupportedFormats;
+    const formats = kind === 'qr' ? [F.QR_CODE]
+      : kind === 'thung' ? [F.ITF, F.EAN_13, F.CODE_128]
+      : [F.EAN_13, F.EAN_8, F.UPC_A];
+    $('camTtl').textContent = kind === 'qr' ? 'Quét QR' : 'Quét barcode';
+    $('camSub').textContent = kind === 'qr' ? 'Đưa mã QR vào giữa khung, nghiêng nhãn nếu bị loá.' : 'Đưa vạch barcode nằm ngang trong khung.';
+    $('cam').classList.add('open');
+    this.inst = new L.Html5Qrcode('reader', {formatsToSupport:formats, verbose:false, experimentalFeatures:{useBarCodeDetectorIfSupported:true}});
+    const box = kind === 'qr'
+      ? (w, h) => { const s = Math.floor(Math.min(w, h) * 0.7); return {width:s, height:s}; }
+      : (w, h) => ({width:Math.floor(w * 0.9), height:Math.max(80, Math.floor(Math.min(h * 0.35, w * 0.45)))});
+    return new Promise((resolve, reject) => {
+      let last = null, n = 0, done = false;
+      this.cancel = () => { if(done) return; done = true; this.close(); reject(new Error('huy')); };
+      this.inst.start({facingMode:'environment'}, {fps:12, qrbox:box},
+        (text, res) => {
+          if(done) return;
+          if(text === last) n++; else { last = text; n = 1; }
+          if(n >= NEED_SAME_READS){
+            done = true; this.close();
+            let fmt = ''; try{ fmt = res.result.format.formatName; }catch(e){}
+            resolve({text, fmt});
+          }
+        }, () => {}
+      ).catch(e => { if(done) return; done = true; this.close(); reject(new Error('Không mở được camera. Cho phép camera cho trang này trong cài đặt trình duyệt rồi thử lại.')); });
+    });
+  },
+  async close(){
+    $('cam').classList.remove('open');
+    const i = this.inst; this.inst = null;
+    if(i){ try{ await i.stop(); }catch(e){} try{ i.clear(); }catch(e){} }
+  }
+};
+
+/* ====== flow ====== */
+function setStep(id, enabled, done){
+  const el = $(id);
+  el.setAttribute('aria-disabled', enabled ? 'false' : 'true');
+  el.classList.toggle('done', !!done);
+}
+function resetScans(){
+  S.qr = null; S.bar = null; S.res = null;
+  $('qrInfo').innerHTML = ''; $('barInfo').innerHTML = ''; $('barInput').value = '';
+  $('typeBar').classList.add('hidden'); $('result').classList.add('hidden'); $('result').innerHTML = '';
+}
+function ready(){
+  if(!$('site').value){ banner('Chọn site trước khi kiểm.', 'err'); return false; }
+  if(!$('nguoi').value.trim()){ banner('Nhập tên người kiểm trước khi kiểm.', 'err'); $('nguoi').focus(); return false; }
+  banner(''); return true;
+}
+
+function choosePkg(raw, keepScans){
+  if(!ready()) return;
+  const pkg = String(raw || '').trim().toUpperCase();
+  if(!pkg) return;
+  $('pkg').value = pkg; S.pkg = pkg;
+  S.m = resolveMaster(S.rows, pkg, $('site').value);
+  if(!keepScans) resetScans();
+  const r = S.m.row;
+  let h = '';
+  if(r) h += `<div class="prod"><b>${esc(r.ten_sp)}</b><div class="meta">TP ${esc(r.item_tp)}, ${r.cap === 'THUNG' ? 'thùng' : 'nhãn đơn vị'}${r.quy_cach ? ', ' + esc(r.quy_cach) : ''}${r.nguon === 'BO_SUNG' ? ', theo master bổ sung' : ''}</div></div>`;
+  if(S.m.st !== 'OK') h += `<div class="msg warn">${esc(S.m.msg)} Vẫn quét được để ghi sổ, nhưng app sẽ không kết luận.</div>`;
+  $('pkgInfo').innerHTML = h;
+  const thung = S.m.st === 'OK' && r.cap === 'THUNG';
+  $('s2').classList.toggle('hidden', thung);
+  $('n3').textContent = thung ? '2' : '3';
+  setStep('s1', true, true);
+  setStep('s2', !thung, !!S.qr);
+  setStep('s3', thung || !!S.qr, !!S.bar);
+}
+
+function onQr(text){
+  S.qr = parseQR(text);
+  $('qrInfo').innerHTML = `<div class="read">Đọc được: <b>${esc(S.qr.raw)}</b></div>` +
+    (S.qr.ok ? '' : `<div class="msg bad">${esc(S.qr.why)}.</div>`);
+  setStep('s2', true, true); setStep('s3', true, false);
+  if(S.bar) finish();
+}
+function onBar(val, src, fmt){
+  const v = String(val || '').replace(/\D/g, '');
+  const norm = v.length === 12 ? '0' + v : v;   // UPC-A -> EAN-13
+  S.bar = {val:norm, src, fmt:fmt || ''};
+  $('barInfo').innerHTML = `<div class="read">Barcode: <b>${esc(norm)}</b>${src === 'go_tay' ? ' (gõ tay)' : ''}</div>`;
+  setStep('s3', true, true);
+  finish();
+}
+
+function cellsHtml(val, ref, len){
+  if(!val) return '<div class="cells empty">không có</div>';
+  const a = pad14(val).slice(14 - len), b = ref ? pad14(ref).slice(14 - len) : a;
+  return '<div class="cells">' + [...a].map((c, i) => `<span class="${c !== b[i] ? 'x' : ''}">${c}</span>`).join('') + '</div>';
+}
+
+function finish(){
+  const thung = S.m && S.m.st === 'OK' && S.m.row.cap === 'THUNG';
+  if(!thung && !S.qr) return;                 // wait for QR on unit labels
+  if(!S.bar) return;
+  const seen = new Map([...seenMap(), ...S.sessionSeen]);
+  S.res = verdict({m:S.m, qr:S.qr, bar:S.bar, seen});
+  const gm = S.m && S.m.st === 'OK' ? S.m.row.gtin : '';
+  const len = (thung || [S.bar.val, gm].some(x => x && x.length === 14 && x[0] !== '0')) ? 14 : 13;
+  const ref = gm || S.bar.val;
+  const rows = [];
+  if(!thung) rows.push(['QR', S.qr && S.qr.gtin]);
+  rows.push(['Barcode', S.bar.val]); rows.push(['Master', gm]);
+  const t = tone(S.res.kl);
+  $('result').innerHTML = `
+    <div class="verdict ${t}">
+      <div class="kl">${esc(S.res.kl)}</div>
+      ${S.res.why ? `<div class="why">${esc(S.res.why)}</div>` : ''}
+      <div class="digits">${rows.map(([l, v]) => `<div class="drow"><span class="lab">${l}</span>${cellsHtml(v, ref, len)}</div>`).join('')}</div>
+      <div class="logst" id="logSt">Đang ghi sổ...</div>
+    </div>
+    <div class="after">
+      <button class="btn pri" id="nextLabel" type="button">Quét nhãn tiếp</button>
+      <button class="btn sec" id="newPkg" type="button">Đổi mã PKG</button>
+    </div>`;
+  $('result').classList.remove('hidden');
+  // same PKG, next label: open the camera straight away (the tap is the user gesture iOS needs)
+  $('nextLabel').onclick = () => { resetScans(); choosePkg(S.pkg); const th = S.m && S.m.st === 'OK' && S.m.row.cap === 'THUNG'; scan(th ? 'thung' : 'qr'); };
+  $('newPkg').onclick = () => { resetScans(); S.pkg = ''; S.m = null; $('pkg').value = ''; $('pkgInfo').innerHTML = '';
+    setStep('s1', true, false); setStep('s2', false, false); setStep('s3', false, false); $('s2').classList.remove('hidden'); $('n3').textContent = '3'; $('pkg').focus(); };
+  feedback(t);
+  $('result').scrollIntoView({block:'start', behavior:'smooth'});
+  record();
+}
+
+function record(){
+  const r = S.m && S.m.row;
+  const rec = {
+    thoi_gian_may:localIso(), site:$('site').value, nguoi_kiem:$('nguoi').value.trim(),
+    ma_pkg:S.pkg, cap:r ? r.cap : '', ten_sp:r ? r.ten_sp : '', item_tp:r ? r.item_tp : '',
+    gtin_master:S.m && S.m.st === 'OK' ? r.gtin : '', nguon_master:r ? (r.nguon || '') : '',
+    qr_raw:S.qr ? S.qr.raw : '', gtin_qr:S.qr ? (S.qr.gtin || '') : '', seri:S.qr && S.qr.ok ? S.qr.serial : '',
+    barcode:S.bar.val, barcode_nguon:S.bar.src, ket_luan:S.res.kl, ly_do:S.res.why, ban_dung:BAN_DUNG,
+    id_luot:uid(), thiet_bi:(navigator.userAgent || '').replace(/^.*?\(([^)]*)\).*$/, '$1').slice(0, 60)
+  };
+  if(rec.seri) S.sessionSeen.set(rec.seri, {at:nowStr(), pkg:rec.ma_pkg});
+  store.set(K.hist, [rec, ...store.get(K.hist, [])].slice(0, 200));
+  store.set(K.queue, [...queue(), rec]);
+  renderSo();
+  flush().then(ok => {
+    const el = $('logSt');
+    if(el) el.textContent = ok ? 'Đã ghi sổ.' : 'Chưa ghi được sổ, app sẽ gửi lại khi có mạng.';
+    if(ok && S.soMode === 'site') loadSo();
+  });
+}
+
+function feedback(t){
+  try{ navigator.vibrate && navigator.vibrate(t === 'pass' ? 80 : [120, 80, 120]); }catch(e){}
+  try{
+    const A = window.AudioContext || window.webkitAudioContext; if(!A) return;
+    const ctx = new A(), o = ctx.createOscillator(), g = ctx.createGain();
+    o.frequency.value = t === 'pass' ? 1320 : 330; g.gain.value = 0.08;
+    o.connect(g); g.connect(ctx.destination); o.start(); o.stop(ctx.currentTime + (t === 'pass' ? 0.12 : 0.35));
+  }catch(e){}
+}
+
+async function scan(kind){
+  if(!ready()) return;
+  try{
+    const {text, fmt} = await Scan.open(kind);
+    if(kind === 'qr') onQr(text); else onBar(text, 'quet', fmt);
+  }catch(e){
+    if(e.message !== 'huy') banner(e.message, 'err');
+  }
+}
+
+/* ====== wiring ====== */
+function init(){
+  $('ver').textContent = 'Bản dựng ' + BAN_DUNG;
+  $('site').value = store.get(K.site, '');
+  $('nguoi').value = store.get(K.nguoi, '');
+  $('site').addEventListener('change', () => { store.set(K.site, $('site').value); fillList(); S.soSite = []; renderSo(); loadSo(); if(S.pkg) choosePkg(S.pkg); });
+  $('nguoi').addEventListener('change', () => store.set(K.nguoi, $('nguoi').value.trim()));
+  $('pkgOk').addEventListener('click', () => choosePkg($('pkg').value));
+  $('pkg').addEventListener('keydown', e => { if(e.key === 'Enter') choosePkg($('pkg').value); });
+  $('pkg').addEventListener('change', () => { if(S.rows.some(r => r.ma_pkg === $('pkg').value.trim().toUpperCase())) choosePkg($('pkg').value); });
+  $('scanQr').addEventListener('click', () => scan('qr'));
+  $('scanBar').addEventListener('click', () => scan(S.m && S.m.st === 'OK' && S.m.row.cap === 'THUNG' ? 'thung' : 'don_vi'));
+  $('camClose').addEventListener('click', () => Scan.cancel && Scan.cancel());
+  $('typeBarBtn').addEventListener('click', () => { $('typeBar').classList.remove('hidden'); $('barInput').focus(); });
+  $('barOk').addEventListener('click', () => {
+    const v = $('barInput').value.replace(/\D/g, '');
+    if(!gtinValid(v) || !(v.length === 13 || v.length === 14 || v.length === 8)){
+      $('barInfo').innerHTML = '<div class="msg bad">Số này sai số kiểm tra hoặc sai độ dài. Gõ lại đúng dãy số dưới vạch.</div>'; return;
+    }
+    onBar(v, 'go_tay');
+  });
+  $('soMay').addEventListener('click', () => { S.soMode = 'may'; $('soMay').setAttribute('aria-pressed', 'true'); $('soSite').setAttribute('aria-pressed', 'false'); renderSo(); });
+  $('soSite').addEventListener('click', () => { S.soMode = 'site'; $('soSite').setAttribute('aria-pressed', 'true'); $('soMay').setAttribute('aria-pressed', 'false'); renderSo(); loadSo(); });
+  $('reloadMaster').addEventListener('click', () => loadMaster(true));
+  window.addEventListener('online', flush);
+  renderSo(); renderQueue();
+  loadMaster(false).then(() => { flush(); loadSo(); });
+}
+window.QRAPP = { gtinValid, pad14, parseQR, resolveMaster, verdict, S, Scan, flush };
+document.addEventListener('DOMContentLoaded', init);
+</script>
+</body>
+</html>
