@@ -46,13 +46,24 @@ button,input,select{font:inherit;color:inherit}
 .step.done h2 .n{background:var(--ink);color:#fff}
 .hint{color:var(--ink2);font-size:14px;margin:4px 0 0}
 .field{display:flex;gap:8px}
-.field input{flex:1;min-width:0;border:1.5px solid var(--rule);border-radius:8px;padding:10px 12px;font-size:18px;
-  font-family:var(--mono);letter-spacing:.04em;text-transform:uppercase;background:#fff}
+.field input{flex:1;min-width:0;border:1.5px solid var(--rule);border-radius:8px;padding:10px 12px;font-size:17px;background:#fff}
+#barInput{font-family:var(--mono);letter-spacing:.04em}
 .btn{border:0;border-radius:8px;padding:12px 16px;font-weight:600;min-height:48px;cursor:pointer}
 .btn.pri{background:var(--ink);color:#fff}
 .btn.sec{background:#fff;color:var(--ink);border:1.5px solid var(--ink)}
 .btn.wide{width:100%}
 .link{background:none;border:0;padding:6px 0;color:var(--ink2);text-decoration:underline;cursor:pointer;font-size:14px}
+.hits{margin-top:8px;border:1px solid var(--rule);border-radius:8px;max-height:340px;overflow:auto;background:#fff}
+.hits:empty{display:none}
+.hit{padding:10px 12px;border-bottom:1px solid #EEF1F1;cursor:pointer}
+.hit:last-child{border-bottom:0}
+.hit:active,.hit:focus-visible{background:#EAF0F7}
+.hit .c{font-family:var(--mono);font-weight:600;font-size:15px;display:flex;gap:8px;align-items:center}
+.hit .tag{font-family:var(--sans);font-size:11px;font-weight:600;padding:1px 6px;border-radius:4px;background:#E3E9EE;color:var(--ink2)}
+.hit .tag.cho{background:#FBF0DC;color:var(--warn)}
+.hit .n{font-size:13px;color:var(--ink2);margin-top:2px}
+.listhead{font-size:12px;color:var(--ink2);padding:8px 12px 4px}
+.empty{font-size:13px;color:var(--ink2);padding:10px 12px}
 .prod{margin-top:10px;font-size:15px}
 .prod b{font-weight:600}
 .prod .meta{color:var(--ink2);font-size:13px;margin-top:2px}
@@ -121,10 +132,10 @@ button,input,select{font:inherit;color:inherit}
   <section class="step" id="s1">
     <h2><span class="n">1</span>Mã PKG theo phiếu nhập</h2>
     <div class="field">
-      <input id="pkg" list="pkgList" inputmode="text" autocapitalize="characters" autocomplete="off" spellcheck="false" placeholder="VD: BGNA01825" aria-label="Mã PKG">
+      <input id="pkg" inputmode="text" autocapitalize="characters" autocomplete="off" spellcheck="false" placeholder="Gõ mã PKG, mã TP, tên hoặc barcode" aria-label="Tìm mã PKG" aria-controls="hits">
       <button class="btn pri" id="pkgOk" type="button">Chọn</button>
     </div>
-    <datalist id="pkgList"></datalist>
+    <div id="hits" class="hits" role="listbox" aria-label="Kết quả tìm"></div>
     <div id="pkgInfo"></div>
   </section>
 
@@ -175,13 +186,13 @@ button,input,select{font:inherit;color:inherit}
 <script>
 'use strict';
 /* ====== config ====== */
-const BAN_DUNG = 'q1';
+const BAN_DUNG = 'q2';
 // Same deployment URL as index.html (date code app). Copy it here.
 const TRAM_URL = 'https://script.google.com/macros/s/AKfycbzFOhrxosY7-5yivMmhF9GtzsMMAFYdp0KfUKMucCJmktBqGm_udam2jm2hQH9zkf_X/exec';
 const tramUrl = () => window.__TRAM_URL__ || TRAM_URL;
 const QR_RE = /^https:\/\/i\.tcx\.com\.vn\/(\d{13})([0-9a-f]{11})$/i;
 const NEED_SAME_READS = 2;
-const K = { site:'qr_site', nguoi:'qr_nguoi', master:'qr_master_cache', queue:'qr_queue', hist:'qr_history' };
+const K = { site:'qr_site', nguoi:'qr_nguoi', master:'qr_master_cache', queue:'qr_queue', hist:'qr_history', recent:'qr_recent' };
 
 /* ====== pure logic (tested) ====== */
 function gtinValid(s){
@@ -296,10 +307,52 @@ async function loadMaster(force){
   }
 }
 function renderMasterSt(t){ $('masterSt').textContent = `Master ${S.rows.length} dòng, ${t}` + (S.napLuc ? `, nạp ${S.napLuc}` : ''); }
-function fillList(){
+/* Search list like the date code app: type 2+ chars, tap a hit. Matches PKG code,
+   FG item code, product name (accents optional) and barcode, current site only. */
+const fold = s => String(s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/g, 'd').replace(/Đ/g, 'D').toUpperCase();
+function matchRows(q, rows){
+  const Q = fold(q).trim(); if(Q.length < 2) return [];
+  const words = Q.split(/\s+/);
+  return rows.filter(r => { const hay = fold([r.ma_pkg, r.item_tp, r.ten_sp, r.gtin].join(' ')); return words.every(w => hay.includes(w)); });
+}
+function hitHtml(r){
+  const cap = r.cap === 'THUNG' ? 'thùng' : 'nhãn';
+  const cho = r.trang_thai !== 'DA_DUYET' ? '<span class="tag cho">chờ duyệt</span>' : '';
+  return `<div class="hit" role="option" tabindex="0" data-c="${esc(r.ma_pkg)}"><div class="c">${esc(r.ma_pkg)}<span class="tag">${cap}</span>${cho}</div>
+    <div class="n">${esc(r.ten_sp)}${r.item_tp ? ' · TP ' + esc(r.item_tp) : ''}</div></div>`;
+}
+function renderHits(){
+  const box = $('hits'), site = $('site').value, q = $('pkg').value;
+  if(!S.rows.length){ box.innerHTML = ''; return; }
+  const here = S.rows.filter(r => r.site === site);
+  const uniq = list => { const seen = {}; return list.filter(r => seen[r.ma_pkg] ? false : (seen[r.ma_pkg] = 1)); };
+  if(fold(q).trim().length < 2){
+    const rc = store.get(K.recent, []).map(c => here.find(r => r.ma_pkg === c)).filter(Boolean);
+    box.innerHTML = rc.length ? '<div class="listhead">Vừa kiểm gần đây</div>' + rc.map(hitHtml).join('')
+      : `<div class="empty">Gõ 2 ký tự trở lên để tìm${site ? ' trong master ' + esc(site) : ''}. Tìm được theo mã PKG, mã TP, tên sản phẩm hoặc barcode.</div>`;
+    return;
+  }
+  const list = uniq(matchRows(q, here)).slice(0, 40);
+  if(list.length){ box.innerHTML = list.map(hitHtml).join(''); return; }
+  const other = uniq(matchRows(q, S.rows));
+  box.innerHTML = other.length
+    ? `<div class="empty">Không có mã nào của ${esc(site)} khớp. ${other.length} mã khớp nhưng khai cho site khác (${esc([...new Set(other.map(r => r.site || 'không rõ'))].join(', '))}). Kiểm lại site hoặc master.</div>`
+    : '<div class="empty">Không có mã nào khớp trong master. Nếu đúng mã trên phiếu nhập, bấm Chọn để ghi sổ lượt không có master.</div>';
+}
+function fillList(){ if(!S.pkg) renderHits(); }
+/* Chọn / Enter on typed text: exact PKG code wins; one hit is taken; several hits
+   are never guessed; no hit goes through as a no-master check. */
+function pickTyped(){
+  const raw = $('pkg').value.trim();
+  const up = raw.toUpperCase();
+  if(!raw) return choosePkg('');
+  if(S.rows.some(r => r.ma_pkg === up)) return choosePkg(up);
   const site = $('site').value;
-  const pk = [...new Set(S.rows.filter(r => !site || r.site === site).map(r => r.ma_pkg))].sort();
-  $('pkgList').innerHTML = pk.map(p => `<option value="${esc(p)}">`).join('');
+  const hits = [...new Set(matchRows(raw, S.rows.filter(r => r.site === site)).map(r => r.ma_pkg))];
+  if(hits.length === 1) return choosePkg(hits[0]);
+  if(hits.length > 1){ renderHits(); $('pkgInfo').innerHTML = `<div class="msg warn">Có ${hits.length} mã khớp. Chạm vào đúng mã trong danh sách.</div>`; return; }
+  if(/^[A-Z0-9]{6,}$/.test(up)) return choosePkg(up);
+  $('pkgInfo').innerHTML = '<div class="msg warn">Không tìm thấy mã nào khớp. Gõ đúng mã PKG trên phiếu nhập.</div>';
 }
 
 /* ====== ledger / queue ====== */
@@ -398,8 +451,10 @@ function ready(){
 function choosePkg(raw, keepScans){
   if(!ready()) return;
   const pkg = String(raw || '').trim().toUpperCase();
-  if(!pkg) return;
+  if(!pkg){ $('pkgInfo').innerHTML = '<div class="msg warn">Gõ mã PKG hoặc tên sản phẩm rồi chọn trong danh sách.</div>'; $('pkg').focus(); return; }
   $('pkg').value = pkg; S.pkg = pkg;
+  $('hits').innerHTML = '';
+  store.set(K.recent, [pkg, ...store.get(K.recent, []).filter(c => c !== pkg)].slice(0, 10));
   S.m = resolveMaster(S.rows, pkg, $('site').value);
   if(!keepScans) resetScans();
   const r = S.m.row;
@@ -465,7 +520,7 @@ function finish(){
   // same PKG, next label: open the camera straight away (the tap is the user gesture iOS needs)
   $('nextLabel').onclick = () => { resetScans(); choosePkg(S.pkg); const th = S.m && S.m.st === 'OK' && S.m.row.cap === 'THUNG'; scan(th ? 'thung' : 'qr'); };
   $('newPkg').onclick = () => { resetScans(); S.pkg = ''; S.m = null; $('pkg').value = ''; $('pkgInfo').innerHTML = '';
-    setStep('s1', true, false); setStep('s2', false, false); setStep('s3', false, false); $('s2').classList.remove('hidden'); $('n3').textContent = '3'; $('pkg').focus(); };
+    setStep('s1', true, false); setStep('s2', false, false); setStep('s3', false, false); $('s2').classList.remove('hidden'); $('n3').textContent = '3'; renderHits(); $('pkg').focus(); };
   feedback(t);
   $('result').scrollIntoView({block:'start', behavior:'smooth'});
   record();
@@ -519,9 +574,16 @@ function init(){
   $('nguoi').value = store.get(K.nguoi, '');
   $('site').addEventListener('change', () => { store.set(K.site, $('site').value); fillList(); S.soSite = []; renderSo(); loadSo(); if(S.pkg) choosePkg(S.pkg); });
   $('nguoi').addEventListener('change', () => store.set(K.nguoi, $('nguoi').value.trim()));
-  $('pkgOk').addEventListener('click', () => choosePkg($('pkg').value));
-  $('pkg').addEventListener('keydown', e => { if(e.key === 'Enter') choosePkg($('pkg').value); });
-  $('pkg').addEventListener('change', () => { if(S.rows.some(r => r.ma_pkg === $('pkg').value.trim().toUpperCase())) choosePkg($('pkg').value); });
+  $('pkgOk').addEventListener('click', pickTyped);
+  $('pkg').addEventListener('keydown', e => { if(e.key === 'Enter') pickTyped(); });
+  $('pkg').addEventListener('input', () => {
+    if(S.pkg){ S.pkg = ''; S.m = null; resetScans(); $('pkgInfo').innerHTML = '';
+      setStep('s1', true, false); setStep('s2', false, false); setStep('s3', false, false); $('s2').classList.remove('hidden'); $('n3').textContent = '3'; }
+    renderHits();
+  });
+  $('pkg').addEventListener('focus', () => { if(!S.pkg) renderHits(); });
+  $('hits').addEventListener('click', e => { const h = e.target.closest('.hit'); if(h) choosePkg(h.dataset.c); });
+  $('hits').addEventListener('keydown', e => { if(e.key === 'Enter'){ const h = e.target.closest('.hit'); if(h) choosePkg(h.dataset.c); } });
   $('scanQr').addEventListener('click', () => scan('qr'));
   $('scanBar').addEventListener('click', () => scan(S.m && S.m.st === 'OK' && S.m.row.cap === 'THUNG' ? 'thung' : 'don_vi'));
   $('camClose').addEventListener('click', () => Scan.cancel && Scan.cancel());
