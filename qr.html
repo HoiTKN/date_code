@@ -62,6 +62,7 @@ button,input,select{font:inherit;color:inherit}
 .hit .tag{font-family:var(--sans);font-size:11px;font-weight:600;padding:1px 6px;border-radius:4px;background:#E3E9EE;color:var(--ink2)}
 .hit .tag.cho{background:#FBF0DC;color:var(--warn)}
 .hit .n{font-size:13px;color:var(--ink2);margin-top:2px}
+.prop h2{font-size:16px;font-weight:600;margin:12px 0 4px}
 .listhead{font-size:12px;color:var(--ink2);padding:8px 12px 4px}
 .empty{font-size:13px;color:var(--ink2);padding:10px 12px}
 .prod{margin-top:10px;font-size:15px}
@@ -186,7 +187,7 @@ button,input,select{font:inherit;color:inherit}
 <script>
 'use strict';
 /* ====== config ====== */
-const BAN_DUNG = 'q2';
+const BAN_DUNG = 'q3';
 // Same deployment URL as index.html (date code app). Copy it here.
 const TRAM_URL = 'https://script.google.com/macros/s/AKfycbzFOhrxosY7-5yivMmhF9GtzsMMAFYdp0KfUKMucCJmktBqGm_udam2jm2hQH9zkf_X/exec';
 const tramUrl = () => window.__TRAM_URL__ || TRAM_URL;
@@ -216,41 +217,55 @@ function parseQR(raw){
 }
 
 // rows: [{ma_pkg,cap,gtin,site,trang_thai,ly_do,nguon,...}] ; BO_SUNG rows override XUAT rows for the same (pkg, site)
+// rows: [{ma_pkg,cap,gtin,site,trang_thai,ly_do,nguon,...}]
+// BO_SUNG rows that are DA_DUYET override XUAT rows for the same (pkg, site).
+// BO_SUNG rows still CHO_DUYET (app proposals) never count as master.
 function resolveMaster(rows, pkg, site){
   const all = rows.filter(r => r.ma_pkg === pkg);
-  if(!all.length) return {st:'KHONG_CO', msg:'Mã PKG này chưa có trong master.'};
-  let here = all.filter(r => r.site === site);
+  if(!all.length) return {st:'KHONG_CO', msg:'Mã PKG này chưa có trong master.', pending:false};
+  const here = all.filter(r => r.site === site);
   if(!here.length){
     const other = [...new Set(all.map(r => r.site || 'không rõ site'))].join(', ');
-    return {st:'KHAC_SITE', msg:`Mã này chỉ có master ở ${other}, chưa có cho ${site}.`, row:all[0]};
+    return {st:'KHAC_SITE', msg:`Mã này chỉ có master ở ${other}, chưa có cho ${site}.`, row:all[0], pending:false};
   }
-  if(here.some(r => r.nguon === 'BO_SUNG')) here = here.filter(r => r.nguon === 'BO_SUNG');
-  const ok = here.filter(r => r.trang_thai === 'DA_DUYET' && gtinValid(r.gtin));
+  const pending = here.some(r => r.nguon === 'BO_SUNG' && r.trang_thai !== 'DA_DUYET');
+  const bsOk = here.filter(r => r.nguon === 'BO_SUNG' && r.trang_thai === 'DA_DUYET');
+  const pool = bsOk.length ? bsOk : here.filter(r => r.nguon !== 'BO_SUNG');
+  if(!pool.length) return {st:'DE_XUAT', msg:'Mã này đã có đề xuất, đang chờ duyệt.', row:here[0], pending:true};
+  const ok = pool.filter(r => r.trang_thai === 'DA_DUYET' && gtinValid(r.gtin));
   const keys = [...new Set(ok.map(r => r.cap + '|' + pad14(r.gtin)))];
-  if(!keys.length) return {st:'CHO_DUYET', msg:'Master của mã này đang chờ duyệt' + (here[0].ly_do ? ': ' + here[0].ly_do : '.'), row:here[0]};
-  if(keys.length > 1) return {st:'XUNG_DOT', msg:'Master có hơn một barcode cho mã này tại ' + site + '.', row:ok[0]};
+  const tail = pending ? ' Đã có đề xuất chờ duyệt.' : '';
+  if(!keys.length) return {st:'CHO_DUYET', msg:'Master của mã này đang chờ duyệt' + (pool[0].ly_do ? ': ' + pool[0].ly_do : '.') + tail, row:pool[0], pending};
+  if(keys.length > 1) return {st:'XUNG_DOT', msg:'Master có hơn một barcode cho mã này tại ' + site + '.' + tail, row:ok[0], pending};
   return {st:'OK', row:ok[0]};
 }
+// PKG level: from master when known, else from the code prefix (BGT* = carton)
+const capFor = (m, pkg) => (m && m.st === 'OK') ? m.row.cap : (/^BGT/.test(pkg || '') ? 'THUNG' : 'DON_VI');
 
-// ctx: {m, qr, bar:{val}, seen:Map(serial -> {at, pkg})}
+// ctx: {m, qr, bar:{val}, seen:Map(serial -> {at, pkg}), cap}
+// QR vs barcode is judged first and needs no master. Without master the best a
+// check can get is CẦN XÁC NHẬN, never ĐẠT (L1).
 function verdict(ctx){
   const {m, qr, bar, seen} = ctx;
-  if(!m || m.st !== 'OK') return {kl:'KHÔNG KẾT LUẬN ĐƯỢC', why: m ? m.msg : 'Chưa chọn mã PKG.'};
-  const cap = m.row.cap, gm = pad14(m.row.gtin);
-  if(!bar || !gtinValid(bar.val)) return {kl:'CẦN XÁC NHẬN', why:'Số barcode không hợp lệ. Quét lại.'};
+  const cap = ctx.cap || capFor(m, '');
+  if(!bar || !gtinValid(bar.val)) return {kl:'CẦN XÁC NHẬN', why:'Số barcode không hợp lệ. Quét lại.', code:'BAR'};
   if(cap === 'DON_VI'){
-    if(!qr) return {kl:'CẦN XÁC NHẬN', why:'Chưa quét QR.'};
-    if(!qr.ok) return {kl:'KHÔNG ĐẠT', why:qr.why + '.'};
-    if(pad14(qr.gtin) !== pad14(bar.val)) return {kl:'KHÔNG ĐẠT', why:'Mã trong QR khác barcode in trên nhãn.'};
+    if(!qr) return {kl:'CẦN XÁC NHẬN', why:'Chưa quét QR.', code:'NO_QR'};
+    if(!qr.ok) return {kl:'KHÔNG ĐẠT', why:qr.why + '.', code:'QR_BAD'};
+    if(pad14(qr.gtin) !== pad14(bar.val)) return {kl:'KHÔNG ĐẠT', why:'Mã trong QR khác barcode in trên nhãn.', code:'QR_NE_BAR'};
   }
-  if(pad14(bar.val) !== gm) return {kl:'KHÔNG ĐẠT', why: cap === 'DON_VI'
+  const dup = (cap === 'DON_VI' && seen && seen.has(qr.serial)) ? seen.get(qr.serial) : null;
+  const dupTxt = dup ? ` Sê-ri ${qr.serial} đã có trong sổ (${dup.at}, mã ${dup.pkg}).` : '';
+  if(!m || m.st !== 'OK'){
+    return {kl:'CẦN XÁC NHẬN', code:'NO_MASTER',
+      why:(cap === 'DON_VI' ? 'QR khớp barcode. ' : 'Đọc được barcode. ') + (m ? m.msg : 'Chưa chọn mã PKG.') +
+          ' Chưa đối chiếu được đúng sản phẩm.' + dupTxt};
+  }
+  if(pad14(bar.val) !== pad14(m.row.gtin)) return {kl:'KHÔNG ĐẠT', code:'NE_MASTER', why: cap === 'DON_VI'
       ? 'QR và barcode khớp nhau nhưng khác master của mã PKG này. Có thể sai cuộn hoặc sai file thiết kế.'
       : 'Barcode thùng khác master của mã PKG này.'};
-  if(cap === 'DON_VI' && seen && seen.has(qr.serial)){
-    const s = seen.get(qr.serial);
-    return {kl:'CẦN XÁC NHẬN', why:`Sê-ri ${qr.serial} đã có trong sổ (${s.at}, mã ${s.pkg}). Nếu đây là nhãn khác thì nhà in đã in trùng mã.`};
-  }
-  return {kl:'ĐẠT', why:''};
+  if(dup) return {kl:'CẦN XÁC NHẬN', code:'DUP', why:`Sê-ri ${qr.serial} đã có trong sổ (${dup.at}, mã ${dup.pkg}). Nếu đây là nhãn khác thì nhà in đã in trùng mã.`};
+  return {kl:'ĐẠT', why:'', code:'OK'};
 }
 const tone = kl => kl === 'ĐẠT' ? 'pass' : kl === 'KHÔNG ĐẠT' ? 'fail' : kl === 'CẦN XÁC NHẬN' ? 'warn' : 'none';
 
@@ -306,7 +321,10 @@ async function loadMaster(force){
     else { renderMasterSt('không có master'); banner('Không tải được master: ' + e.message + '. Không có master thì app không kết luận.', 'err'); }
   }
 }
-function renderMasterSt(t){ $('masterSt').textContent = `Master ${S.rows.length} dòng, ${t}` + (S.napLuc ? `, nạp ${S.napLuc}` : ''); }
+function renderMasterSt(t){
+  const n = S.rows.filter(r => r.nguon === 'BO_SUNG' && r.trang_thai !== 'DA_DUYET').length;
+  $('masterSt').textContent = `Master ${S.rows.length} dòng, ${t}` + (S.napLuc ? `, nạp ${S.napLuc}` : '') + (n ? `. ${n} đề xuất chờ duyệt` : '');
+}
 /* Search list like the date code app: type 2+ chars, tap a hit. Matches PKG code,
    FG item code, product name (accents optional) and barcode, current site only. */
 const fold = s => String(s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/g, 'd').replace(/Đ/g, 'D').toUpperCase();
@@ -460,9 +478,9 @@ function choosePkg(raw, keepScans){
   const r = S.m.row;
   let h = '';
   if(r) h += `<div class="prod"><b>${esc(r.ten_sp)}</b><div class="meta">TP ${esc(r.item_tp)}, ${r.cap === 'THUNG' ? 'thùng' : 'nhãn đơn vị'}${r.quy_cach ? ', ' + esc(r.quy_cach) : ''}${r.nguon === 'BO_SUNG' ? ', theo master bổ sung' : ''}</div></div>`;
-  if(S.m.st !== 'OK') h += `<div class="msg warn">${esc(S.m.msg)} Vẫn quét được để ghi sổ, nhưng app sẽ không kết luận.</div>`;
+  if(S.m.st !== 'OK') h += `<div class="msg warn">${esc(S.m.msg)} App vẫn kiểm QR khớp barcode, nhưng chưa đối chiếu được đúng sản phẩm nên không cho ĐẠT.</div>`;
   $('pkgInfo').innerHTML = h;
-  const thung = S.m.st === 'OK' && r.cap === 'THUNG';
+  const thung = capFor(S.m, pkg) === 'THUNG';
   $('s2').classList.toggle('hidden', thung);
   $('n3').textContent = thung ? '2' : '3';
   setStep('s1', true, true);
@@ -493,11 +511,11 @@ function cellsHtml(val, ref, len){
 }
 
 function finish(){
-  const thung = S.m && S.m.st === 'OK' && S.m.row.cap === 'THUNG';
+  const cap = capFor(S.m, S.pkg), thung = cap === 'THUNG';
   if(!thung && !S.qr) return;                 // wait for QR on unit labels
   if(!S.bar) return;
   const seen = new Map([...seenMap(), ...S.sessionSeen]);
-  S.res = verdict({m:S.m, qr:S.qr, bar:S.bar, seen});
+  S.res = verdict({m:S.m, qr:S.qr, bar:S.bar, seen, cap});
   const gm = S.m && S.m.st === 'OK' ? S.m.row.gtin : '';
   const len = (thung || [S.bar.val, gm].some(x => x && x.length === 14 && x[0] !== '0')) ? 14 : 13;
   const ref = gm || S.bar.val;
@@ -515,27 +533,109 @@ function finish(){
     <div class="after">
       <button class="btn pri" id="nextLabel" type="button">Quét nhãn tiếp</button>
       <button class="btn sec" id="newPkg" type="button">Đổi mã PKG</button>
-    </div>`;
+    </div>
+    <div id="propose"></div>`;
   $('result').classList.remove('hidden');
   // same PKG, next label: open the camera straight away (the tap is the user gesture iOS needs)
-  $('nextLabel').onclick = () => { resetScans(); choosePkg(S.pkg); const th = S.m && S.m.st === 'OK' && S.m.row.cap === 'THUNG'; scan(th ? 'thung' : 'qr'); };
+  $('nextLabel').onclick = () => { resetScans(); choosePkg(S.pkg); scan(capFor(S.m, S.pkg) === 'THUNG' ? 'thung' : 'qr'); };
   $('newPkg').onclick = () => { resetScans(); S.pkg = ''; S.m = null; $('pkg').value = ''; $('pkgInfo').innerHTML = '';
     setStep('s1', true, false); setStep('s2', false, false); setStep('s3', false, false); $('s2').classList.remove('hidden'); $('n3').textContent = '3'; renderHits(); $('pkg').focus(); };
   feedback(t);
   $('result').scrollIntoView({block:'start', behavior:'smooth'});
   record();
+  if(S.res.code === 'NO_MASTER'){
+    if(S.m && S.m.pending) bumpProposal();
+    else proposeUI();
+  }
+}
+
+/* ====== proposals: new PKG -> FG, approved by QA in the sheet ======
+   The barcode written to master always comes from the barcode registration of the
+   chosen FG, never from the scan (a master copied from the label proves nothing). */
+function fgList(site, cap){
+  const by = new Map();
+  S.rows.filter(r => r.site === site && r.item_tp && r.nguon !== 'BO_SUNG' || (r.site === site && r.item_tp && r.nguon === 'BO_SUNG' && r.trang_thai === 'DA_DUYET'))
+    .forEach(r => {
+      const f = by.get(r.item_tp) || {item_tp:r.item_tp, ten_sp:r.ten_sp, gtins:new Set()};
+      if(r.cap === cap && r.trang_thai === 'DA_DUYET' && gtinValid(r.gtin)) f.gtins.add(r.gtin);
+      by.set(r.item_tp, f);
+    });
+  return [...by.values()];
+}
+function proposeUI(){
+  const box = $('propose'); if(!box) return;
+  box.innerHTML = `<div class="step prop">
+      <button class="btn sec wide" id="pOpen" type="button">Đề xuất thêm mã ${esc(S.pkg)} vào master</button>
+      <div id="pBody" class="hidden">
+        <h2>Thành phẩm theo phiếu nhập</h2>
+        <p class="hint">Chọn theo phiếu nhập hoặc đơn mua hàng, không chọn theo tên in trên cuộn nhãn. Đề xuất chỉ có hiệu lực sau khi QA duyệt.</p>
+        <div class="field"><input id="fgQ" autocomplete="off" spellcheck="false" placeholder="Gõ mã TP hoặc tên thành phẩm" aria-label="Tìm thành phẩm"></div>
+        <div id="fgHits" class="hits" role="listbox"></div>
+        <div id="fgPick"></div>
+      </div></div>`;
+  $('pOpen').onclick = () => { $('pOpen').classList.add('hidden'); $('pBody').classList.remove('hidden'); renderFg(); $('fgQ').focus(); };
+  $('fgQ').addEventListener('input', () => { $('fgPick').innerHTML = ''; renderFg(); });
+  $('fgHits').addEventListener('click', e => { const h = e.target.closest('.hit'); if(h) pickFg(h.dataset.c); });
+}
+function renderFg(){
+  const site = $('site').value, cap = capFor(S.m, S.pkg), q = fold($('fgQ').value).trim();
+  if(q.length < 2){ $('fgHits').innerHTML = '<div class="empty">Gõ 2 ký tự trở lên: mã TP (VD 03NM00936) hoặc tên.</div>'; return; }
+  const words = q.split(/\s+/);
+  const list = fgList(site, cap).filter(f => { const h = fold(f.item_tp + ' ' + f.ten_sp); return words.every(w => h.includes(w)); }).slice(0, 30);
+  $('fgHits').innerHTML = list.length ? list.map(f => `<div class="hit" role="option" tabindex="0" data-c="${esc(f.item_tp)}">
+      <div class="c">${esc(f.item_tp)}<span class="tag">${f.gtins.size} barcode</span></div><div class="n">${esc(f.ten_sp)}</div></div>`).join('')
+    : `<div class="empty">Không có thành phẩm nào khớp trong master ${esc(site)}.</div>`;
+}
+function pickFg(tp){
+  const site = $('site').value, cap = capFor(S.m, S.pkg);
+  const f = fgList(site, cap).find(x => x.item_tp === tp); if(!f) return;
+  const cands = [...f.gtins], scanned = S.bar.val;
+  const match = cands.some(g => pad14(g) === pad14(scanned));
+  const P = { ma_pkg:S.pkg, cap, site, item_tp:f.item_tp, ten_sp:f.ten_sp,
+    gtin_dang_ky: cands.length === 1 ? cands[0] : '', barcode_dang_ky: cands.join(' / '),
+    barcode_quet: scanned, khop_dang_ky: !cands.length ? 'CHUA_CO' : match ? 'CO' : 'KHONG',
+    nguoi_de_xuat: $('nguoi').value.trim(), id_luot: S.lastId || '' };
+  let note;
+  if(!cands.length) note = `<div class="msg warn">Thành phẩm này chưa có barcode ${cap === 'THUNG' ? 'thùng' : 'đơn vị'} đăng ký ở ${esc(site)}. Đề xuất vẫn gửi được; người duyệt điền barcode theo file thiết kế đã duyệt.</div>`;
+  else if(!match) note = `<div class="msg bad">Barcode trên nhãn (${esc(scanned)}) không nằm trong barcode đăng ký của thành phẩm này (${esc(cands.join(', '))}). Kiểm lại phiếu nhập. Nếu đúng thành phẩm thì cuộn này có thể sai, báo QA trước khi nhập kho.</div>`;
+  else if(cands.length > 1) note = `<div class="msg warn">Thành phẩm có ${cands.length} barcode đăng ký (${esc(cands.join(', '))}). Barcode trên nhãn nằm trong số đó; người duyệt sẽ chốt barcode cho mã PKG này.</div>`;
+  else note = `<div class="msg">Barcode trên nhãn khớp barcode đăng ký ${esc(cands[0])}.</div>`;
+  $('fgHits').innerHTML = '';
+  $('fgPick').innerHTML = `<div class="prod"><b>${esc(f.ten_sp)}</b><div class="meta">TP ${esc(f.item_tp)}</div></div>${note}
+    <button class="btn pri wide" id="pSend" type="button" style="margin-top:10px">Gửi đề xuất</button><div id="pSt" class="hint"></div>`;
+  $('pSend').onclick = () => sendProposal(P);
+}
+async function sendProposal(P){
+  $('pSend').disabled = true; $('pSt').textContent = 'Đang gửi...';
+  try{
+    await callTram(Object.assign({act:'qr_de_xuat'}, P), {tries:2, ms:30000});
+    S.rows.push({ma_pkg:P.ma_pkg, cap:P.cap, gtin:P.gtin_dang_ky, item_tp:P.item_tp, ten_sp:P.ten_sp, quy_cach:'', site:P.site,
+                 trang_thai:'CHO_DUYET', ly_do:'đề xuất từ app', nguon:'BO_SUNG'});
+    const c = store.get(K.master, null); if(c){ c.rows = S.rows; store.set(K.master, c); }
+    S.m = resolveMaster(S.rows, S.pkg, $('site').value);
+    renderMasterSt('vừa thêm đề xuất');
+    $('pSend').classList.add('hidden');
+    $('pSt').textContent = 'Đã gửi đề xuất. Mã này dùng được sau khi QA duyệt; trong lúc chờ, app vẫn kiểm QR khớp barcode.';
+  }catch(e){
+    $('pSend').disabled = false; $('pSt').textContent = 'Chưa gửi được: ' + e.message + '. Bấm gửi lại khi có mạng.';
+  }
+}
+function bumpProposal(){
+  const box = $('propose'); if(box) box.innerHTML = '<p class="hint">Mã này đã có đề xuất chờ QA duyệt. Lượt này được cộng vào số lần gặp của đề xuất.</p>';
+  callTram({act:'qr_de_xuat', gap_lai:true, ma_pkg:S.pkg, site:$('site').value}, {tries:1, ms:30000}).catch(() => {});
 }
 
 function record(){
   const r = S.m && S.m.row;
   const rec = {
     thoi_gian_may:localIso(), site:$('site').value, nguoi_kiem:$('nguoi').value.trim(),
-    ma_pkg:S.pkg, cap:r ? r.cap : '', ten_sp:r ? r.ten_sp : '', item_tp:r ? r.item_tp : '',
+    ma_pkg:S.pkg, cap:capFor(S.m, S.pkg), ten_sp:r ? r.ten_sp : '', item_tp:r ? r.item_tp : '',
     gtin_master:S.m && S.m.st === 'OK' ? r.gtin : '', nguon_master:r ? (r.nguon || '') : '',
     qr_raw:S.qr ? S.qr.raw : '', gtin_qr:S.qr ? (S.qr.gtin || '') : '', seri:S.qr && S.qr.ok ? S.qr.serial : '',
     barcode:S.bar.val, barcode_nguon:S.bar.src, ket_luan:S.res.kl, ly_do:S.res.why, ban_dung:BAN_DUNG,
     id_luot:uid(), thiet_bi:(navigator.userAgent || '').replace(/^.*?\(([^)]*)\).*$/, '$1').slice(0, 60)
   };
+  S.lastId = rec.id_luot;
   if(rec.seri) S.sessionSeen.set(rec.seri, {at:nowStr(), pkg:rec.ma_pkg});
   store.set(K.hist, [rec, ...store.get(K.hist, [])].slice(0, 200));
   store.set(K.queue, [...queue(), rec]);
@@ -585,7 +685,7 @@ function init(){
   $('hits').addEventListener('click', e => { const h = e.target.closest('.hit'); if(h) choosePkg(h.dataset.c); });
   $('hits').addEventListener('keydown', e => { if(e.key === 'Enter'){ const h = e.target.closest('.hit'); if(h) choosePkg(h.dataset.c); } });
   $('scanQr').addEventListener('click', () => scan('qr'));
-  $('scanBar').addEventListener('click', () => scan(S.m && S.m.st === 'OK' && S.m.row.cap === 'THUNG' ? 'thung' : 'don_vi'));
+  $('scanBar').addEventListener('click', () => scan(capFor(S.m, S.pkg) === 'THUNG' ? 'thung' : 'don_vi'));
   $('camClose').addEventListener('click', () => Scan.cancel && Scan.cancel());
   $('typeBarBtn').addEventListener('click', () => { $('typeBar').classList.remove('hidden'); $('barInput').focus(); });
   $('barOk').addEventListener('click', () => {
@@ -602,7 +702,7 @@ function init(){
   renderSo(); renderQueue();
   loadMaster(false).then(() => { flush(); loadSo(); });
 }
-window.QRAPP = { gtinValid, pad14, parseQR, resolveMaster, verdict, S, Scan, flush };
+window.QRAPP = { gtinValid, pad14, parseQR, resolveMaster, verdict, capFor, fgList, S, Scan, flush };
 document.addEventListener('DOMContentLoaded', init);
 </script>
 </body>
