@@ -124,6 +124,15 @@ button,input,select{font:inherit;color:inherit}
 .camMsg{min-height:20px;font-size:14px;margin-bottom:8px;color:#FDE7A9}
 .camBtns{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px}
 .cam .btn.ghost{background:transparent;color:#fff;border:1.5px solid rgba(255,255,255,.7)}
+#reader{position:relative}
+#liveVideo{width:100%;height:100%;object-fit:cover;display:block}
+#reader .guide{position:absolute;inset:12% 8%;border:2px solid rgba(255,255,255,.75);border-radius:12px;pointer-events:none}
+.chips{display:flex;gap:6px;margin-top:8px;min-height:26px}
+.chip{font-size:13px;padding:3px 10px;border-radius:999px;border:1.5px solid rgba(255,255,255,.6)}
+.chip.ok{background:#4ADE9B;color:#0A1420;border-color:#4ADE9B;font-weight:600}
+.camTools{display:flex;gap:8px;margin-bottom:8px}
+.camTools .btn{min-height:40px;padding:6px 12px;flex:1}
+.camTools .btn[aria-pressed="true"]{background:#fff;color:var(--ink)}
 #reader2{position:absolute;left:-9999px;top:0;width:300px;height:300px}
 #reader video{object-fit:cover}
 .cam .btn{background:#fff;color:var(--ink)}
@@ -209,9 +218,14 @@ button,input,select{font:inherit;color:inherit}
 <div class="cam" id="cam" role="dialog" aria-modal="true" aria-labelledby="camTtl">
   <div class="ttl" id="camTtl">Quét</div>
   <div class="sub" id="camSub"></div>
+  <div class="chips" id="camChips"></div>
   <div id="reader"></div>
   <div id="khoanh" class="hidden"><canvas id="kcv"></canvas></div>
   <div class="camMsg" id="camMsg" role="status"></div>
+  <div class="camTools hidden" id="camTools">
+    <button class="btn ghost" id="camTorch" type="button" aria-pressed="false">Đèn</button>
+    <button class="btn ghost" id="camZoom" type="button" aria-pressed="false">Phóng 2x</button>
+  </div>
   <div class="camBtns" id="camLive">
     <button class="btn" id="camSnap" type="button">Chụp và khoanh</button>
     <button class="btn ghost" id="camFileBtn" type="button">Ảnh camera máy</button>
@@ -225,12 +239,13 @@ button,input,select{font:inherit;color:inherit}
   <div id="reader2" aria-hidden="true"></div>
 </div>
 
+<script src="bd-ponyfill.js" onerror="(function(){var s=document.createElement('script');s.src='https://cdn.jsdelivr.net/npm/barcode-detector@3.2.2/dist/iife/ponyfill.js';document.head.appendChild(s);})()"></script>
 <script src="jsQR.min.js" onerror="(function(){var s=document.createElement('script');s.src='https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js';document.head.appendChild(s);})()"></script>
 <script src="html5-qrcode.min.js" onerror="(function(){var s=document.createElement('script');s.src='https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.8/html5-qrcode.min.js';document.head.appendChild(s);})()"></script>
 <script>
 'use strict';
 /* ====== config ====== */
-const BAN_DUNG = 'q5';
+const BAN_DUNG = 'q6';
 // Same deployment URL as index.html (date code app). Copy it here.
 const TRAM_URL = 'https://script.google.com/macros/s/AKfycbzFOhrxosY7-5yivMmhF9GtzsMMAFYdp0KfUKMucCJmktBqGm_udam2jm2hQH9zkf_X/exec';
 const tramUrl = () => window.__TRAM_URL__ || TRAM_URL;
@@ -535,58 +550,163 @@ const FMT = {
 };
 const BD_FMT = { qr:['qr_code'], thung:['itf','ean_13','code_128'], any:['ean_13','ean_8','upc_a','itf','code_128'], don_vi:['ean_13','ean_8','upc_a'] };
 
-/* Camera sheet. Three ways to a result, all ending in done(text, fmt, src):
-   live scan (src 'quet'), freeze the frame and decode it (src 'anh'),
-   or let the user draw a box on the frozen frame (src 'khoanh'). */
+/* Live engine: own camera loop on full frames. Decoder is the phone's BarcodeDetector
+   when it supports the formats (Android Chrome), otherwise zxing-cpp compiled to
+   WebAssembly (barcode-detector ponyfill), the same engine family native scanners use.
+   One frame can give both the QR and the barcode. Falls back to html5-qrcode. */
+const Live = {
+  stream:null, track:null, det:null, detKey:'',
+  supported(){ return !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia); },
+  async detector(formats){
+    const key = formats.join(',');
+    if(this.det && this.detKey === key) return this.det;
+    let D = null;
+    if('BarcodeDetector' in window){
+      try{ const sup = await window.BarcodeDetector.getSupportedFormats(); if(formats.every(f => sup.includes(f))) D = window.BarcodeDetector; }catch(e){}
+    }
+    if(!D && window.BarcodeDetectionAPI) D = window.BarcodeDetectionAPI.BarcodeDetector;
+    if(!D) return null;
+    try{ this.det = new D({formats}); this.detKey = key; return this.det; }catch(e){ return null; }
+  },
+  async start(video){
+    this.stream = await navigator.mediaDevices.getUserMedia({audio:false,
+      video:{facingMode:{ideal:'environment'}, width:{ideal:1920}, height:{ideal:1080}}});
+    this.track = this.stream.getVideoTracks()[0];
+    try{ await this.track.applyConstraints({advanced:[{focusMode:'continuous'}]}); }catch(e){}
+    video.setAttribute('playsinline', ''); video.muted = true; video.srcObject = this.stream;
+    await video.play();
+  },
+  frame(video, c){
+    if(!video || video.readyState < 2 || !video.videoWidth) return null;
+    const sc = Math.min(1, 1600 / Math.max(video.videoWidth, video.videoHeight));
+    c.width = Math.round(video.videoWidth * sc); c.height = Math.round(video.videoHeight * sc);
+    c.getContext('2d', {willReadFrequently:true}).drawImage(video, 0, 0, c.width, c.height);
+    return c;
+  },
+  caps(){ try{ return this.track && this.track.getCapabilities ? this.track.getCapabilities() : {}; }catch(e){ return {}; } },
+  async set(k, v){ try{ await this.track.applyConstraints({advanced:[{[k]:v}]}); return true; }catch(e){ return false; } },
+  stop(){ if(this.stream) this.stream.getTracks().forEach(t => t.stop()); this.stream = null; this.track = null; }
+};
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+/* Camera sheet. A session collects what the check still needs (QR, barcode or both)
+   from the same camera view. Ways in: live loop (src 'quet'), freeze and decode the
+   whole frame (src 'anh'), or a box drawn by the user (src 'khoanh'). */
 const Scan = {
-  inst:null, kind:null, res:null, rej:null, img:null, box:null,
+  inst:null, kind:null, res:null, rej:null, img:null, box:null, need:null, got:null, live:false, video:null, tail:null,
   lib(){ const L = window.__Html5QrcodeLibrary__ || window; return L && L.Html5Qrcode ? L : null; },
-  open(kind){
+  session(need){
     if(this.rej) this.cancel();
-    this.kind = kind;
-    $('camTtl').textContent = kind === 'qr' ? 'Quét QR' : 'Quét barcode';
+    this.need = need; this.got = {qr:null, bar:null};
+    this.kind = need.primary === 'qr' ? 'qr' : need.barKind;
+    $('camTtl').textContent = need.qr && need.bar ? 'Quét QR và barcode' : need.qr ? 'Quét QR' : 'Quét barcode';
     $('cam').classList.add('open');
     return new Promise((res, rej) => { this.res = res; this.rej = rej; this.startLive(); });
+  },
+  chips(){
+    const n = this.need || {}, g = this.got || {};
+    const chip = (on, ok, t) => on ? `<span class="chip${ok ? ' ok' : ''}">${t}${ok ? ' ✓' : ''}</span>` : '';
+    $('camChips').innerHTML = chip(n.qr, g.qr, 'QR') + chip(n.bar, g.bar, 'Barcode');
   },
   liveUI(){
     $('reader').classList.remove('hidden'); $('khoanh').classList.add('hidden');
     $('camLive').classList.remove('hidden'); $('camCrop').classList.add('hidden');
-    $('camSub').textContent = this.kind === 'qr'
-      ? 'Đưa mã QR vào giữa khung. Mã nhỏ hoặc nhoè thì bấm Chụp và khoanh.'
-      : 'Đưa vạch barcode nằm ngang trong khung. Không ăn thì bấm Chụp và khoanh.';
-    this.msg('');
+    $('camSub').textContent = 'Đưa nhãn vào khung, không cần căn đúng chiều. Mã nhỏ hoặc nhoè thì bấm Chụp và khoanh.';
+    this.msg(''); this.chips();
   },
   msg(t){ $('camMsg').textContent = t || ''; },
+  formats(){ return [...(this.need.qr ? ['qr_code'] : []), ...(this.need.bar ? BD_FMT[this.need.barKind] : [])]; },
   async startLive(){
     this.liveUI();
+    $('camTools').classList.add('hidden');
+    const det = Live.supported() ? await Live.detector(this.formats()) : null;
+    if(!det) return this.startLiveH5();
+    $('reader').innerHTML = '<video id="liveVideo" playsinline muted></video><div class="guide"></div>';
+    const video = $('liveVideo'); this.video = video;
+    try{ await Live.start(video); }
+    catch(e){ Live.stop(); return this.fail(new Error('Không mở được camera. Cho phép camera cho trang này trong cài đặt trình duyệt rồi thử lại.')); }
+    if(this.video !== video) return Live.stop();      // closed while the camera was opening
+    const caps = Live.caps();
+    $('camTorch').classList.toggle('hidden', !caps.torch);
+    $('camZoom').classList.toggle('hidden', !(caps.zoom && caps.zoom.max >= 2));
+    $('camTools').classList.toggle('hidden', !caps.torch && !(caps.zoom && caps.zoom.max >= 2));
+    this.live = true;
+    this.loop(video, det);
+  },
+  async loop(video, det){
+    const c = document.createElement('canvas');
+    let last = null, n = 0;
+    while(this.live && this.video === video){
+      const t0 = Date.now();
+      const f = Live.frame(video, c);
+      if(f){
+        let codes = [];
+        try{ codes = await det.detect(f); }catch(e){}
+        if(!this.live || this.video !== video) break;
+        for(const code of codes){
+          if(code.format === 'qr_code'){ if(this.need.qr && !this.got.qr) this.take('qr', code.rawValue, 'qr_code', 'quet'); }
+          else if(this.need.bar && !this.got.bar){
+            // 1D: same value twice in a row before accepting
+            if(code.rawValue === last) n++; else { last = code.rawValue; n = 1; }
+            if(n >= NEED_SAME_READS) this.take('bar', code.rawValue, code.format, 'quet');
+          }
+        }
+      }
+      await sleep(Math.max(15, 70 - (Date.now() - t0)));
+    }
+  },
+  /* fallback: html5-qrcode, one kind at a time */
+  async startLiveH5(){
     const L = this.lib();
     if(!L) return this.fail(new Error('Không tải được bộ quét. Kiểm tra mạng rồi tải lại trang.'));
-    const kind = this.kind;
+    const kind = this.kind, which = kind === 'qr' ? 'qr' : 'bar';
+    $('reader').innerHTML = '';
     this.inst = new L.Html5Qrcode('reader', {formatsToSupport:FMT[kind](L.Html5QrcodeSupportedFormats), verbose:false, experimentalFeatures:{useBarCodeDetectorIfSupported:true}});
     const box = kind === 'qr'
       ? (w, h) => { const s = Math.floor(Math.min(w, h) * 0.75); return {width:s, height:s}; }
-      : (w, h) => ({width:Math.floor(w * 0.9), height:Math.max(80, Math.floor(Math.min(h * 0.35, w * 0.45)))});
+      : (w, h) => { const s = Math.floor(Math.min(w, h) * 0.85); return {width:s, height:s}; };   // square: barcode may be vertical
     let last = null, n = 0;
     const onOk = (text, res) => {
       if(!this.res || this.kind !== kind) return;
       if(text === last) n++; else { last = text; n = 1; }
-      if(n >= NEED_SAME_READS){ let fmt = ''; try{ fmt = res.result.format.formatName; }catch(e){} this.done(text, fmt, 'quet'); }
+      if(n >= NEED_SAME_READS){ let fmt = ''; try{ fmt = res.result.format.formatName; }catch(e){} this.take(which, text, fmt, 'quet', true); }
     };
     const cfg = {fps:12, qrbox:box};
     const inst = this.inst;
     try{
-      // ask for a sharper stream; the frozen frame for khoanh comes from this video
       await inst.start({facingMode:'environment'}, Object.assign({videoConstraints:{facingMode:{ideal:'environment'}, width:{ideal:1920}, height:{ideal:1080}}}, cfg), onOk, () => {});
     }catch(e){
       try{ await inst.start({facingMode:'environment'}, cfg, onOk, () => {}); }
       catch(e2){ if(this.inst === inst) this.fail(new Error('Không mở được camera. Cho phép camera cho trang này trong cài đặt trình duyệt rồi thử lại.')); }
     }
   },
-  async stopLive(){ const i = this.inst; this.inst = null; if(i){ try{ await i.stop(); }catch(e){} try{ i.clear(); }catch(e){} } },
-  done(text, fmt, src){ const r = this.res; this.res = this.rej = null; this.close(); if(r) r({text, fmt, src}); },
+  take(which, text, fmt, src, endNow){
+    if(!this.got || this.got[which]) return;
+    this.got[which] = {text, fmt, src};
+    this.chips(); feedback('pass');
+    const missing = (this.need.qr && !this.got.qr) || (this.need.bar && !this.got.bar);
+    if(!missing || endNow || src !== 'quet') return this.finish();
+    // got the main one: give the other code in view a moment, then stop
+    if(!this.tail) this.tail = setTimeout(() => this.finish(), 1500);
+  },
+  finish(){ const r = this.res, g = this.got; this.res = this.rej = null; this.close(); if(r) r(g); },
+  done(text, fmt, src){ this.take(this.kind === 'qr' ? 'qr' : 'bar', text, fmt, src, true); },
   fail(err){ const j = this.rej; this.res = this.rej = null; this.close(); if(j) j(err); },
-  cancel(){ this.fail(new Error('huy')); },
-  async close(){ $('cam').classList.remove('open'); this.img = null; await this.stopLive(); },
+  cancel(){
+    const g = this.got;
+    if(g && (g.qr || g.bar)) return this.finish();     // keep what was already read
+    this.fail(new Error('huy'));
+  },
+  async close(){
+    $('cam').classList.remove('open'); this.img = null;
+    if(this.tail){ clearTimeout(this.tail); this.tail = null; }
+    await this.stopLive();
+  },
+  async stopLive(){
+    this.live = false; this.video = null; Live.stop();
+    const i = this.inst; this.inst = null;
+    if(i){ try{ await i.stop(); }catch(e){} try{ i.clear(); }catch(e){} }
+  },
   grabVideo(){
     const v = document.querySelector('#reader video');
     if(!v || !v.videoWidth) return null;
@@ -606,15 +726,17 @@ const Scan = {
     try{ await this.useImage(await Cap.load(file)); }
     catch(e){ this.msg('Không mở được ảnh này. Chụp lại.'); this.startLive(); }
   },
+  /* still image: the kind still missing (QR first), whole image, then the user's box */
+  stillKind(){ return (this.need.qr && !this.got.qr) ? 'qr' : this.need.barKind; },
   async useImage(c){
-    this.img = c;
-    $('reader').classList.add('hidden'); $('camLive').classList.add('hidden');
+    this.img = c; this.kind = this.stillKind();
+    $('reader').classList.add('hidden'); $('camLive').classList.add('hidden'); $('camTools').classList.add('hidden');
     $('khoanh').classList.remove('hidden'); $('camCrop').classList.remove('hidden');
-    $('camSub').textContent = 'Kéo ngón tay khoanh sát mã rồi bấm Đọc vùng này.';
+    $('camSub').textContent = `Kéo ngón tay khoanh sát ${this.kind === 'qr' ? 'mã QR' : 'barcode'} rồi bấm Đọc vùng này.`;
     const sq = Math.min(c.width, c.height) * 0.5;
     this.box = this.kind === 'qr'
       ? {x:(c.width - sq) / 2 / c.width, y:(c.height - sq) / 2 / c.height, w:sq / c.width, h:sq / c.height}
-      : {x:0.1, y:0.35, w:0.8, h:0.3};
+      : {x:0.1, y:0.3, w:0.8, h:0.4};
     this.draw();
     this.msg('Đang đọc cả ảnh...');
     const t = await Cap.decode(c, this.kind, null);
@@ -629,7 +751,7 @@ const Scan = {
     if(t && this.img === c) return this.done(t.text, t.fmt, 'khoanh');
     this.msg('Chưa đọc được. Khoanh sát mã hơn, hoặc bấm Quét lại và đưa máy lại gần, hoặc dùng Ảnh camera máy.');
   },
-  retake(){ this.img = null; this.startLive(); },
+  retake(){ this.img = null; this.kind = this.need.primary === 'qr' ? 'qr' : this.need.barKind; this.startLive(); },
   draw(){
     const cv = $('kcv'), img = this.img; if(!cv || !img) return;
     const g = cv.getContext && cv.getContext('2d'); if(!g) return;
@@ -658,7 +780,7 @@ const Scan = {
   }
 };
 
-/* Still-image decoding. Order: the phone's own BarcodeDetector, then jsQR (QR only)
+/* Still-image decoding. Order: BarcodeDetector (native or zxing-cpp), then jsQR (QR only)
    at several scales, then jsQR on a sharpened copy, then ZXing (html5-qrcode) at
    small scales, where it does best. Measured on blurred test frames: live scan
    6/12, whole frozen frame 9/12, user box 11/12. */
@@ -708,10 +830,10 @@ const Cap = {
   async decode(src, kind, rect){
     const r = rect || {x:0, y:0, w:src.width, h:src.height};
     const isQr = kind === 'qr';
-    if('BarcodeDetector' in window){
+    const det = await Live.detector(BD_FMT[kind]);
+    if(det){
       try{
-        const bd = new window.BarcodeDetector({formats:BD_FMT[kind]});
-        const f = await bd.detect(this.region(src, r, 0));
+        const f = await det.detect(this.region(src, r, 0));
         if(f && f.length) return {text:f[0].rawValue, fmt:f[0].format};
       }catch(e){}
     }
@@ -972,12 +1094,29 @@ function feedback(t){
 function barKind(){ return S.mode.ref === 'TP' ? 'any' : (S.mode.ref === 'PKG' && capFor(S.m, S.pkg) === 'THUNG') ? 'thung' : 'don_vi'; }
 async function scan(kind){
   if(!ready()) return;
+  const q = useQrNow();
+  const primary = kind === 'qr' ? 'qr' : 'bar';
+  const need = { primary, barKind: barKind(),
+    qr: q && (primary === 'qr' || !S.qr),
+    bar: primary === 'bar' || !S.bar };
   try{
-    const {text, fmt, src} = await Scan.open(kind);
-    if(kind === 'qr') onQr(text, src || 'quet'); else onBar(text, src || 'quet', fmt);
+    const r = await Scan.session(need);
+    if(r.qr) onQr(r.qr.text, r.qr.src);
+    if(r.bar) onBar(r.bar.text, r.bar.src, r.bar.fmt);
   }catch(e){
     if(e.message !== 'huy') banner(e.message, 'err');
   }
+}
+
+/* zxing wasm: use the copy in the repo when present (works when the CDN is slow
+   or blocked), otherwise the ponyfill's default CDN. Warm it up so the first scan is quick. */
+async function prepWasm(){
+  const API = window.BarcodeDetectionAPI; if(!API) return;
+  try{
+    const h = await fetch('zxing_reader.wasm', {method:'HEAD'});
+    if(h.ok) API.setZXingModuleOverrides({locateFile:(p, pre) => p.endsWith('.wasm') ? new URL('zxing_reader.wasm', location.href).href : pre + p});
+  }catch(e){}
+  try{ await API.prepareZXingModule({fireImmediately:true}); }catch(e){}
 }
 
 /* ====== wiring ====== */
@@ -1010,6 +1149,9 @@ function init(){
   $('camRead').addEventListener('click', () => Scan.readCrop());
   $('camRetake').addEventListener('click', () => Scan.retake());
   Scan.bindCrop();
+  $('camTorch').addEventListener('click', async e => { const on = e.currentTarget.getAttribute('aria-pressed') !== 'true'; if(await Live.set('torch', on)) e.currentTarget.setAttribute('aria-pressed', String(on)); });
+  $('camZoom').addEventListener('click', async e => { const on = e.currentTarget.getAttribute('aria-pressed') !== 'true'; if(await Live.set('zoom', on ? 2 : 1)) e.currentTarget.setAttribute('aria-pressed', String(on)); });
+  prepWasm();
   $('typeBarBtn').addEventListener('click', () => { $('typeBar').classList.remove('hidden'); $('barInput').focus(); });
   $('barOk').addEventListener('click', () => {
     const v = $('barInput').value.replace(/\D/g, '');
@@ -1025,7 +1167,7 @@ function init(){
   renderSo(); renderQueue();
   loadMaster(false).then(() => { flush(); loadSo(); });
 }
-window.QRAPP = { Cap, gtinValid, pad14, parseQR, resolveMaster, resolveFG, ownersOf, verdict, capFor, fgList, setMode, S, Scan, flush };
+window.QRAPP = { Live, Cap, gtinValid, pad14, parseQR, resolveMaster, resolveFG, ownersOf, verdict, capFor, fgList, setMode, S, Scan, flush };
 document.addEventListener('DOMContentLoaded', init);
 </script>
 </body>
