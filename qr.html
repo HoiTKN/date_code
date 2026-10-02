@@ -117,7 +117,14 @@ button,input,select{font:inherit;color:inherit}
 .cam.open{display:flex}
 .cam .ttl{font-size:17px;font-weight:600}
 .cam .sub{font-size:14px;opacity:.8;margin-top:2px}
-#reader{flex:1;margin:12px 0;border-radius:10px;overflow:hidden;background:#000;min-height:260px}
+#reader{flex:1;margin:12px 0 8px;border-radius:10px;overflow:hidden;background:#000;min-height:260px}
+#khoanh{flex:1;margin:12px 0 8px;display:flex;align-items:center;justify-content:center;min-height:260px;overflow:hidden}
+#khoanh.hidden{display:none}
+#kcv{touch-action:none;max-width:100%;max-height:100%;border-radius:8px;background:#000}
+.camMsg{min-height:20px;font-size:14px;margin-bottom:8px;color:#FDE7A9}
+.camBtns{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px}
+.cam .btn.ghost{background:transparent;color:#fff;border:1.5px solid rgba(255,255,255,.7)}
+#reader2{position:absolute;left:-9999px;top:0;width:300px;height:300px}
 #reader video{object-fit:cover}
 .cam .btn{background:#fff;color:var(--ink)}
 .hidden{display:none !important}
@@ -203,14 +210,27 @@ button,input,select{font:inherit;color:inherit}
   <div class="ttl" id="camTtl">Quét</div>
   <div class="sub" id="camSub"></div>
   <div id="reader"></div>
-  <button class="btn wide" id="camClose" type="button">Huỷ</button>
+  <div id="khoanh" class="hidden"><canvas id="kcv"></canvas></div>
+  <div class="camMsg" id="camMsg" role="status"></div>
+  <div class="camBtns" id="camLive">
+    <button class="btn" id="camSnap" type="button">Chụp và khoanh</button>
+    <button class="btn ghost" id="camFileBtn" type="button">Ảnh camera máy</button>
+  </div>
+  <div class="camBtns hidden" id="camCrop">
+    <button class="btn" id="camRead" type="button">Đọc vùng này</button>
+    <button class="btn ghost" id="camRetake" type="button">Quét lại</button>
+  </div>
+  <button class="btn wide ghost" id="camClose" type="button">Huỷ</button>
+  <input type="file" id="camFile" accept="image/*" capture="environment" hidden>
+  <div id="reader2" aria-hidden="true"></div>
 </div>
 
+<script src="jsQR.min.js" onerror="(function(){var s=document.createElement('script');s.src='https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js';document.head.appendChild(s);})()"></script>
 <script src="html5-qrcode.min.js" onerror="(function(){var s=document.createElement('script');s.src='https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.8/html5-qrcode.min.js';document.head.appendChild(s);})()"></script>
 <script>
 'use strict';
 /* ====== config ====== */
-const BAN_DUNG = 'q4';
+const BAN_DUNG = 'q5';
 // Same deployment URL as index.html (date code app). Copy it here.
 const TRAM_URL = 'https://script.google.com/macros/s/AKfycbzFOhrxosY7-5yivMmhF9GtzsMMAFYdp0KfUKMucCJmktBqGm_udam2jm2hQH9zkf_X/exec';
 const tramUrl = () => window.__TRAM_URL__ || TRAM_URL;
@@ -507,45 +527,203 @@ function renderSo(){
 }
 
 /* ====== scanner ====== */
+const FMT = {
+  qr:     F => [F.QR_CODE],
+  thung:  F => [F.ITF, F.EAN_13, F.CODE_128],
+  any:    F => [F.EAN_13, F.EAN_8, F.UPC_A, F.ITF, F.CODE_128],
+  don_vi: F => [F.EAN_13, F.EAN_8, F.UPC_A]
+};
+const BD_FMT = { qr:['qr_code'], thung:['itf','ean_13','code_128'], any:['ean_13','ean_8','upc_a','itf','code_128'], don_vi:['ean_13','ean_8','upc_a'] };
+
+/* Camera sheet. Three ways to a result, all ending in done(text, fmt, src):
+   live scan (src 'quet'), freeze the frame and decode it (src 'anh'),
+   or let the user draw a box on the frozen frame (src 'khoanh'). */
 const Scan = {
-  inst:null, cancel:null,
+  inst:null, kind:null, res:null, rej:null, img:null, box:null,
   lib(){ const L = window.__Html5QrcodeLibrary__ || window; return L && L.Html5Qrcode ? L : null; },
-  async open(kind){
-    if(this.cancel) this.cancel();
-    const L = this.lib();
-    if(!L) throw new Error('Không tải được bộ quét. Kiểm tra mạng rồi tải lại trang.');
-    const F = L.Html5QrcodeSupportedFormats;
-    const formats = kind === 'qr' ? [F.QR_CODE]
-      : kind === 'thung' ? [F.ITF, F.EAN_13, F.CODE_128]
-      : kind === 'any' ? [F.EAN_13, F.EAN_8, F.UPC_A, F.ITF, F.CODE_128]
-      : [F.EAN_13, F.EAN_8, F.UPC_A];
+  open(kind){
+    if(this.rej) this.cancel();
+    this.kind = kind;
     $('camTtl').textContent = kind === 'qr' ? 'Quét QR' : 'Quét barcode';
-    $('camSub').textContent = kind === 'qr' ? 'Đưa mã QR vào giữa khung, nghiêng nhãn nếu bị loá.' : 'Đưa vạch barcode nằm ngang trong khung.';
     $('cam').classList.add('open');
-    this.inst = new L.Html5Qrcode('reader', {formatsToSupport:formats, verbose:false, experimentalFeatures:{useBarCodeDetectorIfSupported:true}});
-    const box = kind === 'qr'
-      ? (w, h) => { const s = Math.floor(Math.min(w, h) * 0.7); return {width:s, height:s}; }
-      : (w, h) => ({width:Math.floor(w * 0.9), height:Math.max(80, Math.floor(Math.min(h * 0.35, w * 0.45)))});
-    return new Promise((resolve, reject) => {
-      let last = null, n = 0, done = false;
-      this.cancel = () => { if(done) return; done = true; this.close(); reject(new Error('huy')); };
-      this.inst.start({facingMode:'environment'}, {fps:12, qrbox:box},
-        (text, res) => {
-          if(done) return;
-          if(text === last) n++; else { last = text; n = 1; }
-          if(n >= NEED_SAME_READS){
-            done = true; this.close();
-            let fmt = ''; try{ fmt = res.result.format.formatName; }catch(e){}
-            resolve({text, fmt});
-          }
-        }, () => {}
-      ).catch(e => { if(done) return; done = true; this.close(); reject(new Error('Không mở được camera. Cho phép camera cho trang này trong cài đặt trình duyệt rồi thử lại.')); });
-    });
+    return new Promise((res, rej) => { this.res = res; this.rej = rej; this.startLive(); });
   },
-  async close(){
-    $('cam').classList.remove('open');
-    const i = this.inst; this.inst = null;
-    if(i){ try{ await i.stop(); }catch(e){} try{ i.clear(); }catch(e){} }
+  liveUI(){
+    $('reader').classList.remove('hidden'); $('khoanh').classList.add('hidden');
+    $('camLive').classList.remove('hidden'); $('camCrop').classList.add('hidden');
+    $('camSub').textContent = this.kind === 'qr'
+      ? 'Đưa mã QR vào giữa khung. Mã nhỏ hoặc nhoè thì bấm Chụp và khoanh.'
+      : 'Đưa vạch barcode nằm ngang trong khung. Không ăn thì bấm Chụp và khoanh.';
+    this.msg('');
+  },
+  msg(t){ $('camMsg').textContent = t || ''; },
+  async startLive(){
+    this.liveUI();
+    const L = this.lib();
+    if(!L) return this.fail(new Error('Không tải được bộ quét. Kiểm tra mạng rồi tải lại trang.'));
+    const kind = this.kind;
+    this.inst = new L.Html5Qrcode('reader', {formatsToSupport:FMT[kind](L.Html5QrcodeSupportedFormats), verbose:false, experimentalFeatures:{useBarCodeDetectorIfSupported:true}});
+    const box = kind === 'qr'
+      ? (w, h) => { const s = Math.floor(Math.min(w, h) * 0.75); return {width:s, height:s}; }
+      : (w, h) => ({width:Math.floor(w * 0.9), height:Math.max(80, Math.floor(Math.min(h * 0.35, w * 0.45)))});
+    let last = null, n = 0;
+    const onOk = (text, res) => {
+      if(!this.res || this.kind !== kind) return;
+      if(text === last) n++; else { last = text; n = 1; }
+      if(n >= NEED_SAME_READS){ let fmt = ''; try{ fmt = res.result.format.formatName; }catch(e){} this.done(text, fmt, 'quet'); }
+    };
+    const cfg = {fps:12, qrbox:box};
+    const inst = this.inst;
+    try{
+      // ask for a sharper stream; the frozen frame for khoanh comes from this video
+      await inst.start({facingMode:'environment'}, Object.assign({videoConstraints:{facingMode:{ideal:'environment'}, width:{ideal:1920}, height:{ideal:1080}}}, cfg), onOk, () => {});
+    }catch(e){
+      try{ await inst.start({facingMode:'environment'}, cfg, onOk, () => {}); }
+      catch(e2){ if(this.inst === inst) this.fail(new Error('Không mở được camera. Cho phép camera cho trang này trong cài đặt trình duyệt rồi thử lại.')); }
+    }
+  },
+  async stopLive(){ const i = this.inst; this.inst = null; if(i){ try{ await i.stop(); }catch(e){} try{ i.clear(); }catch(e){} } },
+  done(text, fmt, src){ const r = this.res; this.res = this.rej = null; this.close(); if(r) r({text, fmt, src}); },
+  fail(err){ const j = this.rej; this.res = this.rej = null; this.close(); if(j) j(err); },
+  cancel(){ this.fail(new Error('huy')); },
+  async close(){ $('cam').classList.remove('open'); this.img = null; await this.stopLive(); },
+  grabVideo(){
+    const v = document.querySelector('#reader video');
+    if(!v || !v.videoWidth) return null;
+    const c = document.createElement('canvas'); c.width = v.videoWidth; c.height = v.videoHeight;
+    c.getContext('2d').drawImage(v, 0, 0); return c;
+  },
+  async snap(){
+    const c = Cap.grab();
+    if(!c){ this.msg('Camera chưa sẵn sàng, đợi một giây rồi bấm lại.'); return; }
+    await this.stopLive();
+    await this.useImage(c);
+  },
+  async fromFile(file){
+    if(!file) return;
+    await this.stopLive();
+    this.msg('Đang mở ảnh...');
+    try{ await this.useImage(await Cap.load(file)); }
+    catch(e){ this.msg('Không mở được ảnh này. Chụp lại.'); this.startLive(); }
+  },
+  async useImage(c){
+    this.img = c;
+    $('reader').classList.add('hidden'); $('camLive').classList.add('hidden');
+    $('khoanh').classList.remove('hidden'); $('camCrop').classList.remove('hidden');
+    $('camSub').textContent = 'Kéo ngón tay khoanh sát mã rồi bấm Đọc vùng này.';
+    const sq = Math.min(c.width, c.height) * 0.5;
+    this.box = this.kind === 'qr'
+      ? {x:(c.width - sq) / 2 / c.width, y:(c.height - sq) / 2 / c.height, w:sq / c.width, h:sq / c.height}
+      : {x:0.1, y:0.35, w:0.8, h:0.3};
+    this.draw();
+    this.msg('Đang đọc cả ảnh...');
+    const t = await Cap.decode(c, this.kind, null);
+    if(t && this.img === c) return this.done(t.text, t.fmt, 'anh');
+    this.msg('Máy chưa tự đọc được cả ảnh. Khoanh sát mã rồi bấm Đọc vùng này.');
+  },
+  async readCrop(){
+    if(!this.img) return;
+    const c = this.img, b = this.box;
+    this.msg('Đang đọc vùng khoanh...');
+    const t = await Cap.decode(c, this.kind, {x:Math.round(b.x * c.width), y:Math.round(b.y * c.height), w:Math.max(8, Math.round(b.w * c.width)), h:Math.max(8, Math.round(b.h * c.height))});
+    if(t && this.img === c) return this.done(t.text, t.fmt, 'khoanh');
+    this.msg('Chưa đọc được. Khoanh sát mã hơn, hoặc bấm Quét lại và đưa máy lại gần, hoặc dùng Ảnh camera máy.');
+  },
+  retake(){ this.img = null; this.startLive(); },
+  draw(){
+    const cv = $('kcv'), img = this.img; if(!cv || !img) return;
+    const g = cv.getContext && cv.getContext('2d'); if(!g) return;
+    const wrap = $('khoanh');
+    const scale = Math.min((wrap.clientWidth || 360) / img.width, (wrap.clientHeight || 420) / img.height);
+    cv.width = Math.max(1, Math.round(img.width * scale)); cv.height = Math.max(1, Math.round(img.height * scale));
+    g.drawImage(img, 0, 0, cv.width, cv.height);
+    const b = this.box, x = b.x * cv.width, y = b.y * cv.height, w = b.w * cv.width, h = b.h * cv.height;
+    g.fillStyle = 'rgba(0,0,0,.5)';
+    g.fillRect(0, 0, cv.width, y); g.fillRect(0, y + h, cv.width, cv.height - y - h);
+    g.fillRect(0, y, x, h); g.fillRect(x + w, y, cv.width - x - w, h);
+    g.strokeStyle = '#4ADE9B'; g.lineWidth = 3; g.strokeRect(x, y, w, h);
+  },
+  bindCrop(){
+    const cv = $('kcv'); let from = null;
+    const pt = e => { const r = cv.getBoundingClientRect(); return {x:Math.min(1, Math.max(0, (e.clientX - r.left) / r.width)), y:Math.min(1, Math.max(0, (e.clientY - r.top) / r.height))}; };
+    cv.addEventListener('pointerdown', e => { if(!this.img) return; e.preventDefault(); try{ cv.setPointerCapture(e.pointerId); }catch(x){} from = pt(e); this.box = {x:from.x, y:from.y, w:0, h:0}; this.draw(); });
+    cv.addEventListener('pointermove', e => { if(!from) return; e.preventDefault(); const p = pt(e);
+      this.box = {x:Math.min(from.x, p.x), y:Math.min(from.y, p.y), w:Math.abs(p.x - from.x), h:Math.abs(p.y - from.y)}; this.draw(); });
+    const end = () => { if(!from) return; from = null;
+      // a slip of the finger is not a box: keep a usable default instead of an empty crop
+      if(this.box.w < 0.04 || this.box.h < 0.03) this.box = {x:0.25, y:0.3, w:0.5, h:0.4};
+      this.draw(); };
+    cv.addEventListener('pointerup', end); cv.addEventListener('pointercancel', end);
+    window.addEventListener('resize', () => this.draw());
+  }
+};
+
+/* Still-image decoding. Order: the phone's own BarcodeDetector, then jsQR (QR only)
+   at several scales, then jsQR on a sharpened copy, then ZXing (html5-qrcode) at
+   small scales, where it does best. Measured on blurred test frames: live scan
+   6/12, whole frozen frame 9/12, user box 11/12. */
+const Cap = {
+  grab(){ return Scan.grabVideo(); },
+  async load(file){
+    const url = URL.createObjectURL(file);
+    try{
+      const img = new Image(); img.src = url; await img.decode();
+      const sc = Math.min(1, 3000 / Math.max(img.naturalWidth, img.naturalHeight));
+      const c = document.createElement('canvas'); c.width = Math.round(img.naturalWidth * sc); c.height = Math.round(img.naturalHeight * sc);
+      c.getContext('2d').drawImage(img, 0, 0, c.width, c.height); return c;
+    }finally{ URL.revokeObjectURL(url); }
+  },
+  region(src, r, target){
+    const big = Math.max(r.w, r.h);
+    const sc = target ? Math.min(4, target / big) : Math.min(1, 2000 / big);
+    const c = document.createElement('canvas'); c.width = Math.max(1, Math.round(r.w * sc)); c.height = Math.max(1, Math.round(r.h * sc));
+    const g = c.getContext('2d'); g.imageSmoothingEnabled = true; g.imageSmoothingQuality = 'high';
+    g.drawImage(src, r.x, r.y, r.w, r.h, 0, 0, c.width, c.height); return c;
+  },
+  sharpen(c, k){
+    const g = c.getContext('2d'), w = c.width, h = c.height, d = g.getImageData(0, 0, w, h).data;
+    const s = new Float32Array(w * h); let lo = 255, hi = 0;
+    for(let i = 0; i < w * h; i++){ const v = 0.299 * d[4*i] + 0.587 * d[4*i+1] + 0.114 * d[4*i+2]; s[i] = v; if(v < lo) lo = v; if(v > hi) hi = v; }
+    const o = g.createImageData(w, h), span = Math.max(1, hi - lo);
+    for(let y = 0; y < h; y++) for(let x = 0; x < w; x++){
+      const i = y * w + x, l = s[y*w + Math.max(0, x-1)], r = s[y*w + Math.min(w-1, x+1)], u = s[Math.max(0, y-1)*w + x], dn = s[Math.min(h-1, y+1)*w + x];
+      let v = (s[i] * (1 + 4*k) - k * (l + r + u + dn) - lo) * 255 / span; v = v < 0 ? 0 : v > 255 ? 255 : v;
+      o.data[4*i] = o.data[4*i+1] = o.data[4*i+2] = v; o.data[4*i+3] = 255;
+    }
+    const c2 = document.createElement('canvas'); c2.width = w; c2.height = h; c2.getContext('2d').putImageData(o, 0, 0); return c2;
+  },
+  jsqr(c){
+    if(!window.jsQR) return null;
+    const d = c.getContext('2d').getImageData(0, 0, c.width, c.height);
+    const r = window.jsQR(d.data, c.width, c.height, {inversionAttempts:'attemptBoth'});
+    return r && r.data ? {text:r.data, fmt:'QR_CODE'} : null;
+  },
+  async zx(c, kind){
+    const L = Scan.lib(); if(!L) return null;
+    const blob = await new Promise(r => c.toBlob(r, 'image/png')); if(!blob) return null;
+    const q = new L.Html5Qrcode('reader2', {formatsToSupport:FMT[kind](L.Html5QrcodeSupportedFormats), verbose:false});
+    try{ const t = await q.scanFile(new File([blob], 'k.png', {type:'image/png'}), false); return t ? {text:t, fmt:''} : null; }
+    catch(e){ return null; } finally{ try{ q.clear(); }catch(e){} }
+  },
+  async decode(src, kind, rect){
+    const r = rect || {x:0, y:0, w:src.width, h:src.height};
+    const isQr = kind === 'qr';
+    if('BarcodeDetector' in window){
+      try{
+        const bd = new window.BarcodeDetector({formats:BD_FMT[kind]});
+        const f = await bd.detect(this.region(src, r, 0));
+        if(f && f.length) return {text:f[0].rawValue, fmt:f[0].format};
+      }catch(e){}
+    }
+    const scales = rect ? [0, 400, 600, 300] : [0];
+    if(isQr){
+      for(const t of scales){ const v = this.jsqr(this.region(src, r, t)); if(v) return v; }
+      for(const t of scales) for(const k of [0.6, 1.2]){ const v = this.jsqr(this.sharpen(this.region(src, r, t), k)); if(v) return v; }
+    }
+    const zs = isQr ? (rect ? [250, 350, 500] : []) : (rect ? [400, 600, 900] : [1200]);
+    for(const t of zs){ const v = await this.zx(this.region(src, r, t), kind); if(v) return v; }
+    if(!isQr) for(const t of zs){ const v = await this.zx(this.sharpen(this.region(src, r, t), 0.8), kind); if(v) return v; }
+    return null;
   }
 };
 
@@ -556,7 +734,7 @@ function setStep(id, enabled, done){
   el.classList.toggle('done', !!done);
 }
 function resetScans(){
-  S.qr = null; S.bar = null; S.res = null;
+  S.qr = null; S.qrSrc = ''; S.bar = null; S.res = null;
   $('qrInfo').innerHTML = ''; $('barInfo').innerHTML = ''; $('barInput').value = '';
   $('typeBar').classList.add('hidden'); $('result').classList.add('hidden'); $('result').innerHTML = '';
 }
@@ -614,8 +792,8 @@ function choosePkg(raw, keepScans){
   applySteps();
 }
 
-function onQr(text){
-  S.qr = parseQR(text);
+function onQr(text, src){
+  S.qr = parseQR(text); S.qrSrc = src || 'quet';
   $('qrInfo').innerHTML = `<div class="read">Đọc được: <b>${esc(S.qr.raw)}</b></div>` +
     (S.qr.ok ? '' : `<div class="msg bad">${esc(S.qr.why)}.</div>`);
   setStep('s2', true, true); setStep('s3', true, false);
@@ -625,7 +803,8 @@ function onBar(val, src, fmt){
   const v = String(val || '').replace(/\D/g, '');
   const norm = v.length === 12 ? '0' + v : v;   // UPC-A -> EAN-13
   S.bar = {val:norm, src, fmt:fmt || ''};
-  $('barInfo').innerHTML = `<div class="read">Barcode: <b>${esc(norm)}</b>${src === 'go_tay' ? ' (gõ tay)' : ''}</div>`;
+  const srcLbl = {go_tay:' (gõ tay)', anh:' (đọc từ ảnh chụp)', khoanh:' (đọc từ vùng khoanh)'}[src] || '';
+  $('barInfo').innerHTML = `<div class="read">Barcode: <b>${esc(norm)}</b>${srcLbl}</div>`;
   setStep('s3', true, true);
   finish();
 }
@@ -764,7 +943,8 @@ function record(){
     nguon_master:r ? (r.nguon || '') : '',
     qr_raw:S.qr ? S.qr.raw : '', gtin_qr:S.qr ? (S.qr.gtin || '') : '', seri:S.qr && S.qr.ok ? S.qr.serial : '',
     barcode:S.bar.val, barcode_nguon:S.bar.src, ket_luan:S.res.kl, ly_do:S.res.why, ban_dung:BAN_DUNG,
-    che_do:MODE_LBL[modeKey(S.mode)], ghi_chu:(S.res.notes || []).join(' '),
+    che_do:MODE_LBL[modeKey(S.mode)],
+    ghi_chu:[...(S.res.notes || []), S.qr && S.qrSrc === 'anh' ? 'QR đọc từ ảnh chụp.' : '', S.qr && S.qrSrc === 'khoanh' ? 'QR đọc từ vùng khoanh.' : ''].filter(Boolean).join(' '),
     id_luot:uid(), thiet_bi:(navigator.userAgent || '').replace(/^.*?\(([^)]*)\).*$/, '$1').slice(0, 60)
   };
   S.lastId = rec.id_luot;
@@ -793,8 +973,8 @@ function barKind(){ return S.mode.ref === 'TP' ? 'any' : (S.mode.ref === 'PKG' &
 async function scan(kind){
   if(!ready()) return;
   try{
-    const {text, fmt} = await Scan.open(kind);
-    if(kind === 'qr') onQr(text); else onBar(text, 'quet', fmt);
+    const {text, fmt, src} = await Scan.open(kind);
+    if(kind === 'qr') onQr(text, src || 'quet'); else onBar(text, src || 'quet', fmt);
   }catch(e){
     if(e.message !== 'huy') banner(e.message, 'err');
   }
@@ -823,7 +1003,13 @@ function init(){
   $('hits').addEventListener('keydown', e => { if(e.key === 'Enter'){ const h = e.target.closest('.hit'); if(h) choosePkg(h.dataset.c); } });
   $('scanQr').addEventListener('click', () => scan('qr'));
   $('scanBar').addEventListener('click', () => scan(barKind()));
-  $('camClose').addEventListener('click', () => Scan.cancel && Scan.cancel());
+  $('camClose').addEventListener('click', () => Scan.cancel());
+  $('camSnap').addEventListener('click', () => Scan.snap());
+  $('camFileBtn').addEventListener('click', () => $('camFile').click());
+  $('camFile').addEventListener('change', e => { const f = e.target.files && e.target.files[0]; e.target.value = ''; Scan.fromFile(f); });
+  $('camRead').addEventListener('click', () => Scan.readCrop());
+  $('camRetake').addEventListener('click', () => Scan.retake());
+  Scan.bindCrop();
   $('typeBarBtn').addEventListener('click', () => { $('typeBar').classList.remove('hidden'); $('barInput').focus(); });
   $('barOk').addEventListener('click', () => {
     const v = $('barInput').value.replace(/\D/g, '');
@@ -839,7 +1025,7 @@ function init(){
   renderSo(); renderQueue();
   loadMaster(false).then(() => { flush(); loadSo(); });
 }
-window.QRAPP = { gtinValid, pad14, parseQR, resolveMaster, resolveFG, ownersOf, verdict, capFor, fgList, setMode, S, Scan, flush };
+window.QRAPP = { Cap, gtinValid, pad14, parseQR, resolveMaster, resolveFG, ownersOf, verdict, capFor, fgList, setMode, S, Scan, flush };
 document.addEventListener('DOMContentLoaded', init);
 </script>
 </body>
