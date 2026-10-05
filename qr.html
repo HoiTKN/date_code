@@ -245,7 +245,7 @@ button,input,select{font:inherit;color:inherit}
 <script>
 'use strict';
 /* ====== config ====== */
-const BAN_DUNG = 'q6';
+const BAN_DUNG = 'q7';
 // Same deployment URL as index.html (date code app). Copy it here.
 const TRAM_URL = 'https://script.google.com/macros/s/AKfycbzFOhrxosY7-5yivMmhF9GtzsMMAFYdp0KfUKMucCJmktBqGm_udam2jm2hQH9zkf_X/exec';
 const tramUrl = () => window.__TRAM_URL__ || TRAM_URL;
@@ -293,6 +293,8 @@ function resolveMaster(rows, pkg, site){
   const ok = pool.filter(r => r.trang_thai === 'DA_DUYET' && gtinValid(r.gtin));
   const keys = [...new Set(ok.map(r => r.cap + '|' + pad14(r.gtin)))];
   const tail = pending ? ' Đã có đề xuất chờ duyệt.' : '';
+  const badApproved = pool.filter(r => r.trang_thai === 'DA_DUYET' && !gtinValid(r.gtin));
+  if(!keys.length && badApproved.length) return {st:'BARCODE_SAI', msg:`Master của mã này đã duyệt nhưng barcode sai định dạng (${badApproved[0].gtin || 'trống'}). Cần sửa master.`, row:pool[0], pending};
   if(!keys.length) return {st:'CHO_DUYET', msg:'Master của mã này đang chờ duyệt' + (pool[0].ly_do ? ': ' + pool[0].ly_do : '.') + tail, row:pool[0], pending};
   if(keys.length > 1) return {st:'XUNG_DOT', msg:'Master có hơn một barcode cho mã này tại ' + site + '.' + tail, row:ok[0], pending};
   return {st:'OK', row:ok[0]};
@@ -426,18 +428,35 @@ async function callTram(body, {tries = 2, ms = 45000} = {}){
 
 async function loadMaster(force){
   const c = store.get(K.master, null);
-  if(c && !force){ S.rows = c.rows; S.napLuc = c.napLuc; renderMasterSt('bản lưu trên máy ' + c.at); fillList(); }
+  if(c && !force){ S.rows = c.rows; S.napLuc = c.napLuc; fillSites(); renderMasterSt('bản lưu trên máy ' + c.at); fillList(); }
   try{
     $('masterSt').textContent = 'Đang tải master...';
     const j = await callTram({act:'qr_master'});
     S.rows = j.rows || []; S.napLuc = j.nap_luc || '';
     store.set(K.master, {rows:S.rows, napLuc:S.napLuc, at:nowStr()});
-    renderMasterSt('tải lúc ' + nowStr()); fillList();
+    fillSites(); renderMasterSt('tải lúc ' + nowStr()); fillList(); masterHealth();
     if(S.pkg) choosePkg(S.pkg, true);
   }catch(e){
     if(S.rows.length) renderMasterSt('bản lưu trên máy ' + ((c && c.at) || '') + ', trạm lỗi');
     else { renderMasterSt('không có master'); banner('Không tải được master: ' + e.message + '. Không có master thì app không kết luận.', 'err'); }
   }
+}
+/* Site list comes from the master: every site that has rows, the four factories first. */
+const SITE_ORDER = ['MBP','MGP','MIP','MHP'];
+function fillSites(){
+  const sel = $('site'), cur = sel.value || store.get(K.site, '');
+  const found = [...new Set(S.rows.map(r => (r.site || '').trim()).filter(Boolean))];
+  const list = [...SITE_ORDER, ...found.filter(x => !SITE_ORDER.includes(x)).sort()];
+  if(cur && !list.includes(cur)) list.push(cur);
+  sel.innerHTML = '<option value="">Site</option>' + list.map(x => `<option>${esc(x)}</option>`).join('');
+  sel.value = cur;
+}
+/* Approved rows the app cannot use (barcode not a valid GTIN, e.g. lost leading digit or '.00') */
+function masterHealth(){
+  const bad = S.rows.filter(r => r.trang_thai === 'DA_DUYET' && !gtinValid(r.gtin));
+  if(!bad.length) return;
+  const ex = bad.slice(0, 6).map(r => `${r.ma_pkg} (${r.site || '?'}): ${r.gtin || 'trống'}`).join('; ');
+  banner(`Master có ${bad.length} dòng đã duyệt nhưng barcode sai định dạng, app không dùng được: ${ex}${bad.length > 6 ? '...' : ''}. Kiểm lại ô barcode (thiếu số đầu, có đuôi .00, hoặc bị đổi sang số).`, 'err');
 }
 function renderMasterSt(t){
   const n = S.rows.filter(r => r.nguon === 'BO_SUNG' && r.trang_thai !== 'DA_DUYET').length;
