@@ -181,6 +181,7 @@ button,input,select{font:inherit;color:inherit}
 
   <section class="step" id="s2" aria-disabled="true">
     <h2><span class="n" id="n2">2</span>Quét QR trên nhãn</h2>
+    <p class="hint hidden" id="qrOpt">Thùng: có QR thì quét QR trước, thùng cũ không có QR thì quét barcode luôn.</p>
     <button class="btn pri wide" id="scanQr" type="button">Mở camera quét QR</button>
     <div id="qrInfo"></div>
   </section>
@@ -245,11 +246,12 @@ button,input,select{font:inherit;color:inherit}
 <script>
 'use strict';
 /* ====== config ====== */
-const BAN_DUNG = 'q7';
+const BAN_DUNG = 'q9';
 // Same deployment URL as index.html (date code app). Copy it here.
 const TRAM_URL = 'https://script.google.com/macros/s/AKfycbzFOhrxosY7-5yivMmhF9GtzsMMAFYdp0KfUKMucCJmktBqGm_udam2jm2hQH9zkf_X/exec';
 const tramUrl = () => window.__TRAM_URL__ || TRAM_URL;
-const QR_RE = /^https:\/\/i\.tcx\.com\.vn\/(\d{13})([0-9a-f]{11})$/i;
+// unit labels: 13-digit GTIN + 11 hex serial; cartons (from 10/2026): 14-digit GTIN + 11 hex serial
+const QR_RE = /^https:\/\/i\.tcx\.com\.vn\/(\d{14}|\d{13})([0-9a-f]{11})$/i;
 const NEED_SAME_READS = 2;
 const K = { site:'qr_site', nguoi:'qr_nguoi', master:'qr_master_cache', queue:'qr_queue', hist:'qr_history', recent:'qr_recent', recentTp:'qr_recent_tp', mode:'qr_mode' };
 
@@ -261,16 +263,25 @@ function gtinValid(s){
   return (10 - t%10)%10 === c;
 }
 const pad14 = s => String(s||'').padStart(14,'0');
+/* EXACT: same GTIN. CAP: same product, one is the unit (EAN-13, indicator 0) and the
+   other a carton GTIN-14 built from it (indicator 1-8, GS1 rule). NONE otherwise.
+   Two different cartons (indicator 1 vs 2) are NONE. */
+function gtinRel(a, b){
+  const A = pad14(a), B = pad14(b);
+  if(A === B) return 'EXACT';
+  if(A.slice(1, 13) === B.slice(1, 13) && (A[0] === '0') !== (B[0] === '0')) return 'CAP';
+  return 'NONE';
+}
 
 function parseQR(raw){
   const t = String(raw||'').trim();
-  const g = (t.match(/i\.tcx\.com\.vn\/(\d{13})/i) || [])[1] || '';
+  const g = (t.match(/i\.tcx\.com\.vn\/(\d{13,14})/i) || [])[1] || '';
   const m = t.match(QR_RE);
   if(!m){
     if(!/^https:\/\/i\.tcx\.com\.vn\//i.test(t)) return {ok:false, raw:t, gtin:g, why:'QR không trỏ về https://i.tcx.com.vn/'};
-    return {ok:false, raw:t, gtin:g, why:'QR sai định dạng (cần 13 số barcode và 11 ký tự sê-ri)'};
+    return {ok:false, raw:t, gtin:g, why:'QR sai định dạng (cần 13 hoặc 14 số barcode và 11 ký tự sê-ri)'};
   }
-  if(!gtinValid(m[1])) return {ok:false, raw:t, gtin:m[1], why:'13 số trong QR sai số kiểm tra'};
+  if(!gtinValid(m[1])) return {ok:false, raw:t, gtin:m[1], why:`${m[1].length} số trong QR sai số kiểm tra`};
   return {ok:true, raw:t, gtin:m[1], serial:m[2].toLowerCase()};
 }
 
@@ -310,7 +321,7 @@ function fgPool(rows, site){
     (r.nguon === 'BO_SUNG' ? r.trang_thai === 'DA_DUYET' : (r.trang_thai === 'DA_DUYET' || r.trang_thai === 'XUNG_DOT')));
 }
 function resolveFG(rows, tp, site){
-  const any = rows.filter(r => r.item_tp === tp);
+  const any = rows.filter(r => hasCode(r.item_tp, tp));
   if(!any.length) return {st:'KHONG_CO', msg:'Mã thành phẩm này chưa có trong master barcode.'};
   const here = any.filter(r => r.site === site);
   if(!here.length) return {st:'KHAC_SITE', msg:`Thành phẩm này chỉ có barcode đăng ký ở ${[...new Set(any.map(r => r.site || 'không rõ'))].join(', ')}, chưa có cho ${site}.`, row:{item_tp:tp, ten_sp:any[0].ten_sp, cap:'TP'}};
@@ -327,6 +338,14 @@ function ownersOf(rows, site, gtin){
   return [...seen.values()];
 }
 const fgName = o => `${o.item_tp} ${o.ten_sp}`;
+/* FG cells may hold several codes ("03OT00198, 03OT00160", "03NM00934 (MN), 03NM00935 (MB)") */
+function codesOf(s){
+  const m = String(s || '').toUpperCase().match(/\b\d{2}[A-Z]{2}\d{3,6}\b/g);
+  return m && m.length ? [...new Set(m)] : (String(s || '').trim() ? [String(s).trim().toUpperCase()] : []);
+}
+const hasCode = (cell, tp) => codesOf(cell).includes(tp);
+/* letter O / digit 0 and letter I / digit 1 look alike on paper and on keyboards */
+const canon = s => String(s || '').toUpperCase().replace(/O/g, '0').replace(/I/g, '1');
 const MODE_LBL = { 'PKG|1':'PKG–QR–barcode', 'PKG|0':'PKG–barcode', 'TP|1':'TP–QR–barcode', 'TP|0':'TP–barcode', 'NONE|1':'QR–barcode' };
 const modeKey = md => md.ref + '|' + (md.qr ? 1 : 0);
 
@@ -338,54 +357,65 @@ function verdict(ctx){
   const {m, qr, bar, seen} = ctx;
   const mode = ctx.mode || {ref:'PKG', qr:true};
   const cap = ctx.cap || capFor(m, '');
-  const useQr = mode.ref === 'NONE' || (mode.qr && !(mode.ref === 'PKG' && cap === 'THUNG'));
+  const need = ctx.qrNeed || (mode.ref === 'NONE' ? 'yes' : !mode.qr ? 'no' : (mode.ref === 'PKG' && cap === 'THUNG') ? 'opt' : 'yes');
+  const useQr = need === 'yes' || (need === 'opt' && !!qr);
+  const scope = mode.ref === 'NONE' ? 'QR–barcode' : `${mode.ref}–${useQr ? 'QR–' : ''}barcode`;
+  const R = o => Object.assign(o, {scope, usedQr:useQr});
   const owners = ctx.owners || [];
   const notes = [];
-  if(!bar || !gtinValid(bar.val)) return {kl:'CẦN XÁC NHẬN', why:'Số barcode không hợp lệ. Quét lại.', code:'BAR', notes};
+  if(!bar || !gtinValid(bar.val)) return R({kl:'CẦN XÁC NHẬN', why:'Số barcode không hợp lệ. Quét lại.', code:'BAR', notes});
   if(useQr){
-    if(!qr) return {kl:'CẦN XÁC NHẬN', why:'Chưa quét QR.', code:'NO_QR', notes};
-    if(!qr.ok) return {kl:'KHÔNG ĐẠT', why:qr.why + '.', code:'QR_BAD', notes};
-    if(pad14(qr.gtin) !== pad14(bar.val)) return {kl:'KHÔNG ĐẠT', why:'Mã trong QR khác barcode in trên nhãn.', code:'QR_NE_BAR', notes};
+    if(!qr) return R({kl:'CẦN XÁC NHẬN', why:'Chưa quét QR.', code:'NO_QR', notes});
+    if(!qr.ok) return R({kl:'KHÔNG ĐẠT', why:qr.why + '.', code:'QR_BAD', notes});
+    const rel = gtinRel(qr.gtin, bar.val);
+    if(rel === 'NONE') return R({kl:'KHÔNG ĐẠT', why:'Mã trong QR khác barcode in trên nhãn.', code:'QR_NE_BAR', notes});
+    if(rel === 'CAP'){
+      const [c14, u13] = qr.gtin.length === 14 ? [qr.gtin, bar.val] : [bar.val, qr.gtin];
+      notes.push(`QR mang mã thùng ${c14}, barcode quét được là mã đơn vị ${u13}: cùng sản phẩm, khác cấp đóng gói (quy tắc GS1). Nếu thùng có in barcode 14 số thì quét barcode đó để so đúng cấp.`);
+    }
   }
   const dup = (useQr && seen && seen.has(qr.serial)) ? seen.get(qr.serial) : null;
   const dupTxt = dup ? `Sê-ri ${qr.serial} đã có trong sổ (${dup.at}, mã ${dup.pkg}). Nếu đây là nhãn khác thì nhà in đã in trùng mã.` : '';
 
   if(mode.ref === 'NONE'){
     if(owners.length) notes.push('Barcode này đăng ký cho: ' + owners.map(fgName).join('; ') + '.');
-    if(dup) return {kl:'CẦN XÁC NHẬN', code:'DUP', why:dupTxt, notes};
-    return {kl:'ĐẠT', why:'', code:'OK', notes};
+    if(dup) return R({kl:'CẦN XÁC NHẬN', code:'DUP', why:dupTxt, notes});
+    return R({kl:'ĐẠT', why:'', code:'OK', notes});
   }
 
   if(mode.ref === 'TP'){
-    if(!m || m.st !== 'OK') return {kl:'CẦN XÁC NHẬN', code:'NO_MASTER', notes,
-      why:(useQr ? 'QR khớp barcode. ' : 'Đọc được barcode. ') + (m ? m.msg : 'Chưa chọn mã thành phẩm.') + ' Chưa đối chiếu được đúng sản phẩm.'};
-    const hit = m.gtins.find(g => pad14(g.gtin) === pad14(bar.val));
+    if(!m || m.st !== 'OK') return R({kl:'CẦN XÁC NHẬN', code:'NO_MASTER', notes,
+      why:(useQr ? 'QR khớp barcode. ' : 'Đọc được barcode. ') + (m ? m.msg : 'Chưa chọn mã thành phẩm.') + ' Chưa đối chiếu được đúng sản phẩm.'});
+    const hit = m.gtins.find(g => gtinRel(g.gtin, bar.val) === 'EXACT') || (useQr ? m.gtins.find(g => gtinRel(g.gtin, qr.gtin) === 'EXACT') : null);
     if(!hit){
-      const own = owners.filter(o => o.item_tp !== m.row.item_tp);
-      return {kl:'KHÔNG ĐẠT', code:'NE_FG', notes,
+      const own = owners.filter(o => !hasCode(o.item_tp, m.row.item_tp));
+      return R({kl:'KHÔNG ĐẠT', code:'NE_FG', notes,
         why:`Barcode không thuộc thành phẩm ${m.row.item_tp}. Barcode đăng ký: ${m.gtins.map(g => g.gtin).join(', ')}.` +
-            (own.length ? ` Barcode trên bao bì là của ${own.map(fgName).join('; ')}.` : '')};
+            (own.length ? ` Barcode trên bao bì là của ${own.map(fgName).join('; ')}.` : '')});
     }
     const same = m.gtins.filter(g => g.cap === hit.cap);
     if(same.length > 1) notes.push(`Thành phẩm có ${same.length} barcode ${hit.cap === 'THUNG' ? 'thùng' : 'đơn vị'} đăng ký: ` +
       same.map(g => g.gtin + (g.ngay ? ` (${g.ngay})` : '')).join(', ') + `. Bao bì đang dùng ${hit.gtin}.`);
-    const also = owners.filter(o => o.item_tp !== m.row.item_tp);
+    const also = owners.filter(o => !hasCode(o.item_tp, m.row.item_tp));
     if(also.length) notes.push('Barcode này cũng đăng ký cho: ' + also.map(fgName).join('; ') + '. QA đối chiếu HDĐG để chắc đang chạy đúng thành phẩm.');
-    if(dup) return {kl:'CẦN XÁC NHẬN', code:'DUP', why:dupTxt, notes};
-    return {kl:'ĐẠT', why:'', code:'OK', notes, hit:hit.gtin};
+    if(dup) return R({kl:'CẦN XÁC NHẬN', code:'DUP', why:dupTxt, notes});
+    return R({kl:'ĐẠT', why:'', code:'OK', notes, hit:hit.gtin});
   }
 
   // PKG mode
   if(!m || m.st !== 'OK'){
-    return {kl:'CẦN XÁC NHẬN', code:'NO_MASTER', notes,
+    return R({kl:'CẦN XÁC NHẬN', code:'NO_MASTER', notes,
       why:(useQr ? 'QR khớp barcode. ' : 'Đọc được barcode. ') + (m ? m.msg : 'Chưa chọn mã PKG.') +
-          ' Chưa đối chiếu được đúng sản phẩm.' + (dup ? ' ' + dupTxt : '')};
+          ' Chưa đối chiếu được đúng sản phẩm.' + (dup ? ' ' + dupTxt : '')});
   }
-  if(pad14(bar.val) !== pad14(m.row.gtin)) return {kl:'KHÔNG ĐẠT', code:'NE_MASTER', notes, why: cap === 'DON_VI'
+  const okBar = gtinRel(bar.val, m.row.gtin) === 'EXACT', okQr = useQr && gtinRel(qr.gtin, m.row.gtin) === 'EXACT';
+  if(!okBar && !okQr && gtinRel(bar.val, m.row.gtin) === 'CAP') return R({kl:'CẦN XÁC NHẬN', code:'CAP_MASTER', notes,
+      why:`Barcode quét được (${bar.val}) cùng sản phẩm nhưng khác cấp với master (${m.row.gtin}). Quét đúng barcode ${m.row.gtin.length === 14 ? 'thùng 14 số' : 'đơn vị 13 số'}.`});
+  if(!okBar && !okQr) return R({kl:'KHÔNG ĐẠT', code:'NE_MASTER', notes, why: cap === 'DON_VI'
       ? (useQr ? 'QR và barcode khớp nhau nhưng khác master của mã PKG này. Có thể sai cuộn hoặc sai file thiết kế.' : 'Barcode khác master của mã PKG này. Có thể sai cuộn hoặc sai file thiết kế.')
-      : 'Barcode thùng khác master của mã PKG này.'};
-  if(dup) return {kl:'CẦN XÁC NHẬN', code:'DUP', why:dupTxt, notes};
-  return {kl:'ĐẠT', why:'', code:'OK', notes};
+      : 'Barcode thùng khác master của mã PKG này.'});
+  if(dup) return R({kl:'CẦN XÁC NHẬN', code:'DUP', why:dupTxt, notes});
+  return R({kl:'ĐẠT', why:'', code:'OK', notes});
 }
 const tone = kl => kl === 'ĐẠT' ? 'pass' : kl === 'KHÔNG ĐẠT' ? 'fail' : kl === 'CẦN XÁC NHẬN' ? 'warn' : 'none';
 
@@ -469,12 +499,12 @@ const fold = s => String(s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '
 function entries(){
   if(S.mode.ref === 'TP'){
     const by = new Map();
-    S.rows.filter(r => r.item_tp).forEach(r => {
-      const k = r.item_tp + '|' + r.site;
-      const e = by.get(k) || {key:r.item_tp, site:r.site, title:r.ten_sp, gt:new Set(), hay:[r.item_tp, r.ten_sp]};
+    S.rows.filter(r => r.item_tp).forEach(r => codesOf(r.item_tp).forEach(code => {
+      const k = code + '|' + r.site;
+      const e = by.get(k) || {key:code, site:r.site, title:r.ten_sp, gt:new Set(), hay:[code, r.ten_sp]};
       if(gtinValid(r.gtin) && (r.nguon === 'BO_SUNG' ? r.trang_thai === 'DA_DUYET' : true)) { e.gt.add(r.gtin); e.hay.push(r.gtin); }
       by.set(k, e);
-    });
+    }));
     return [...by.values()].map(e => Object.assign(e, {tag:`${e.gt.size} barcode`, cho:!e.gt.size, sub:''}));
   }
   return S.rows.map(r => ({key:r.ma_pkg, site:r.site, title:r.ten_sp, sub:r.item_tp ? 'TP ' + r.item_tp : '',
@@ -483,7 +513,7 @@ function entries(){
 function matchRows(q, list){
   const Q = fold(q).trim(); if(Q.length < 2) return [];
   const words = Q.split(/\s+/);
-  return list.filter(e => { const hay = fold(e.hay.join(' ')); return words.every(w => hay.includes(w)); });
+  return list.filter(e => { const hay = fold(e.hay.join(' ')), hc = canon(hay); return words.every(w => hay.includes(w) || canon(w).length >= 4 && hc.includes(canon(w))); });
 }
 function hitHtml(e){
   const cho = e.cho ? `<span class="tag cho">${S.mode.ref === 'TP' ? 'chưa có barcode' : 'chờ duyệt'}</span>` : '';
@@ -519,6 +549,13 @@ function pickTyped(){
   const all = entries();
   if(all.some(e => e.key === up)) return choosePkg(up);
   const site = $('site').value;
+  // typed 0 for O (030T00534) or 1 for I: accept when exactly one code matches that way
+  const near = [...new Set(all.filter(e => canon(e.key) === canon(up)).map(e => e.key))];
+  if(near.length === 1){
+    choosePkg(near[0]);
+    $('pkgInfo').insertAdjacentHTML('afterbegin', `<div class="msg">Đã hiểu ${esc(up)} là ${esc(near[0])} (chữ O và số 0 dễ nhầm).</div>`);
+    return;
+  }
   const hits = [...new Set(matchRows(raw, all.filter(e => e.site === site)).map(e => e.key))];
   if(hits.length === 1) return choosePkg(hits[0]);
   if(hits.length > 1){ renderHits(); $('pkgInfo').innerHTML = `<div class="msg warn">Có ${hits.length} mã khớp. Chạm vào đúng mã trong danh sách.</div>`; return; }
@@ -885,7 +922,13 @@ function ready(){
   banner(''); return true;
 }
 
-function useQrNow(){ return S.mode.ref === 'NONE' || (S.mode.qr && !(S.mode.ref === 'PKG' && capFor(S.m, S.pkg) === 'THUNG')); }
+/* 'yes' QR required, 'opt' carton in PKG mode (cartons from 10/2026 carry a QR, older ones don't), 'no' */
+function qrNeed(){
+  if(S.mode.ref === 'NONE') return 'yes';
+  if(!S.mode.qr) return 'no';
+  return (S.mode.ref === 'PKG' && capFor(S.m, S.pkg) === 'THUNG') ? 'opt' : 'yes';
+}
+function useQrNow(){ return qrNeed() !== 'no'; }
 function applySteps(){
   const none = S.mode.ref === 'NONE', q = useQrNow(), have = none || !!S.pkg;
   $('s1').classList.toggle('hidden', none);
@@ -897,7 +940,8 @@ function applySteps(){
   $('n3').textContent = String(n0 + (q ? 2 : 1));
   setStep('s1', true, !!S.pkg);
   setStep('s2', have, !!S.qr);
-  setStep('s3', have && (!q || !!S.qr), !!S.bar);
+  setStep('s3', have && (qrNeed() !== 'yes' || !!S.qr), !!S.bar);
+  $('qrOpt').classList.toggle('hidden', qrNeed() !== 'opt');
   $('s3t').textContent = S.mode.ref === 'TP' ? 'Quét barcode trên bao bì' : 'Quét barcode trên nhãn';
   $('modeLbl').textContent = 'Phạm vi: ' + MODE_LBL[modeKey(S.mode)];
   document.querySelectorAll('[data-ref]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.ref === S.mode.ref)));
@@ -937,8 +981,8 @@ function onQr(text, src){
   S.qr = parseQR(text); S.qrSrc = src || 'quet';
   $('qrInfo').innerHTML = `<div class="read">Đọc được: <b>${esc(S.qr.raw)}</b></div>` +
     (S.qr.ok ? '' : `<div class="msg bad">${esc(S.qr.why)}.</div>`);
-  setStep('s2', true, true); setStep('s3', true, false);
-  if(S.bar) finish();
+  setStep('s2', true, true); setStep('s3', true, !!S.bar);
+  if(S.bar && !S.res) finish();
 }
 function onBar(val, src, fmt){
   const v = String(val || '').replace(/\D/g, '');
@@ -950,24 +994,28 @@ function onBar(val, src, fmt){
   finish();
 }
 
-function cellsHtml(val, ref, len){
+function cellsHtml(val, ref, len, mark = true){
   if(!val) return '<div class="cells empty">không có</div>';
   const a = pad14(val).slice(14 - len), b = ref ? pad14(ref).slice(14 - len) : a;
-  return '<div class="cells">' + [...a].map((c, i) => `<span class="${c !== b[i] ? 'x' : ''}">${c}</span>`).join('') + '</div>';
+  return '<div class="cells">' + [...a].map((c, i) => `<span class="${mark && c !== b[i] ? 'x' : ''}">${c}</span>`).join('') + '</div>';
 }
 
 function finish(){
-  const cap = capFor(S.m, S.pkg), q = useQrNow();
-  if(q && !S.qr) return;                      // wait for QR
+  const cap = capFor(S.m, S.pkg), need = qrNeed();
+  if(need === 'yes' && !S.qr) return;         // wait for QR
   if(!S.bar) return;
   if(S.mode.ref !== 'NONE' && !S.pkg) return;
   const seen = new Map([...seenMap(), ...S.sessionSeen]);
   const owners = ownersOf(S.rows, $('site').value, S.bar.val);
-  S.res = verdict({mode:S.mode, m:S.m, qr:S.qr, bar:S.bar, seen, cap, owners});
+  if(S.qr && S.qr.ok && gtinRel(S.qr.gtin, S.bar.val) === 'CAP')
+    ownersOf(S.rows, $('site').value, S.qr.gtin).forEach(o => { if(!owners.some(x => x.item_tp === o.item_tp)) owners.push(o); });
+  S.res = verdict({mode:S.mode, m:S.m, qr:S.qr, bar:S.bar, seen, cap, owners, qrNeed:need});
+  const q = S.res.usedQr;
   let gm = '';
   if(S.mode.ref === 'PKG' && S.m && S.m.st === 'OK') gm = S.m.row.gtin;
   if(S.mode.ref === 'TP' && S.m && S.m.st === 'OK') gm = S.res.hit || (S.m.gtins.find(g => g.gtin.length === S.bar.val.length) || S.m.gtins[0]).gtin;
-  const len = [S.bar.val, gm].some(x => x && x.length === 14 && x[0] !== '0') ? 14 : 13;
+  const len = [S.bar.val, gm, q && S.qr && S.qr.gtin].some(x => x && x.length === 14 && x[0] !== '0') ? 14 : 13;
+  const mark = S.res.kl !== 'ĐẠT';
   const ref = gm || S.bar.val;
   const rows = [];
   if(q) rows.push(['QR', S.qr && S.qr.gtin]);
@@ -977,10 +1025,10 @@ function finish(){
   $('result').innerHTML = `
     <div class="verdict ${t}">
       <div class="kl">${esc(S.res.kl)}</div>
-      <div class="scope">Phạm vi: ${esc(MODE_LBL[modeKey(S.mode)])}</div>
+      <div class="scope">Phạm vi: ${esc(S.res.scope)}</div>
       ${S.res.why ? `<div class="why">${esc(S.res.why)}</div>` : ''}
       ${S.res.notes && S.res.notes.length ? `<div class="notes">${S.res.notes.map(n => `<p>${esc(n)}</p>`).join('')}</div>` : ''}
-      <div class="digits">${rows.map(([l, v]) => `<div class="drow"><span class="lab">${l}</span>${cellsHtml(v, ref, len)}</div>`).join('')}</div>
+      <div class="digits">${rows.map(([l, v]) => `<div class="drow"><span class="lab">${l}</span>${cellsHtml(v, ref, len, mark)}</div>`).join('')}</div>
       <div class="logst" id="logSt">Đang ghi sổ...</div>
     </div>
     <div class="after">
@@ -990,7 +1038,7 @@ function finish(){
     <div id="propose"></div>`;
   $('result').classList.remove('hidden');
   // same PKG, next label: open the camera straight away (the tap is the user gesture iOS needs)
-  $('nextLabel').onclick = () => { resetScans(); if(S.pkg) choosePkg(S.pkg); else applySteps(); scan(useQrNow() ? 'qr' : barKind()); };
+  $('nextLabel').onclick = () => { resetScans(); if(S.pkg) choosePkg(S.pkg); else applySteps(); scan(qrNeed() === 'yes' ? 'qr' : barKind()); };
   $('newPkg').onclick = () => { setMode(S.mode); if(S.mode.ref !== 'NONE'){ renderHits(); $('pkg').focus(); } };
   feedback(t);
   $('result').scrollIntoView({block:'start', behavior:'smooth'});
@@ -1084,7 +1132,7 @@ function record(){
     nguon_master:r ? (r.nguon || '') : '',
     qr_raw:S.qr ? S.qr.raw : '', gtin_qr:S.qr ? (S.qr.gtin || '') : '', seri:S.qr && S.qr.ok ? S.qr.serial : '',
     barcode:S.bar.val, barcode_nguon:S.bar.src, ket_luan:S.res.kl, ly_do:S.res.why, ban_dung:BAN_DUNG,
-    che_do:MODE_LBL[modeKey(S.mode)],
+    che_do:S.res.scope,
     ghi_chu:[...(S.res.notes || []), S.qr && S.qrSrc === 'anh' ? 'QR đọc từ ảnh chụp.' : '', S.qr && S.qrSrc === 'khoanh' ? 'QR đọc từ vùng khoanh.' : ''].filter(Boolean).join(' '),
     id_luot:uid(), thiet_bi:(navigator.userAgent || '').replace(/^.*?\(([^)]*)\).*$/, '$1').slice(0, 60)
   };
@@ -1110,7 +1158,7 @@ function feedback(t){
   }catch(e){}
 }
 
-function barKind(){ return S.mode.ref === 'TP' ? 'any' : (S.mode.ref === 'PKG' && capFor(S.m, S.pkg) === 'THUNG') ? 'thung' : 'don_vi'; }
+function barKind(){ return (S.mode.ref === 'TP' || S.mode.ref === 'NONE') ? 'any' : (S.mode.ref === 'PKG' && capFor(S.m, S.pkg) === 'THUNG') ? 'thung' : 'don_vi'; }
 async function scan(kind){
   if(!ready()) return;
   const q = useQrNow();
@@ -1186,7 +1234,7 @@ function init(){
   renderSo(); renderQueue();
   loadMaster(false).then(() => { flush(); loadSo(); });
 }
-window.QRAPP = { Live, Cap, gtinValid, pad14, parseQR, resolveMaster, resolveFG, ownersOf, verdict, capFor, fgList, setMode, S, Scan, flush };
+window.QRAPP = { gtinRel, codesOf, canon, Live, Cap, gtinValid, pad14, parseQR, resolveMaster, resolveFG, ownersOf, verdict, capFor, fgList, setMode, S, Scan, flush };
 document.addEventListener('DOMContentLoaded', init);
 </script>
 </body>
