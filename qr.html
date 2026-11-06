@@ -109,6 +109,13 @@ button,input,select{font:inherit;color:inherit}
 .dot.pass{background:var(--pass)} .dot.fail{background:var(--fail)} .dot.warn{background:var(--warn)}
 .lrow .t{color:var(--ink2);font-size:12px}
 .lrow .who{font-size:12px;color:var(--ink2);text-align:right}
+.lo{background:var(--card);border:1px solid var(--rule);border-radius:8px;padding:10px 12px;margin-bottom:12px}
+.lo h2{font-size:15px;font-weight:600;margin:0 0 6px}
+.lo textarea{width:100%;box-sizing:border-box;min-height:64px;border:1.5px solid var(--rule);border-radius:8px;padding:8px 10px;font-size:15px;font-family:inherit}
+.lo .chips{display:flex;flex-wrap:wrap;gap:6px;margin:6px 0}
+.lo .chip{font-size:13px;background:#F2F4F5;border-radius:12px;padding:3px 9px;font-variant-numeric:tabular-nums}
+.lo .acts{display:flex;gap:8px;margin-top:8px}
+.lo .acts .btn{flex:1}
 .foot{margin-top:18px;font-size:12px;color:var(--ink2);display:flex;justify-content:space-between;gap:8px;align-items:center}
 
 /* camera sheet */
@@ -167,6 +174,11 @@ button,input,select{font:inherit;color:inherit}
         <button type="button" data-qr="0" aria-pressed="false">Không</button>
       </span>
       <span class="hint" id="modeLbl"></span></div>
+  </section>
+
+  <section class="lo" id="loBox" aria-label="Lô nhận hàng">
+    <h2>Lô nhãn QR đang kiểm</h2>
+    <div id="loBody"></div>
   </section>
 
   <section class="step" id="s1">
@@ -246,16 +258,35 @@ button,input,select{font:inherit;color:inherit}
 <script>
 'use strict';
 /* ====== config ====== */
-const BAN_DUNG = 'q9';
+const BAN_DUNG = 'q10';
 // Same deployment URL as index.html (date code app). Copy it here.
 const TRAM_URL = 'https://script.google.com/macros/s/AKfycbzFOhrxosY7-5yivMmhF9GtzsMMAFYdp0KfUKMucCJmktBqGm_udam2jm2hQH9zkf_X/exec';
 const tramUrl = () => window.__TRAM_URL__ || TRAM_URL;
 // unit labels: 13-digit GTIN + 11 hex serial; cartons (from 10/2026): 14-digit GTIN + 11 hex serial
 const QR_RE = /^https:\/\/i\.tcx\.com\.vn\/(\d{14}|\d{13})([0-9a-f]{11})$/i;
 const NEED_SAME_READS = 2;
-const K = { site:'qr_site', nguoi:'qr_nguoi', master:'qr_master_cache', queue:'qr_queue', hist:'qr_history', recent:'qr_recent', recentTp:'qr_recent_tp', mode:'qr_mode' };
+const K = { site:'qr_site', nguoi:'qr_nguoi', master:'qr_master_cache', queue:'qr_queue', hist:'qr_history', recent:'qr_recent', recentTp:'qr_recent_tp', mode:'qr_mode', lo:'qr_lo' };
 
 /* ====== pure logic (tested) ====== */
+/* File ids on the carton label: 14-digit timestamps joined by '&'. Ids wrap across lines,
+   so whitespace is removed first. Same rule as doc_tem() in qr_check.py. */
+function temFiles(text){
+  const flat = String(text || '').replace(/\s+/g, '');
+  const out = [];
+  flat.split(/[&,;]/).forEach(tok => {
+    (tok.match(/20\d{12}/g) || []).forEach(id => {
+      const y = +id.slice(0,4), mo = +id.slice(4,6), d = +id.slice(6,8), h = +id.slice(8,10), mi = +id.slice(10,12), se = +id.slice(12,14);
+      const ok = mo >= 1 && mo <= 12 && d >= 1 && d <= 31 && h < 24 && mi < 60 && se < 60 && y >= 2020;
+      if(ok && !out.includes(id)) out.push(id);
+    });
+  });
+  return out;
+}
+const CSV_COLS = ['lo_kiem','file_qr','thoi_gian_may','site','nguoi_kiem','ma_pkg','qr_raw','seri','ket_luan','ly_do','id_luot'];
+function toCsv(rows){
+  const q = v => { const t = String(v == null ? '' : v); return /[",\n]/.test(t) ? '"' + t.replace(/"/g, '""') + '"' : t; };
+  return '\ufeff' + [CSV_COLS.join(','), ...rows.map(r => CSV_COLS.map(c => q(r[c])).join(','))].join('\r\n');
+}
 function gtinValid(s){
   if(!/^(\d{8}|\d{12,14})$/.test(s || '')) return false;
   const d=[...s].map(Number), c=d.pop();
@@ -1134,11 +1165,13 @@ function record(){
     barcode:S.bar.val, barcode_nguon:S.bar.src, ket_luan:S.res.kl, ly_do:S.res.why, ban_dung:BAN_DUNG,
     che_do:S.res.scope,
     ghi_chu:[...(S.res.notes || []), S.qr && S.qrSrc === 'anh' ? 'QR đọc từ ảnh chụp.' : '', S.qr && S.qrSrc === 'khoanh' ? 'QR đọc từ vùng khoanh.' : ''].filter(Boolean).join(' '),
+    lo_kiem:S.lo ? S.lo.id : '', file_qr:S.lo ? S.lo.files.join('&') : '',
     id_luot:uid(), thiet_bi:(navigator.userAgent || '').replace(/^.*?\(([^)]*)\).*$/, '$1').slice(0, 60)
   };
   S.lastId = rec.id_luot;
   if(rec.seri) S.sessionSeen.set(rec.seri, {at:nowStr(), pkg:rec.ma_pkg || rec.item_tp || 'QR–barcode'});
-  store.set(K.hist, [rec, ...store.get(K.hist, [])].slice(0, 200));
+  store.set(K.hist, [rec, ...store.get(K.hist, [])].slice(0, 1000));
+  renderLo();
   store.set(K.queue, [...queue(), rec]);
   renderSo();
   flush().then(ok => {
@@ -1187,6 +1220,56 @@ async function prepWasm(){
 }
 
 /* ====== wiring ====== */
+/* ====== lô nhận hàng ====== */
+function loRows(){ return S.lo ? store.get(K.hist, []).filter(r => r.lo_kiem === S.lo.id).reverse() : []; }
+function renderLo(){
+  const b = $('loBody'); if(!b) return;
+  if(!S.lo){
+    b.innerHTML = `<p class="hint">Kiểm nhận lô nhãn QR mới: dán chữ trên tem thùng (dòng File QR) rồi bấm Bắt đầu lô. Mỗi cuộn khui ra chỉ quét 1 nhãn ngoài cùng.</p>
+      <textarea id="temText" placeholder="Dán chữ trên tem thùng vào đây"></textarea>
+      <div id="temSt"></div>
+      <div class="acts"><button class="btn pri" id="loStart" type="button">Bắt đầu lô</button></div>`;
+    $('temText').addEventListener('input', () => {
+      const f = temFiles($('temText').value);
+      $('temSt').innerHTML = f.length ? `<div class="chips">${f.map(x => `<span class="chip">${esc(x)}</span>`).join('')}</div>` : '';
+    });
+    $('loStart').onclick = () => {
+      const f = temFiles($('temText').value);
+      if(!f.length){ $('temSt').innerHTML = '<div class="msg bad">Không thấy mã file nào (14 số). Kiểm tra lại đoạn chữ đã dán.</div>'; return; }
+      S.lo = {id:'L' + uid(), files:f, bat_dau:localIso()}; store.set(K.lo, S.lo); renderLo();
+    };
+    return;
+  }
+  const rows = loRows(), n = new Set(rows.map(r => r.seri).filter(Boolean)).size;
+  b.innerHTML = `<div class="chips">${S.lo.files.map(x => `<span class="chip">${esc(x)}</span>`).join('')}</div>
+    <p class="hint">Bắt đầu ${esc(S.lo.bat_dau.slice(5,16))}. Đã quét ${n} nhãn khác nhau. Mỗi cuộn chỉ quét 1 nhãn ngoài cùng.</p>
+    <div class="acts"><button class="btn pri" id="loCsv" type="button">Tải CSV lô này</button>
+    <button class="btn sec" id="loEnd" type="button">Kết thúc lô</button></div>`;
+  $('loCsv').onclick = exportLo;
+  $('loEnd').onclick = () => {
+    if(loRows().length && !S.lo.da_tai && !confirmEnd()) return;
+    S.lo = null; store.set(K.lo, null); renderLo();
+  };
+}
+function confirmEnd(){
+  const b = $('loEnd');
+  if(b.dataset.ask){ return true; }
+  b.dataset.ask = '1'; b.textContent = 'Chưa tải CSV. Bấm lần nữa để bỏ';
+  return false;
+}
+async function exportLo(){
+  const rows = loRows(); if(!rows.length){ banner('Lô này chưa có lượt quét nào.', 'err'); return; }
+  const pkg = (rows.find(r => r.ma_pkg) || {}).ma_pkg || 'LO';
+  const name = `LO_${pkg}_${S.lo.files[0]}_${localIso().replace(/[- :]/g,'').slice(0,12)}.csv`;
+  const file = new File([toCsv(rows)], name, {type:'text/csv'});
+  S.lo.da_tai = true; store.set(K.lo, S.lo);
+  try{
+    if(navigator.canShare && navigator.canShare({files:[file]})){ await navigator.share({files:[file], title:name}); return; }
+  }catch(e){ if(e && e.name === 'AbortError') return; }
+  const a = document.createElement('a'); a.href = URL.createObjectURL(file); a.download = name;
+  document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+}
+
 function init(){
   $('ver').textContent = 'Bản dựng ' + BAN_DUNG;
   $('site').value = store.get(K.site, '');
@@ -1231,10 +1314,11 @@ function init(){
   $('soSite').addEventListener('click', () => { S.soMode = 'site'; $('soSite').setAttribute('aria-pressed', 'true'); $('soMay').setAttribute('aria-pressed', 'false'); renderSo(); loadSo(); });
   $('reloadMaster').addEventListener('click', () => loadMaster(true));
   window.addEventListener('online', flush);
+  S.lo = store.get(K.lo, null); renderLo();
   renderSo(); renderQueue();
   loadMaster(false).then(() => { flush(); loadSo(); });
 }
-window.QRAPP = { gtinRel, codesOf, canon, Live, Cap, gtinValid, pad14, parseQR, resolveMaster, resolveFG, ownersOf, verdict, capFor, fgList, setMode, S, Scan, flush };
+window.QRAPP = { temFiles, toCsv, gtinRel, codesOf, canon, Live, Cap, gtinValid, pad14, parseQR, resolveMaster, resolveFG, ownersOf, verdict, capFor, fgList, setMode, S, Scan, flush };
 document.addEventListener('DOMContentLoaded', init);
 </script>
 </body>
