@@ -259,7 +259,8 @@ button,input,select{font:inherit;color:inherit}
 <script>
 'use strict';
 /* ====== config ====== */
-const BAN_DUNG = 'q13';
+const BAN_DUNG = 'q14';
+const ROLL_MIN = 3;   // per roll: outer label (QR + barcode) + at least 2 next labels; more is allowed
 // Same deployment URL as index.html (date code app). Copy it here.
 const TRAM_URL = 'https://script.google.com/macros/s/AKfycbzFOhrxosY7-5yivMmhF9GtzsMMAFYdp0KfUKMucCJmktBqGm_udam2jm2hQH9zkf_X/exec';
 const tramUrl = () => window.__TRAM_URL__ || TRAM_URL;
@@ -1259,13 +1260,14 @@ function renderLo(){
   const nCuon = new Set(rows.filter(r => String(r.cuon) === String(S.lo.cuon || 1)).map(r => r.seri).filter(Boolean)).size;
   b.innerHTML = `<div class="chips">${S.lo.files.map(x => `<span class="chip">${esc(x)}</span>`).join('')}</div>
     <p class="hint">Bắt đầu ${esc(S.lo.bat_dau.slice(5,16))}. Đã quét ${n} nhãn khác nhau.</p>
-    <div class="msg">Đang quét <b>cuộn số ${S.lo.cuon || 1}</b>: ${nCuon}/3 nhãn. Nhãn ngoài cùng quét QR và barcode, 2 nhãn kế tiếp bấm QR nhãn kế tiếp, cùng cuộn. Đủ 3 nhãn thì bấm Sang cuộn mới.</div>${loStale()}
+    <div class="msg">Đang quét <b>cuộn số ${S.lo.cuon || 1}</b>: ${nCuon} nhãn${nCuon < ROLL_MIN ? ` (tối thiểu ${ROLL_MIN})` : ''}. Nhãn ngoài cùng quét QR và barcode, các nhãn kế tiếp bấm QR nhãn kế tiếp, cùng cuộn: ít nhất 2 nhãn, quét thêm tùy ý. Xong cuộn thì bấm Sang cuộn mới.</div>${loStale()}
     <div class="acts"><button class="btn sec" id="loRoll" type="button">Sang cuộn mới</button></div>
     <div class="acts"><button class="btn pri" id="loCsv" type="button">Tải CSV lô này</button>
     <button class="btn sec" id="loEnd" type="button">Kết thúc lô</button></div>`;
   $('loCsv').onclick = exportLo;
   $('loRoll').onclick = () => {
     if(!nCuon){ banner('Cuộn này chưa quét nhãn nào.', 'err'); return; }
+    if(nCuon < ROLL_MIN && !confirm(`Cuộn số ${S.lo.cuon || 1} mới có ${nCuon} nhãn, tối thiểu ${ROLL_MIN} nhãn liên tiếp. Vẫn sang cuộn mới?`)) return;
     S.lo.cuon = (S.lo.cuon || 1) + 1; store.set(K.lo, S.lo);
     resetScans(); if(S.pkg) choosePkg(S.pkg); else applySteps();   // new roll: barcode must be scanned again
     renderLo();
