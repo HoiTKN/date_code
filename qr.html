@@ -258,7 +258,7 @@ button,input,select{font:inherit;color:inherit}
 <script>
 'use strict';
 /* ====== config ====== */
-const BAN_DUNG = 'q10';
+const BAN_DUNG = 'q11';
 // Same deployment URL as index.html (date code app). Copy it here.
 const TRAM_URL = 'https://script.google.com/macros/s/AKfycbzFOhrxosY7-5yivMmhF9GtzsMMAFYdp0KfUKMucCJmktBqGm_udam2jm2hQH9zkf_X/exec';
 const tramUrl = () => window.__TRAM_URL__ || TRAM_URL;
@@ -282,7 +282,7 @@ function temFiles(text){
   });
   return out;
 }
-const CSV_COLS = ['lo_kiem','file_qr','thoi_gian_may','site','nguoi_kiem','ma_pkg','qr_raw','seri','ket_luan','ly_do','id_luot'];
+const CSV_COLS = ['lo_kiem','file_qr','thoi_gian_may','site','nguoi_kiem','ma_pkg','qr_raw','seri','ket_luan','ly_do','lap_trong_lo','id_luot'];
 function toCsv(rows){
   const q = v => { const t = String(v == null ? '' : v); return /[",\n]/.test(t) ? '"' + t.replace(/"/g, '""') + '"' : t; };
   return '\ufeff' + [CSV_COLS.join(','), ...rows.map(r => CSV_COLS.map(c => q(r[c])).join(','))].join('\r\n');
@@ -1062,6 +1062,7 @@ function finish(){
       <div class="digits">${rows.map(([l, v]) => `<div class="drow"><span class="lab">${l}</span>${cellsHtml(v, ref, len, mark)}</div>`).join('')}</div>
       <div class="logst" id="logSt">Đang ghi sổ...</div>
     </div>
+    <div id="dupLo"></div>
     <div class="after">
       <button class="btn pri" id="nextLabel" type="button">Quét nhãn tiếp</button>
       <button class="btn sec" id="newPkg" type="button">${S.mode.ref === 'NONE' ? 'Làm lại' : S.mode.ref === 'TP' ? 'Đổi mã TP' : 'Đổi mã PKG'}</button>
@@ -1074,6 +1075,7 @@ function finish(){
   feedback(t);
   $('result').scrollIntoView({block:'start', behavior:'smooth'});
   record();
+  renderDupLo();
   if(S.res.code === 'NO_MASTER' && S.mode.ref === 'PKG'){
     if(S.m && S.m.pending) bumpProposal();
     else proposeUI();
@@ -1168,6 +1170,9 @@ function record(){
     lo_kiem:S.lo ? S.lo.id : '', file_qr:S.lo ? S.lo.files.join('&') : '',
     id_luot:uid(), thiet_bi:(navigator.userAgent || '').replace(/^.*?\(([^)]*)\).*$/, '$1').slice(0, 60)
   };
+  const prev = (S.lo && rec.seri) ? loRows().find(x => x.seri === rec.seri && x.gtin_qr === rec.gtin_qr) : null;
+  rec.lap_trong_lo = prev ? 'CHUA_TRA_LOI' : '';
+  S.dupLo = prev ? {at:(prev.thoi_gian_may || '').slice(11, 16)} : null;
   S.lastId = rec.id_luot;
   if(rec.seri) S.sessionSeen.set(rec.seri, {at:nowStr(), pkg:rec.ma_pkg || rec.item_tp || 'QR–barcode'});
   store.set(K.hist, [rec, ...store.get(K.hist, [])].slice(0, 1000));
@@ -1225,7 +1230,7 @@ function loRows(){ return S.lo ? store.get(K.hist, []).filter(r => r.lo_kiem ===
 function renderLo(){
   const b = $('loBody'); if(!b) return;
   if(!S.lo){
-    b.innerHTML = `<p class="hint">Kiểm nhận lô nhãn QR mới: dán chữ trên tem thùng (dòng File QR) rồi bấm Bắt đầu lô. Mỗi cuộn khui ra chỉ quét 1 nhãn ngoài cùng.</p>
+    b.innerHTML = `<p class="hint">Kiểm nhận lô nhãn QR mới: dán chữ trên tem thùng (dòng File QR) rồi bấm Bắt đầu lô. Lấy mẫu 5 thùng, mỗi thùng kéo 1–2 m, quét 20 nhãn.</p>
       <textarea id="temText" placeholder="Dán chữ trên tem thùng vào đây"></textarea>
       <div id="temSt"></div>
       <div class="acts"><button class="btn pri" id="loStart" type="button">Bắt đầu lô</button></div>`;
@@ -1242,7 +1247,7 @@ function renderLo(){
   }
   const rows = loRows(), n = new Set(rows.map(r => r.seri).filter(Boolean)).size;
   b.innerHTML = `<div class="chips">${S.lo.files.map(x => `<span class="chip">${esc(x)}</span>`).join('')}</div>
-    <p class="hint">Bắt đầu ${esc(S.lo.bat_dau.slice(5,16))}. Đã quét ${n} nhãn khác nhau. Mỗi cuộn chỉ quét 1 nhãn ngoài cùng.</p>
+    <p class="hint">Bắt đầu ${esc(S.lo.bat_dau.slice(5,16))}. Đã quét ${n} nhãn khác nhau. Lấy mẫu 5 thùng, mỗi thùng 20 nhãn.</p>${loStale()}
     <div class="acts"><button class="btn pri" id="loCsv" type="button">Tải CSV lô này</button>
     <button class="btn sec" id="loEnd" type="button">Kết thúc lô</button></div>`;
   $('loCsv').onclick = exportLo;
@@ -1250,6 +1255,30 @@ function renderLo(){
     if(loRows().length && !S.lo.da_tai && !confirmEnd()) return;
     S.lo = null; store.set(K.lo, null); renderLo();
   };
+}
+/* Same code scanned again inside the open lot: only the person holding the label knows
+   whether it is the same label or a second label carrying the same code (printer duplicate). */
+function renderDupLo(){
+  const box = $('dupLo'); if(!box || !S.dupLo) return;
+  const next = $('nextLabel'); if(next) next.disabled = true;
+  box.innerHTML = `<div class="msg warn">Mã này đã quét trong lô lúc ${esc(S.dupLo.at)}. Nhãn vừa quét là:</div>
+    <div class="after"><button class="btn sec" id="dupSame" type="button">Chính nhãn đó, quét lại</button>
+    <button class="btn sec" id="dupOther" type="button">Nhãn khác, cùng mã</button></div>`;
+  const answer = v => {
+    const h = store.get(K.hist, []), i = h.findIndex(r => r.id_luot === S.lastId);
+    if(i >= 0){ h[i].lap_trong_lo = v; store.set(K.hist, h); }
+    S.dupLo = null; if(next) next.disabled = false;
+    box.innerHTML = v === 'NHAN_KHAC'
+      ? '<div class="msg bad">Hai nhãn khác nhau mang cùng một mã: nghi NCC in trùng. Giữ lại cả hai nhãn, báo QA ngay. Lô sẽ ra KHÔNG ĐẠT khi chạy kiểm.</div>'
+      : '<div class="msg">Đã ghi là quét lại cùng nhãn, không tính lỗi.</div>';
+  };
+  $('dupSame').onclick = () => answer('QUET_LAI');
+  $('dupOther').onclick = () => answer('NHAN_KHAC');
+}
+function loStale(){
+  if(!S.lo || !S.lo.bat_dau) return '';
+  const h = (Date.now() - new Date(S.lo.bat_dau.replace(' ', 'T')).getTime()) / 36e5;
+  return h > 12 ? `<div class="msg warn">Lô này mở từ ${esc(S.lo.bat_dau.slice(0,16))}, đã hơn 12 giờ. Nếu đang kiểm lô hàng khác, tải CSV rồi bấm Kết thúc lô trước.</div>` : '';
 }
 function confirmEnd(){
   const b = $('loEnd');
