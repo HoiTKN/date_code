@@ -258,7 +258,7 @@ button,input,select{font:inherit;color:inherit}
 <script>
 'use strict';
 /* ====== config ====== */
-const BAN_DUNG = 'q11';
+const BAN_DUNG = 'q12';
 // Same deployment URL as index.html (date code app). Copy it here.
 const TRAM_URL = 'https://script.google.com/macros/s/AKfycbzFOhrxosY7-5yivMmhF9GtzsMMAFYdp0KfUKMucCJmktBqGm_udam2jm2hQH9zkf_X/exec';
 const tramUrl = () => window.__TRAM_URL__ || TRAM_URL;
@@ -282,7 +282,7 @@ function temFiles(text){
   });
   return out;
 }
-const CSV_COLS = ['lo_kiem','file_qr','thoi_gian_may','site','nguoi_kiem','ma_pkg','qr_raw','seri','ket_luan','ly_do','lap_trong_lo','id_luot'];
+const CSV_COLS = ['lo_kiem','file_qr','thoi_gian_may','site','nguoi_kiem','ma_pkg','qr_raw','seri','ket_luan','ly_do','lap_trong_lo','cuon','id_luot'];
 function toCsv(rows){
   const q = v => { const t = String(v == null ? '' : v); return /[",\n]/.test(t) ? '"' + t.replace(/"/g, '""') + '"' : t; };
   return '\ufeff' + [CSV_COLS.join(','), ...rows.map(r => CSV_COLS.map(c => q(r[c])).join(','))].join('\r\n');
@@ -1167,7 +1167,7 @@ function record(){
     barcode:S.bar.val, barcode_nguon:S.bar.src, ket_luan:S.res.kl, ly_do:S.res.why, ban_dung:BAN_DUNG,
     che_do:S.res.scope,
     ghi_chu:[...(S.res.notes || []), S.qr && S.qrSrc === 'anh' ? 'QR đọc từ ảnh chụp.' : '', S.qr && S.qrSrc === 'khoanh' ? 'QR đọc từ vùng khoanh.' : ''].filter(Boolean).join(' '),
-    lo_kiem:S.lo ? S.lo.id : '', file_qr:S.lo ? S.lo.files.join('&') : '',
+    lo_kiem:S.lo ? S.lo.id : '', file_qr:S.lo ? S.lo.files.join('&') : '', cuon:S.lo ? String(S.lo.cuon || 1) : '',
     id_luot:uid(), thiet_bi:(navigator.userAgent || '').replace(/^.*?\(([^)]*)\).*$/, '$1').slice(0, 60)
   };
   const prev = (S.lo && rec.seri) ? loRows().find(x => x.seri === rec.seri && x.gtin_qr === rec.gtin_qr) : null;
@@ -1230,7 +1230,7 @@ function loRows(){ return S.lo ? store.get(K.hist, []).filter(r => r.lo_kiem ===
 function renderLo(){
   const b = $('loBody'); if(!b) return;
   if(!S.lo){
-    b.innerHTML = `<p class="hint">Kiểm nhận lô nhãn QR mới: dán chữ trên tem thùng (dòng File QR) rồi bấm Bắt đầu lô. Lấy mẫu 5 thùng, mỗi thùng kéo 1–2 m, quét 20 nhãn.</p>
+    b.innerHTML = `<p class="hint">Kiểm nhận lô nhãn QR mới: dán chữ trên tem thùng (dòng File QR) rồi bấm Bắt đầu lô. Lấy mẫu 5 thùng, mỗi thùng 1 cuộn: kéo 1–2 m, quét liền 20 nhãn từ ngoài vào.</p>
       <textarea id="temText" placeholder="Dán chữ trên tem thùng vào đây"></textarea>
       <div id="temSt"></div>
       <div class="acts"><button class="btn pri" id="loStart" type="button">Bắt đầu lô</button></div>`;
@@ -1241,16 +1241,23 @@ function renderLo(){
     $('loStart').onclick = () => {
       const f = temFiles($('temText').value);
       if(!f.length){ $('temSt').innerHTML = '<div class="msg bad">Không thấy mã file nào (14 số). Kiểm tra lại đoạn chữ đã dán.</div>'; return; }
-      S.lo = {id:'L' + uid(), files:f, bat_dau:localIso()}; store.set(K.lo, S.lo); renderLo();
+      S.lo = {id:'L' + uid(), files:f, bat_dau:localIso(), cuon:1}; store.set(K.lo, S.lo); renderLo();
     };
     return;
   }
   const rows = loRows(), n = new Set(rows.map(r => r.seri).filter(Boolean)).size;
+  const nCuon = new Set(rows.filter(r => String(r.cuon) === String(S.lo.cuon || 1)).map(r => r.seri).filter(Boolean)).size;
   b.innerHTML = `<div class="chips">${S.lo.files.map(x => `<span class="chip">${esc(x)}</span>`).join('')}</div>
-    <p class="hint">Bắt đầu ${esc(S.lo.bat_dau.slice(5,16))}. Đã quét ${n} nhãn khác nhau. Lấy mẫu 5 thùng, mỗi thùng 20 nhãn.</p>${loStale()}
+    <p class="hint">Bắt đầu ${esc(S.lo.bat_dau.slice(5,16))}. Đã quét ${n} nhãn khác nhau.</p>
+    <div class="msg">Đang quét <b>cuộn số ${S.lo.cuon || 1}</b>: ${nCuon} nhãn. Quét liền 20 nhãn trên cuộn này, xong bấm Sang cuộn mới trước khi quét cuộn khác.</div>${loStale()}
+    <div class="acts"><button class="btn sec" id="loRoll" type="button">Sang cuộn mới</button></div>
     <div class="acts"><button class="btn pri" id="loCsv" type="button">Tải CSV lô này</button>
     <button class="btn sec" id="loEnd" type="button">Kết thúc lô</button></div>`;
   $('loCsv').onclick = exportLo;
+  $('loRoll').onclick = () => {
+    if(!nCuon){ banner('Cuộn này chưa quét nhãn nào.', 'err'); return; }
+    S.lo.cuon = (S.lo.cuon || 1) + 1; store.set(K.lo, S.lo); renderLo();
+  };
   $('loEnd').onclick = () => {
     if(loRows().length && !S.lo.da_tai && !confirmEnd()) return;
     S.lo = null; store.set(K.lo, null); renderLo();
