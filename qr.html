@@ -52,6 +52,7 @@ button,input,select{font:inherit;color:inherit}
 .btn.pri{background:var(--ink);color:#fff}
 .btn.sec{background:#fff;color:var(--ink);border:1.5px solid var(--ink)}
 .btn.wide{width:100%}
+.btn:disabled{opacity:.4;cursor:not-allowed}
 .link{background:none;border:0;padding:6px 0;color:var(--ink2);text-decoration:underline;cursor:pointer;font-size:14px}
 .hits{margin-top:8px;border:1px solid var(--rule);border-radius:8px;max-height:340px;overflow:auto;background:#fff}
 .hits:empty{display:none}
@@ -258,7 +259,7 @@ button,input,select{font:inherit;color:inherit}
 <script>
 'use strict';
 /* ====== config ====== */
-const BAN_DUNG = 'q12';
+const BAN_DUNG = 'q13';
 // Same deployment URL as index.html (date code app). Copy it here.
 const TRAM_URL = 'https://script.google.com/macros/s/AKfycbzFOhrxosY7-5yivMmhF9GtzsMMAFYdp0KfUKMucCJmktBqGm_udam2jm2hQH9zkf_X/exec';
 const tramUrl = () => window.__TRAM_URL__ || TRAM_URL;
@@ -1063,14 +1064,23 @@ function finish(){
       <div class="logst" id="logSt">Đang ghi sổ...</div>
     </div>
     <div id="dupLo"></div>
+    ${S.lo && S.bar ? `<div class="after"><button class="btn pri wide" id="nextQr" type="button">QR nhãn kế tiếp, cùng cuộn</button></div>` : ''}
     <div class="after">
-      <button class="btn pri" id="nextLabel" type="button">Quét nhãn tiếp</button>
+      <button class="btn ${S.lo && S.bar ? 'sec' : 'pri'}" id="nextLabel" type="button">${S.lo && S.bar ? 'Cuộn mới / nhãn khác' : 'Quét nhãn tiếp'}</button>
       <button class="btn sec" id="newPkg" type="button">${S.mode.ref === 'NONE' ? 'Làm lại' : S.mode.ref === 'TP' ? 'Đổi mã TP' : 'Đổi mã PKG'}</button>
     </div>
     <div id="propose"></div>`;
   $('result').classList.remove('hidden');
   // same PKG, next label: open the camera straight away (the tap is the user gesture iOS needs)
   $('nextLabel').onclick = () => { resetScans(); if(S.pkg) choosePkg(S.pkg); else applySteps(); scan(qrNeed() === 'yes' ? 'qr' : barKind()); };
+  if($('nextQr')) $('nextQr').onclick = () => {
+    const bar = {...S.bar, src:'cung_cuon'};
+    resetScans(); S.bar = bar;
+    $('barInfo').innerHTML = `<div class="read">Barcode: <b>${esc(bar.val)}</b> (giữ từ nhãn đầu cuộn)</div>`;
+    if(S.pkg) choosePkg(S.pkg, true); else applySteps();
+    setStep('s3', true, true);
+    scan('qr');
+  };
   $('newPkg').onclick = () => { setMode(S.mode); if(S.mode.ref !== 'NONE'){ renderHits(); $('pkg').focus(); } };
   feedback(t);
   $('result').scrollIntoView({block:'start', behavior:'smooth'});
@@ -1230,7 +1240,7 @@ function loRows(){ return S.lo ? store.get(K.hist, []).filter(r => r.lo_kiem ===
 function renderLo(){
   const b = $('loBody'); if(!b) return;
   if(!S.lo){
-    b.innerHTML = `<p class="hint">Kiểm nhận lô nhãn QR mới: dán chữ trên tem thùng (dòng File QR) rồi bấm Bắt đầu lô. Lấy mẫu 5 thùng, mỗi thùng 1 cuộn: kéo 1–2 m, quét liền 20 nhãn từ ngoài vào.</p>
+    b.innerHTML = `<p class="hint">Kiểm nhận lô nhãn QR mới: dán chữ trên tem thùng (dòng File QR) rồi bấm Bắt đầu lô. Lấy mẫu cả 20 cuộn trong 10 thùng đã khui: mỗi cuộn quét 3 nhãn ngoài cùng.</p>
       <textarea id="temText" placeholder="Dán chữ trên tem thùng vào đây"></textarea>
       <div id="temSt"></div>
       <div class="acts"><button class="btn pri" id="loStart" type="button">Bắt đầu lô</button></div>`;
@@ -1249,14 +1259,16 @@ function renderLo(){
   const nCuon = new Set(rows.filter(r => String(r.cuon) === String(S.lo.cuon || 1)).map(r => r.seri).filter(Boolean)).size;
   b.innerHTML = `<div class="chips">${S.lo.files.map(x => `<span class="chip">${esc(x)}</span>`).join('')}</div>
     <p class="hint">Bắt đầu ${esc(S.lo.bat_dau.slice(5,16))}. Đã quét ${n} nhãn khác nhau.</p>
-    <div class="msg">Đang quét <b>cuộn số ${S.lo.cuon || 1}</b>: ${nCuon} nhãn. Quét liền 20 nhãn trên cuộn này, xong bấm Sang cuộn mới trước khi quét cuộn khác.</div>${loStale()}
+    <div class="msg">Đang quét <b>cuộn số ${S.lo.cuon || 1}</b>: ${nCuon}/3 nhãn. Nhãn ngoài cùng quét QR và barcode, 2 nhãn kế tiếp bấm QR nhãn kế tiếp, cùng cuộn. Đủ 3 nhãn thì bấm Sang cuộn mới.</div>${loStale()}
     <div class="acts"><button class="btn sec" id="loRoll" type="button">Sang cuộn mới</button></div>
     <div class="acts"><button class="btn pri" id="loCsv" type="button">Tải CSV lô này</button>
     <button class="btn sec" id="loEnd" type="button">Kết thúc lô</button></div>`;
   $('loCsv').onclick = exportLo;
   $('loRoll').onclick = () => {
     if(!nCuon){ banner('Cuộn này chưa quét nhãn nào.', 'err'); return; }
-    S.lo.cuon = (S.lo.cuon || 1) + 1; store.set(K.lo, S.lo); renderLo();
+    S.lo.cuon = (S.lo.cuon || 1) + 1; store.set(K.lo, S.lo);
+    resetScans(); if(S.pkg) choosePkg(S.pkg); else applySteps();   // new roll: barcode must be scanned again
+    renderLo();
   };
   $('loEnd').onclick = () => {
     if(loRows().length && !S.lo.da_tai && !confirmEnd()) return;
